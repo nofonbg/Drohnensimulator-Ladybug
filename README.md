@@ -6,7 +6,7 @@ Pfosten zum zweiten Landeplatz. Komplett clientseitig mit [three.js](https://thr
 (r145, mitgeliefert) – **kein Build, kein Server nötig**: `index.html` einfach im Browser
 öffnen.  
 Der Simulator ist Teil eine Moodlekurses zum Thema Drohnen steuern. Der Kurs erklärt gesetzliche 
-und rechtliche Anforderungen und Voraussetzungen, im zweiten Teil werden mit Überflugsverbotskarten
+und rechtliche Anforderungen und Voraussetzungen, im zweiten Teil werden mit Überflugverbotskarten
 und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
 
 <img src="docs/drohnensimulator.png" alt="Drohnen-Simulator: Kurs mit drei Ringen auf Pfosten" width="700">

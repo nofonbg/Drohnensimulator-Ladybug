@@ -56,10 +56,10 @@ und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
 | `index.html` | Komplette App (CSS + JavaScript in einer Datei) |
 | `three.min.js` | three.js r145 (MIT) |
 | `Sky.js`, `OrbitControls.js` | Himmel und Orbit-Steuerung (three.js-Beispiele) |
-| `deckel.png` | Deckel-Textur **und** Kontur der Rumpf-Extrusion |
+| `deckel.png` | Deckel-Textur, Kontur der Rumpf-Extrusion **und Favicon** |
 | `landing.png` | Landeplatten-Textur (mit Alpha) |
 | `flag_g.png` | Fahne am Ziel |
-| `inc.css`, `mamimageviewer.js` | Reste/Wrapper (nicht zwingend benötigt) |
+| `inc.css` | Reststylesheet des Ursprungshosts (nicht benötigt) |
 | `docs/drohnensimulator.png` | Screenshot für diese README |
 
 ## Starten

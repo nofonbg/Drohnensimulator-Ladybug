@@ -58,7 +58,7 @@ und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
 | `Sky.js`, `OrbitControls.js` | Himmel und Orbit-Steuerung (three.js-Beispiele) |
 | `deckel.png` | Deckel-Textur, Kontur der Rumpf-Extrusion **und Favicon** |
 | `landing.png` | Landeplatten-Textur (mit Alpha) |
-| `flag_g.png` | Fahne am Ziel |
+| `flag_g.png` | Bodentextur (Luftbild eines Herbstgeländes, 8×8 Kachelung) |
 | `inc.css` | Reststylesheet des Ursprungshosts (nicht benötigt) |
 | `docs/drohnensimulator.png` | Screenshot für diese README |
 | `LICENSE` | CC BY-NC-SA 4.0 des eigenen Werks (Namensnennung, nicht-kommerziell, ShareAlike) |

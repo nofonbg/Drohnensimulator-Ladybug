@@ -9,7 +9,7 @@ Der Simulator ist Teil eines Moodle-Kurses zum Thema Drohnen steuern. Der Kurs e
 und rechtliche Anforderungen und Voraussetzungen, im zweiten Teil werden mit Überflugverbotskarten
 und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
 
-<img src="docs/drohnensimulator.png" alt="Drohnen-Simulator: Kurs mit drei Ringen auf Pfosten" width="700">
+<img src="docs/drohnensimulator.png" alt="Drohnen-Simulator: Kurs mit drei Ringen" width="700">
 
 ## Features
 

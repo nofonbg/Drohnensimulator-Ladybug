@@ -1,0 +1,1806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="canonical" href="https://mam-mam.net/en/javascript/three_js_drone.html" />
+  <meta charset="UTF-8">
+  <meta name="robots" content="index,follow,max-image-preview:large" />
+  <link rel="stylesheet" href="/css/inc.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="mamimageviewer.js" defer></script>
+<script>
+  window.addEventListener('load',function(){
+    document.getElementsByTagName('main')[0].addEventListener('click',function(){});
+  });
+</script>
+  <title>Experience 3D Drone Control in Your Browser — Button & Keyboard Flight Controls with Three.js</title>
+  <meta name="Description" content="Control a 3D drone directly in your browser using both on‑screen buttons and keyboard input. Built with Three.js, this demo shows smooth flight movement, camera following, and complete source code.">
+  <meta name="Keywords" content="3D,WebGL,three.js,javascript,drone">
+
+  <script src="three.min.js"></script>
+  <script src="OrbitControls.js"></script>
+  <script src="Sky.js"></script>
+
+<style>
+  pre.fblack{background:black;color:#FFF;padding:0.5em;}
+  pre.fgray{background:#F4F4F4;color:#000;padding:0.5em;}
+  code{font-weight:bold;font-size:0.9em;color:#333;}
+  table{border-collapse:collapse;}
+  td,th{padding:4px;}
+  .fred{color:red;font-weight:bold;}
+  .fblue{color:blue;font-weight:bold;}
+  .forange{color:orange;font-weight:bold;}
+  /* modern control panel (right of the canvas) */
+  .ctrl-panel{
+    flex:0 0 560px;
+    max-width:100%;
+    box-sizing:border-box;
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+    gap:14px;
+    padding:18px 22px;
+    background:linear-gradient(180deg,#1e293b 0%,#0f172a 100%);
+    border:1px solid #334155;
+    border-radius:18px;
+    box-shadow:0 12px 28px rgba(2,6,23,0.45),0 2px 6px rgba(2,6,23,0.35);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:#e2e8f0;
+  }
+  .ctrl-title{
+    margin:0;
+    font-size:2em;
+    font-weight:700;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:#94a3b8;
+    text-align:center;
+  }
+  .ctrl-pads{display:flex;justify-content:space-between;align-items:flex-start;}
+  .pad{border-collapse:collapse;}
+  .pad td{padding:3px;}
+  .cbt{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:3em;
+    height:3em;
+    margin:0;
+    padding:0;
+    font-size:1.15em;
+    font-weight:600;
+    line-height:1;
+    color:#e2e8f0;
+    background:linear-gradient(180deg,#334155,#1e293b);
+    border:1px solid #475569;
+    border-radius:14px;
+    box-shadow:0 1px 2px rgba(0,0,0,0.4),0 4px 10px rgba(0,0,0,0.3);
+    text-decoration:none;
+    box-sizing:border-box;
+    cursor:pointer;
+    vertical-align:middle;
+    text-align:center;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout:none;
+    transition:transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+  }
+  .cbt:hover{
+    background:linear-gradient(180deg,#3b506e,#24344d);
+    box-shadow:0 2px 4px rgba(0,0,0,0.4),0 8px 16px rgba(0,0,0,0.35);
+    transform:translateY(-1px);
+  }
+  .cbt:active{
+    background:linear-gradient(180deg,#1e293b,#0f172a);
+    box-shadow:inset 0 2px 4px rgba(0,0,0,0.55);
+    transform:translateY(1px) scale(0.97);
+  }
+  .cbt:focus-visible{
+    outline:2px solid #60a5fa;
+    outline-offset:2px;
+  }
+  /* camera-mode switch (overview <-> first person view), full width under the title */
+  .view-row{display:flex;justify-content:center;}
+  .view-bt{
+    width:100%;
+    height:2.7em;
+    font-family:inherit;
+    font-size:1em;
+    letter-spacing:0.06em;
+    border-radius:999px;
+    gap:9px;
+  }
+  /* status lamp inside the switch: gray = overview, glowing blue = FPV */
+  .view-bt .cam-dot{
+    width:0.7em;
+    height:0.7em;
+    border-radius:50%;
+    background:#64748b;
+    box-shadow:0 0 0 3px rgba(100,116,139,0.25);
+    transition:background 0.12s ease, box-shadow 0.12s ease;
+    flex:0 0 auto;
+  }
+  .view-bt.is-on{
+    background:linear-gradient(180deg,#60a5fa,#3b82f6);
+    border-color:#93c5fd;
+    color:#0f172a;
+  }
+  .view-bt.is-on:hover{
+    background:linear-gradient(180deg,#7db8fd,#4b8ef7);
+  }
+  .view-bt.is-on .cam-dot{
+    background:#0f172a;
+    box-shadow:0 0 0 3px rgba(15,23,42,0.25);
+  }
+  /* three-way FPV camera alignment switch, sits between the view switch and the key pads:
+     starr (rigid on the drone) | Gimbal (damped) | Welt (world aligned) */
+  .align-row{
+    display:flex;
+    justify-content:center;
+    gap:6px;
+  }
+  /* outside the FPV view the alignment switch is meaningless -> dimmed */
+  .align-row.is-dim{opacity:0.45;filter:saturate(0.55);}
+  .align-bt{
+    width:auto;
+    height:2em;
+    padding:0 0.9em;
+    font-size:0.85em;
+    font-weight:600;
+    letter-spacing:0.05em;
+    border-radius:999px;
+    gap:6px;
+  }
+  .align-bt.is-on{
+    background:linear-gradient(180deg,#60a5fa,#3b82f6);
+    border-color:#93c5fd;
+    color:#0f172a;
+  }
+  .align-bt.is-on:hover{
+    background:linear-gradient(180deg,#7db8fd,#4b8ef7);
+  }
+  /* FPV camera angle wheel: a white thumbwheel that only protrudes partially from a
+     narrow rectangular slot in the control desk (seen from above), with fine knurling
+     (Kerben) on its surface. A ruler scale sits to its right. Between it stay the
+     arrow-key pad and the WASD pad. Drag along the slot, roll the mouse wheel over it
+     or use the arrow keys. */
+  .pitch{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    flex:0 0 auto;
+    padding-top:4px;
+  }
+  .pitch-label{
+    font-size:0.9em;
+    font-weight:600;
+    letter-spacing:0.05em;
+    color:#cbd5e1;
+    white-space:nowrap;
+    margin-bottom:7px;
+    margin-right:24px;/* centre the label over the wheel, not over wheel + scale */
+  }
+  .pitch-body{display:flex;align-items:center;gap:8px;}
+  /* the narrow rectangular slot cut into the desk */
+  .pitch-stage{
+    position:relative;
+    width:46px;
+    height:156px;
+    border-radius:13px;
+    background:linear-gradient(180deg,#080d18,#020617);
+    box-shadow:inset 0 5px 10px rgba(0,0,0,0.95),
+               inset 0 -4px 8px rgba(0,0,0,0.9),
+               inset 0 0 0 1px rgba(15,23,42,0.9),
+               0 1px 0 rgba(255,255,255,0.07);
+  }
+  /* the thumbwheel: only its rounded top surface rises out of the slot. The knurling
+     (fine parallel Kerben) is moved by the JS (background-position via --spinY), so the
+     ribs crawl along the slot whenever the camera angle changes */
+  .pitch-wheel{
+    position:absolute;
+    left:6px;
+    right:6px;
+    top:7px;
+    bottom:7px;
+    border-radius:12px;
+    cursor:grab;
+    touch-action:none;
+    user-select:none;
+    -webkit-user-select:none;
+    -webkit-touch-callout:none;
+    background-image:
+      /* fine parallel knurling (Kerben) across the wheel - the layer that moves */
+      repeating-linear-gradient(180deg,
+        rgba(11,18,32,0) 0 3px, rgba(11,18,32,0.34) 3px 4.4px),
+      /* the rounded ends of the wheel sink into shadow at the slot edges */
+      linear-gradient(180deg,rgba(11,18,32,0.42) 0,rgba(11,18,32,0) 15%,
+                             rgba(11,18,32,0) 84%,rgba(11,18,32,0.55) 100%),
+      /* white body, light from the left like on the reference photo */
+      linear-gradient(90deg,#ffffff 0%,#eef1f5 42%,#d3d9e0 78%,#b7bfca 100%);
+    background-position:0 var(--spinY,0px),0 0,0 0;
+    background-repeat:repeat,no-repeat,no-repeat;
+    box-shadow:0 3px 7px rgba(0,0,0,0.6),
+               inset 1.5px 0 0 rgba(255,255,255,0.8),
+               inset -1.5px 0 0 rgba(15,23,42,0.25);
+    z-index:2;
+  }
+  .pitch-wheel:active{cursor:grabbing;}
+  .pitch-wheel:focus-visible{
+    outline:2px solid #60a5fa;
+    outline-offset:3px;
+  }
+  /* ruler scale right of the wheel, drawn like the ASCII pattern  |- | |- | |-  :
+     vertical axis, long tick every 20 px, short tick in between */
+  .pitch-scale{
+    position:relative;
+    width:17px;
+    height:156px;
+  }
+  .pitch-scale::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    background-image:
+      repeating-linear-gradient(180deg,#cbd5e1 0 2px,transparent 2px 20px),/* long ticks */
+      repeating-linear-gradient(180deg,#64748b 0 2px,transparent 2px 20px),/* short ticks */
+      linear-gradient(#475569,#475569);                                   /* axis | */
+    background-size:14px 100%,7px 100%,2px 100%;
+    background-position:0 0,0 10px,0 0;
+    background-repeat:no-repeat;
+  }
+  /* current-angle marker sliding along the scale */
+  .pitch-needle{
+    position:absolute;
+    left:-3px;
+    top:0;
+    width:21px;
+    height:3px;
+    border-radius:2px;
+    background:#60a5fa;
+    box-shadow:0 0 5px rgba(96,165,250,0.75);
+    transform:translateY(0);
+    transition:transform 0.06s linear;
+    z-index:2;
+  }
+  .hints{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    font-size:0.95em;
+    line-height:1.5;
+    color:#94a3b8;
+  }
+  .hint{display:flex;align-items:center;gap:5px;flex-wrap:wrap;}
+  /* both keycap rows share one 4-column grid so the keys line up vertically */
+  .keys{
+    display:grid;
+    grid-template-columns:repeat(4,auto);
+    column-gap:10px;
+    row-gap:7px;
+    justify-content:space-between;
+    align-items:center;
+  }
+  .key{
+    display:flex;
+    align-items:center;
+    gap:5px;
+    white-space:nowrap;
+    color:#94a3b8;
+  }
+  .hint-lights{
+    display:grid;
+    grid-template-columns:1fr auto 1fr;
+    align-items:center;
+    gap:16px;
+    color:#cbd5e1;
+  }
+  .hint-lights .hint-side{display:flex;align-items:center;gap:8px;}
+  .hint-lights .hint-side:last-child{justify-content:flex-end;}
+  .hint-lights .hint-mid{
+    color:#64748b;
+    font-size:0.85em;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    text-align:center;
+  }
+  kbd{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-width:1.7em;
+    padding:0.15em 0.3em;
+    font-family:inherit;
+    font-size:0.9em;
+    font-weight:600;
+    color:#e2e8f0;
+    background:linear-gradient(180deg,#334155,#1e293b);
+    border:1px solid #475569;
+    border-bottom-width:2px;
+    border-radius:6px;
+    box-shadow:0 1px 0 rgba(255,255,255,0.06) inset;
+  }
+  .dot{
+    width:0.7em;
+    height:0.7em;
+    border-radius:50%;
+    display:inline-block;
+    flex:0 0 auto;
+  }
+  .dot-red{background:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,0.22);}
+  .dot-blue{background:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,0.22);}
+  /* success message: fades in when the drone lands on the 2nd landing site
+     (same look as .ctrl-panel: dark gradient, 18px corners, same shadow) */
+  .landed-toast{
+    position:absolute;
+    left:50%; top:46%;
+    transform:translate(-50%,-50%) scale(0.94);
+    opacity:0;
+    visibility:hidden;
+    transition:opacity .7s ease, transform .7s ease, visibility 0s linear .7s;
+    padding:16px 28px;
+    box-sizing:border-box;
+    background:linear-gradient(180deg,#1e293b 0%,#0f172a 100%);
+    border:1px solid #334155;
+    border-radius:18px;
+    box-shadow:0 12px 28px rgba(2,6,23,0.45),0 2px 6px rgba(2,6,23,0.35);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:#e2e8f0;
+    text-align:center;
+    white-space:nowrap;
+    pointer-events:none;
+    z-index:20;
+  }
+  .landed-toast.show{
+    opacity:1;
+    visibility:visible;
+    transform:translate(-50%,-50%) scale(1);
+    transition:opacity .7s ease, transform .7s ease, visibility 0s;
+    pointer-events:auto;/* only clickable once the goal is reached -> restarts the scene */
+    cursor:pointer;
+  }
+  .landed-toast.show:hover{filter:brightness(1.12);}
+  .landed-toast .t-title{font-size:1.05em;font-weight:700;letter-spacing:.08em;color:#4ade80;}
+  .landed-toast .t-sub{margin-top:5px;font-size:.85em;color:#94a3b8;}
+  .landed-toast .t-hint{margin-top:7px;font-size:.7em;letter-spacing:.05em;color:#64748b;}
+  /* ring pass counter: small pill at the top centre of the canvas, always visible.
+     Counts how many of the three rings were flown through; at 3/3 it turns green and
+     shows the landing hint. pointer-events:none -> it never blocks anything. */
+  .ring-badge{
+    position:absolute;
+    left:50%; top:16px;
+    transform:translateX(-50%);
+    padding:7px 20px;
+    box-sizing:border-box;
+    background:rgba(15,23,42,0.88);
+    border:1px solid #38bdf8;
+    border-radius:999px;
+    box-shadow:0 6px 16px rgba(2,6,23,0.4);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:#e2e8f0;
+    font-size:0.82em;
+    font-weight:700;
+    letter-spacing:.07em;
+    text-align:center;
+    white-space:nowrap;
+    pointer-events:none;
+    z-index:18;
+  }
+  .ring-badge.done{
+    border-color:#4ade80;
+    color:#4ade80;
+    background:rgba(9,32,20,0.92);
+    box-shadow:0 6px 18px rgba(74,222,128,0.25);
+  }
+  /* collision message: red variant of the success toast, sits ABOVE it (top 30% vs 46%).
+     It auto-hides after 1.6 s, but can ALSO be dismissed with a click -> the flight
+     continues; while shown it is clickable, while hidden it blocks nothing. */
+  .crash-toast{
+    position:absolute;
+    left:50%; top:30%;
+    transform:translate(-50%,-50%) scale(0.96);
+    opacity:0;
+    visibility:hidden;
+    transition:opacity .2s ease, transform .2s ease, visibility 0s linear .2s;
+    padding:10px 24px;
+    box-sizing:border-box;
+    background:linear-gradient(180deg,#3f1d1d 0%,#1c0d0d 100%);
+    border:1px solid #ef4444;
+    border-radius:14px;
+    box-shadow:0 10px 24px rgba(2,6,23,0.5),0 2px 6px rgba(2,6,23,0.35);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:#fecaca;
+    font-size:0.95em;
+    font-weight:700;
+    letter-spacing:.06em;
+    text-align:center;
+    white-space:nowrap;
+    pointer-events:none;
+    z-index:19;
+  }
+  .crash-toast.show{
+    opacity:1;
+    visibility:visible;
+    transform:translate(-50%,-50%) scale(1);
+    transition:opacity .2s ease, transform .2s ease, visibility 0s;
+    pointer-events:auto;
+    cursor:pointer;
+  }
+  .crash-toast.show:hover{filter:brightness(1.15);}
+</style>
+
+
+<script>
+  var controls;
+  var scene,camera,renderer;
+  
+  var pos={"c":"", "x":0, "y":0, "z":0, "vx":0, "vy":0, "vz":0, "turn":0};
+  // 2nd landing site: filled in main() with a random position (world x/z)
+  var pad2={"x":0, "z":0};
+  // one-shot flag: the success message only fades in once
+  var successShown=false;
+  // camera mode: false = overview (orbit control), true = first person view glued to the nose
+  var fpv=false;
+  // FPV camera head tilt in degrees: negative = look up, positive = look down (-30..90),
+  // driven by the white angle wheel between the arrow-key and WASD pads
+  var fpvTilt=0;
+  var fpvTiltQ=new THREE.Quaternion();// scratch quaternion, reused every frame (no per-frame allocation)
+  var fpvAxisX=new THREE.Vector3(1,0,0);
+  // FPV camera alignment: 'starr' = rigid on the drone (full pitch/roll goes into the picture),
+  // 'gimbal' = yaw follows, pitch/roll damped with inertia (like a 2-axis gimbal),
+  // 'welt' = orientation locked to the world coordinates (only yaw follows, horizon always level)
+  var fpvAlign='starr';
+  var fpvAlignQ=new THREE.Quaternion(); // smoothed gimbal orientation, reused every frame
+  var fpvTargetQ=new THREE.Quaternion();// scratch: desired orientation of the current frame
+  var fpvLevelE=new THREE.Euler(0,0,0,'YXZ');// scratch: yaw-only (world aligned) orientation
+  // collision analysis (all read by renderLoop, which lives at top level like this block):
+  // floorY is ASSIGNED in main() (closure over the terrain grid), obstacles is refilled by
+  // buildRings() with every course - the same "deliberately global" pattern as clouds
+  var floorY=null;// terrain height at a world x/z position, set up in main()
+  var obstacles=[];// rings + posts of the current course, checked every frame
+  var lastCollision='';// '' | 'ring' | 'post' - kind of the most recent impact
+  var collisionCount=0;// how many impacts happened since the page load
+  var droneColR=-1;// collision sphere of the drone, measured once from its bounding box
+  var droneColCY=4;// centre of that sphere above the drone group origin
+  var crashAt=-1e9, crashTimer=null;// -1e9: a collision right after page load may message
+  // short red collision message: auto-hides after 1.6 s AND can be dismissed with a click
+  // (the listener is installed in main), so the pilot simply continues the flight. Cooldown
+  // so a drone pressed against an obstacle does not spam it every frame.
+  function showCrash(text){
+    const now=performance.now();
+    if(now-crashAt<1200) return;
+    crashAt=now;
+    const el=document.getElementById('crashToast');
+    if(!el) return;
+    document.getElementById('crashTitle').textContent=text;
+    el.classList.add('show');
+    clearTimeout(crashTimer);
+    crashTimer=setTimeout(function(){ el.classList.remove('show'); },1600);
+  }
+  // ---- ring pass counter (read by renderLoop): which of the 3 rings of the current course
+  // has the drone already flown THROUGH? ringPrevSide[i] holds the signed distance of the
+  // drone centre from ring plane i of the previous frame -> a sign change = plane crossed,
+  // and if that crossing happened inside the opening (not somewhere outside the ring) the
+  // ring counts. resetScene() resets everything for the new course.
+  var passedRings=[false,false,false];
+  var ringPrevSide=[null,null,null];
+  var ringPassCount=0;
+  function updateRingBadge(){
+    const el=document.getElementById('ringBadge');
+    if(!el) return;
+    if(ringPassCount>=3){
+      el.textContent='3 von 3 Ringen - jetzt landen!';
+      el.classList.add('done');
+    }else{
+      el.textContent='Ringe: '+ringPassCount+' von 3';
+      el.classList.remove('done');
+    }
+  }
+  var main = function () {
+    // get the target canvas and read its width and height
+    let can=document.getElementById('can');
+    let w = 600;// width
+    let h = 600;// height
+
+    //■ Scene
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xccddff);
+
+    //■ Camera
+    //THREE.PerspectiveCamera( field of view (degrees), aspect ratio, nearest visible distance, farthest visible distance );
+    camera = new THREE.PerspectiveCamera(25, w/h, 1, 10000);
+    camera.position.set(0, 100, 150);// set the camera position
+    //camera.rotation.set(0,8,0);// set the camera rotation to (0,0,0) degrees
+    camera.lookAt(new THREE.Vector3(0, 0, 0));// point the camera at the (0,0,0) coordinate
+    scene.add(camera);// add the camera to the scene
+
+    //■ Renderer
+    renderer = new THREE.WebGLRenderer({canvas:can, antialias: true});// antialiasing enabled
+    renderer.setSize(w, h);
+    // enable shadow maps
+    renderer.shadowMap.enabled = true;
+    //renderer.setClearColor(0x000000, 1);// set the background color
+
+    //■ Sky
+    let sky=new THREE.Sky();
+    sky.scale.setScalar(50000);
+    sky.material.uniforms.turbidity.value=1.0;// atmospheric transparency
+    sky.material.uniforms.rayleigh.value=0.06;// blue light scattering (blue sky)
+    sky.material.uniforms.mieCoefficient.value=0.0005;// sunlight scattering - Mie coefficient (white haze)
+    sky.material.uniforms.mieDirectionalG.value=0.8; // sunlight scattering - Mie directional G
+    sky.material.uniforms.sunPosition.value.x= 10000;// sun position
+    sky.material.uniforms.sunPosition.value.y= 30000;// sun position
+    sky.material.uniforms.sunPosition.value.z=-40000;// sun position
+    scene.add(sky);
+
+    //■ Cumulus clouds (procedural alpha texture on camera-facing sprites)
+    // Built as a DataTexture instead of a 2D canvas: Safari can upload a lazily
+    // GPU-rasterised canvas as garbage bytes (colour noise), raw pixel data is safe.
+    function makeCloudTexture(){
+      const size=256;
+      const data=new Uint8Array(size*size*4);
+      // lobes in sprite space: v = 0 is the BOTTOM of the cloud, v = 1 the top
+      const lobes=[[0.50,0.38,0.30],[0.30,0.36,0.20],[0.70,0.36,0.20],
+                   [0.40,0.53,0.22],[0.60,0.54,0.19],[0.50,0.65,0.15],
+                   [0.22,0.44,0.13],[0.78,0.44,0.13]];
+      for(let py=0;py<size;py++){
+        const v=(py+0.5)/size;
+        for(let px=0;px<size;px++){
+          const u=(px+0.5)/size;
+          let a=0;
+          for(let i=0;i<lobes.length;i++){
+            const dx=(u-lobes[i][0])/lobes[i][2];
+            const dy=(v-lobes[i][1])/lobes[i][2];
+            const d=Math.sqrt(dx*dx+dy*dy);
+            if(d<1){
+              // same alpha curve as the old canvas radial gradients:
+              // 0.95 at the core, 0.70 at 55% of the radius, 0 at the rim
+              const t=d<0.55 ? (0.95+(0.70-0.95)*(d/0.55))
+                             : (0.70*(1-(d-0.55)/0.45));
+              a=t+a*(1-t);// source-over: the lobes merge into one cloud mass
+            }
+          }
+          // cumulus have a flat base: fade out below v = 0.336 (gone at v = 0.078)
+          if(v<0.336){
+            let t=(v-0.078)/0.258;
+            if(t<0){t=0;}
+            if(t>1){t=1;}
+            t=t*t*(3-2*t);
+            a*=t;
+          }
+          const o=(py*size+px)*4;
+          data[o]=255; data[o+1]=255; data[o+2]=255;
+          data[o+3]=(a*255)|0;
+        }
+      }
+      const tex=new THREE.DataTexture(data,size,size,THREE.RGBAFormat);
+      tex.flipY=false;// data is written bottom-up, so no vertical flip is needed
+      tex.minFilter=THREE.LinearFilter;// smooth edges (DataTexture defaults to Nearest)
+      tex.magFilter=THREE.LinearFilter;
+      tex.generateMipmaps=false;
+      tex.wrapS=THREE.ClampToEdgeWrapping;
+      tex.wrapT=THREE.ClampToEdgeWrapping;
+      tex.needsUpdate=true;
+      return tex;
+    }
+    let cloudTex=makeCloudTexture();
+    clouds=new THREE.Group;// global, so renderLoop can drift it (like drone/drone1..4)
+    blinkStart=0;// global clock start for the blinking rear/front lights
+    let cloudData=[[-2600, 750,-5200,1400],[ 1800,1050,-6400,1200],[-900,1500,-7800,1700],
+                   [ 3400,1250,-4300,1100],[-4200,1000,-3600,1300],[  700, 700,-3100, 900],
+                   [ 4800,1600,-7200,1600],[-2000,1900,-8800,1500],[ 2500, 850, 3800,1200],
+                   [-3300,1150, 5000,1400],[ 1000,1400, 6800,1300],[-5400, 950, -900,1100],
+                   [ 5400,1300, 1600,1250]];
+    for(let i=0;i<cloudData.length;i++){
+      let d=cloudData[i];
+      let sp=new THREE.Sprite(new THREE.SpriteMaterial({
+        map:cloudTex, transparent:true, opacity:0.9, depthWrite:false, color:0xffffff
+      }));
+      sp.position.set(d[0],d[1],d[2]);
+      sp.scale.set(d[3],d[3]*0.5,1);// cumulus are wider than they are tall
+      clouds.add(sp);
+    }
+    scene.add(clouds);
+
+    //■ Light sources------------------------------------------------
+    // ambient light (light applied to every object from every direction) so unlit areas never become pitch black
+    // kept low on purpose: the less fill light, the stronger the light/dark relief of the terrain
+    var AmbientLight=new THREE.AmbientLight(0xffffff,0.10);
+    scene.add( AmbientLight );// add the ambient light to the scene
+
+    // spot light straight from above (color, intensity, distance, angle, penumbra[0-1], decay[1,1])
+    // acts as a soft top fill so the drone keeps a shadow directly underneath it
+    const spotLight=new THREE.SpotLight(0xffffff, 1.1, 4000,Math.PI/40, 0.8, 0.8);
+    spotLight.position.set(0,3000,0);
+    spotLight.target.position.set(0,0,0);
+    spotLight.castShadow=true;// enable shadow casting
+    spotLight.shadow.mapSize.width = 4096;  // make shadows smoother 4096
+    spotLight.shadow.mapSize.height = 4096; // make shadows smoother 8192
+    spotLight.shadow.radius=1;  // blur the shadows
+    scene.add(spotLight);
+    scene.add(spotLight.target);
+
+    // low raking "sun" from the left side: hits the terrain at a flat angle (~12°), so slopes
+    // facing the light get bright while slopes turned away fall into shadow -> strong relief
+    const sunLight=new THREE.DirectionalLight(0xfff3e0, 3.2);
+    sunLight.position.set(-1500,329,380);
+    sunLight.target.position.set(0,0,0);
+    sunLight.castShadow=true;// terrain and drone cast shadows across the ground
+    sunLight.shadow.mapSize.width = 2048;
+    sunLight.shadow.mapSize.height = 2048;
+    sunLight.shadow.camera.left=-750;   // shadow camera covers the whole 1000x1000 floor
+    sunLight.shadow.camera.right=750;
+    sunLight.shadow.camera.top=750;
+    sunLight.shadow.camera.bottom=-750;
+    sunLight.shadow.camera.near=100;
+    sunLight.shadow.camera.far=3000;
+    sunLight.shadow.bias=-0.0004;       // avoid shadow acne on the ground
+    sunLight.shadow.normalBias=1.0;     // avoid self-shadowing stripes on gentle slopes
+    sunLight.shadow.radius=1;
+    scene.add(sunLight);
+    scene.add(sunLight.target);
+    
+    // point light                            color    intensity distance decay
+    //light = new THREE.PointLight( 0xffffff, 0.1, 4, 2 );
+    //scene.add( light );
+
+
+    //■ Materials
+    // transparent
+    let mt1=new THREE.MeshLambertMaterial({
+      color:0xffffff,side:THREE.FrontSide,transparent:true,opacity:0.3
+    });
+    // blue
+    let mt2=new THREE.MeshLambertMaterial({
+      color:0x0022cc,side:THREE.FrontSide
+    });
+    // red
+    let mt3=new THREE.MeshBasicMaterial({
+      color:0xff3333, 
+      side:THREE.FrontSide
+    });
+    // landing pad field: textured with landing.png
+    // (the image carries an alpha channel -> transparent areas show the ground beneath)
+    let padTexture=new THREE.TextureLoader().load('landing.png');
+    let mt4=new THREE.MeshLambertMaterial({
+      color:0xffffff,side:THREE.FrontSide,
+      map:padTexture,
+      transparent:true,// honour the alpha channel of landing.png
+      alphaTest:0.1,   // fully transparent pixels are discarded, so no sorting artefacts
+    });
+    // blue
+    let mt5=new THREE.MeshBasicMaterial({
+      color:0x6666ff, 
+      side:THREE.FrontSide
+    });
+    // floor
+    let floorTexture=new THREE.TextureLoader().load('flag_g.png');
+    floorTexture.wrapS=THREE.RepeatWrapping;
+    floorTexture.wrapT=THREE.RepeatWrapping;
+    // specify how often the texture repeats
+    floorTexture.repeat.set(8,8);
+    let mt6=new THREE.MeshLambertMaterial({
+      color:0xffffff,side:THREE.FrontSide,
+      map:floorTexture,
+    });
+    // white
+    let mt7=new THREE.MeshLambertMaterial({
+      color:0xffffff,side:THREE.FrontSide,transparent:false,opacity:1.0
+    });
+    // gray -> steel: bluish sheen so the drone stands out from the ground
+    // (Phong instead of Lambert: only Phong has a specular highlight for the metal look)
+    let mt8=new THREE.MeshPhongMaterial({
+      color:0x9fb9dd, specular:0xc2d8f7, shininess:48, side:THREE.FrontSide
+    });
+    // dark gray -> light gray plastic (matte, only a weak sheen)
+    let mt9=new THREE.MeshPhongMaterial({
+      color:0xd2d5da, specular:0x666666, shininess:10, side:THREE.FrontSide
+    });
+    // deck lid: the ladybug drawing on top of the fuselage
+    // (deckel.png carries an alpha channel -> the corners of the image stay open)
+    let deckelTexture=new THREE.TextureLoader().load('deckel.png');
+    let mt10=new THREE.MeshLambertMaterial({
+      color:0xffffff, side:THREE.FrontSide,
+      map:deckelTexture,
+      transparent:true,// honour the alpha channel of deckel.png
+      alphaTest:0.1,   // fully transparent pixels are discarded -> no sorting artefacts
+    });
+    // glossy black: landing legs and propeller blades, like the legs and antennae of a ladybug
+    // (Phong: black diffuse + strong tight specular highlight = wet-looking shine)
+    let mt11=new THREE.MeshPhongMaterial({
+      color:0x0a0a0a, specular:0x9a9a9a, shininess:70, side:THREE.FrontSide
+    });
+
+
+    // box geometry
+    let bg=new THREE.BoxGeometry(1,1,1);
+    // sphere geometry
+    let sg =new THREE.SphereGeometry(0.5,16,16,0,      Math.PI,  0,Math.PI);
+    // sphere geometry (hemisphere)
+    let sg2=new THREE.SphereGeometry(0.5,16,16,Math.PI,Math.PI*2,0,Math.PI);
+    // plane geometry
+    let pg=new THREE.PlaneGeometry(1,1,1,1);
+    // cylinder geometry
+    let cg=new THREE.CylinderGeometry(1,1,1,32,1,false,0,Math.PI*2);
+
+    // rounded box: every vertex that lies within r of an edge or a corner is pulled onto
+    // the surrounding cylinder/sphere surface of radius r -> slightly rounded edges
+    function rbox(w,h,d,r){
+      const hx=w/2, hy=h/2, hz=d/2;
+      const ix=hx-r, iy=hy-r, iz=hz-r;
+      // subdivide finely enough that the rounding strip gets its own vertices
+      const seg=v=>Math.max(2, Math.min(40, Math.ceil(v/(2*r))));
+      const g=new THREE.BoxGeometry(w,h,d,seg(w),seg(h),seg(d));
+      const p=new THREE.Vector3(), q=new THREE.Vector3(), nv=new THREE.Vector3();
+      const pos=g.attributes.position, nor=g.attributes.normal;
+      for(let i=0;i<pos.count;i++){
+        p.fromBufferAttribute(pos,i);
+        q.set(Math.min(ix,Math.max(-ix,p.x)), Math.min(iy,Math.max(-iy,p.y)), Math.min(iz,Math.max(-iz,p.z)));
+        nv.copy(p).sub(q);
+        if(nv.lengthSq()>1e-12){
+          nv.normalize();
+          pos.setXYZ(i, q.x+nv.x*r, q.y+nv.y*r, q.z+nv.z*r);
+          nor.setXYZ(i, nv.x, nv.y, nv.z);
+        }
+      }
+      pos.needsUpdate=true;
+      nor.needsUpdate=true;
+      return g;
+    }
+
+    // rounded cylinder: the profile (radius vs. height) gets an arc of radius r at the
+    // top and bottom rim instead of a sharp 90 degree edge, then it is revolved around Y
+    function rcyl(R,h,r,seg){
+      r=Math.min(r, R*0.9, h*0.45);
+      const pts=[];
+      const add=(x,y)=>{
+        const p=pts[pts.length-1];
+        if(!p || Math.abs(p.x-x)>1e-9 || Math.abs(p.y-y)>1e-9) pts.push(new THREE.Vector2(x,y));
+      };
+      const arc=(cx,cy,a0,a1,n)=>{
+        for(let i=0;i<=n;i++){
+          const a=a0+(a1-a0)*i/n;
+          add(cx+Math.cos(a)*r, cy+Math.sin(a)*r);
+        }
+      };
+      add(0,-h/2);            // bottom cap (center -> rim)
+      add(R-r,-h/2);
+      arc(R-r,-h/2+r, -Math.PI/2, 0, 6);   // rounded bottom rim
+      add(R, h/2-r);          // straight side
+      arc(R-r, h/2-r, 0, Math.PI/2, 6);    // rounded top rim
+      add(0, h/2);            // top cap (rim -> center)
+      return new THREE.LatheGeometry(pts, seg);
+    }
+    //let planeGeometry=new THREE.PlaneGeometry(0.1, 0.1, 1, 1);
+    //let sphereGeometry =new THREE.SphereGeometry(0.05,16,16,0,2*Math.PI);
+
+    // floor (uneven: the height field is displaced once at creation time, flat near pad 1)
+    let fpg=new THREE.PlaneGeometry(1000,1000,160,160);
+    let fpos=fpg.attributes.position;
+
+    // deterministic pseudo-random value noise (integer hash + smooth bilinear interpolation).
+    // No texture and nothing is animated: the field is evaluated once per vertex below, so
+    // the irregular terrain costs nothing at run time.
+    const hash2=(ix,iy)=>{
+      let n=(Math.imul(ix,374761393)^Math.imul(iy,668265263))|0;
+      n=Math.imul(n^(n>>>13),1274126177);
+      return ((n^(n>>>16))>>>0)/4294967295;// 0..1
+    };
+    const vnoise=(x,y,cell)=>{
+      const fx=x/cell, fy=y/cell;
+      const ix=Math.floor(fx), iy=Math.floor(fy);
+      const sx=fx-ix, sy=fy-iy;
+      const ux=sx*sx*(3-2*sx), uy=sy*sy*(3-2*sy);// smoothstep -> soft seams, no grid lines
+      const a=hash2(ix,iy), b=hash2(ix+1,iy), c=hash2(ix,iy+1), d=hash2(ix+1,iy+1);
+      return (a+(b-a)*ux)*(1-uy)+(c+(d-c)*ux)*uy;// 0..1
+    };
+
+    // full height field: three octaves of value noise -> broad swells, medium bumps and bowls
+    // plus fine raggedness, all in irregular shapes (instead of the regular sine stripes before)
+    const buildTerrain=()=>{
+      for(let i=0;i<fpos.count;i++){
+        let x=fpos.getX(i), y=fpos.getY(i);
+        let h=(vnoise(x,y,170)-0.5)*1.5           // broad, irregular swells
+             +(vnoise(x+812,y-371,64)-0.5)*0.85   // medium bumps and bowls
+             +(vnoise(x-255,y+693,26)-0.5)*0.3;   // fine raggedness (near the vertex spacing)
+        h=Math.max(-1,Math.min(1,h));// rises capped at +1: ground never comes above y = 0
+        // keep the area around landing pad 1 perfectly flat (r < 30, full at r >= 100)
+        let r=Math.sqrt(x*x+y*y);
+        let fade=Math.min(Math.max((r-30)/70,0),1);
+        fade=fade*fade*(3-2*fade);
+        // sinks are deepened x6 -> strong light/dark relief from the raking sun alone
+        fpos.setZ(i, (h>0 ? h : h*6)*fade);
+      }
+      // flatten the ground underneath the 2nd pad (flat within 25, fading out to 55),
+      // the same idea as the flat disc around pad 1 at the origin
+      // (the floor plane is rotated -90 deg about x -> world (x,z) = geometry (x,-y))
+      for(let i=0;i<fpos.count;i++){
+        let x=fpos.getX(i), y=fpos.getY(i);
+        let dx=x-pad2.x, dy=y-(-pad2.z);
+        let r2=Math.sqrt(dx*dx+dy*dy);
+        if(r2<55){
+          let f2=Math.min(Math.max((r2-25)/30,0),1);
+          f2=f2*f2*(3-2*f2);
+          fpos.setZ(i, fpos.getZ(i)*f2);// pull the displaced height back to 0
+        }
+      }
+      fpg.computeVertexNormals();
+      fpos.needsUpdate=true;// the field is also rebuilt by resetScene()
+      fpg.attributes.normal.needsUpdate=true;
+    };
+
+    // 2nd landing site: random direction and distance (140-260 units from pad 1) - rolled
+    // again by resetScene(), so every start of a new course puts it somewhere else
+    const newPad2=()=>{
+      const pad2Angle=Math.random()*Math.PI*2;
+      const pad2Dist=140+Math.random()*120;
+      pad2.x=Math.cos(pad2Angle)*pad2Dist;
+      pad2.z=Math.sin(pad2Angle)*pad2Dist;
+    };
+    newPad2();
+    buildTerrain();
+    let m0=new THREE.Mesh(fpg,mt6);
+    m0.rotation.set(-Math.PI/2,0,0);
+    m0.castShadow=true;// the terrain itself casts shadows into its own valleys (relief)
+    m0.receiveShadow=true;
+    m0.position.set(0,-1,0);
+    scene.add(m0);
+
+    m0=new THREE.Mesh(pg,mt4);
+    m0.rotation.set(-Math.PI/2,0,0);
+    //m0.castShadow=true;
+    m0.receiveShadow=true;
+    m0.scale.set(30,29.3,1);// 50% larger than before, proportions of the 980x957 image kept
+    m0.position.set(0,0,0);
+    scene.add(m0);
+
+    // ---- 2nd landing site: same landing.png pad, placed at the random position chosen above
+    let pad2Mesh=new THREE.Mesh(pg,mt4);
+    pad2Mesh.rotation.set(-Math.PI/2,0,0);
+    pad2Mesh.receiveShadow=true;
+    pad2Mesh.scale.set(30,29.3,1);// identical size to pad 1
+    pad2Mesh.position.set(pad2.x,0,pad2.z);
+    pad2Mesh.name="pad2";
+    scene.add(pad2Mesh);
+
+    // terrain height at a world x/z position: the red route line, the ring posts and the
+    // ground collision in renderLoop() are placed/measured with it. Assigned to the GLOBAL
+    // floorY (the closure keeps hold of the terrain grid), because renderLoop needs it.
+    // (the floor plane is rotated -90 deg about x -> world (x,z) = geometry (x,-z);
+    //  PlaneGeometry(1000,1000,160,160) -> 161x161 vertices, spacing 6.25, row index = iy*161+ix)
+    floorY=(wx,wz)=>{
+      const fx=(wx+500)/6.25, fy=(500+wz)/6.25;
+      const x0=Math.min(Math.max(Math.floor(fx),0),159), y0=Math.min(Math.max(Math.floor(fy),0),159);
+      const x1=Math.min(x0+1,160), y1=Math.min(y0+1,160);
+      const tx=Math.min(Math.max(fx-x0,0),1), ty=Math.min(Math.max(fy-y0,0),1);
+      const z=(ix,iy)=>fpos.getZ(iy*161+ix);
+      const h=(z(x0,y0)*(1-tx)+z(x1,y0)*tx)*(1-ty)+(z(x0,y1)*(1-tx)+z(x1,y1)*tx)*ty;
+      return -1+h;// the floor mesh sits at y = -1
+    };
+
+    // ---- course: a piecewise cubic Bezier "snake" from pad 1 (origin) to pad 2. The chord
+    // is split into 3-4 segments; every segment bows out to ONE side (both control points
+    // share the side) and the side alternates from segment to segment -> a serpentine that
+    // crosses the straight line again and again. End tangent of segment k is identical to
+    // the start tangent of segment k+1, so the chain stays perfectly smooth (G1 continuous).
+    // Bow amplitude and side are rolled again by buildRouteLine() with every new course,
+    // so no two starts look the same.
+    let routeCurve=null;// current Bezier path (x/z plane), rebuilt with every course
+    const courseCurve=()=>{
+      const len=Math.hypot(pad2.x,pad2.z);
+      const ux=pad2.x/len, uz=pad2.z/len;// unit vector along the chord
+      const nx=-uz, nz=ux;// unit vector perpendicular to it
+      const nSeg=(len>190&&Math.random()<0.7)?4:3;// 3 or 4 bows -> snake with 2-3 direction changes
+      const L=len/nSeg;// chord length of one segment
+      const h=L*0.3;// control point handle along the chord (tangent continuity)
+      let side=(Math.random()<0.5)?-1:1;
+      const path=new THREE.CurvePath();
+      for(let k=0;k<nSeg;k++){
+        const off=side*L*(0.35+Math.random()*0.35);// bow: 0.35..0.7 of a segment, never loops
+        const x0=ux*L*k, z0=uz*L*k;
+        const x1=ux*L*(k+1), z1=uz*L*(k+1);
+        path.add(new THREE.CubicBezierCurve3(
+          new THREE.Vector3(x0,0,z0),
+          new THREE.Vector3(x0+ux*h+nx*off,0,z0+uz*h+nz*off),
+          new THREE.Vector3(x1-ux*h+nx*off,0,z1-uz*h+nz*off),
+          new THREE.Vector3(x1,0,z1)));
+        side=-side;// next bow to the other side -> snake
+      }
+      routeCurve=path;
+    };
+    // build the red route line for the current course: samples the Bezier curve above and
+    // hugs the terrain (height sampled from the floor grid), because the curved route also
+    // crosses valleys where a line at a fixed height would hover in the air or sink.
+    // Called again by resetScene(), the old geometry is disposed so repeated restarts do not
+    // leak GPU memory. (MeshBasicMaterial -> the line stays fully red, whatever the light does)
+    const buildRouteLine=()=>{
+      const old=scene.getObjectByName('pathLine');
+      if(old){ scene.remove(old); old.geometry.dispose(); }
+      courseCurve();// roll a new Bezier curve for this course
+      const len=Math.hypot(pad2.x,pad2.z);
+      const nSeg=Math.max(64,Math.round(len/2));// the snake bends much more than the old S
+      const linePts=[];
+      for(let i=0;i<=nSeg;i++){
+        const p=routeCurve.getPoint(i/nSeg);
+        linePts.push(new THREE.Vector3(p.x, floorY(p.x,p.z)+0.35, p.z));
+      }
+      const lineCurve=new THREE.CatmullRomCurve3(linePts);
+      const pathLine=new THREE.Mesh(new THREE.TubeGeometry(lineCurve, nSeg, 0.35, 6, false), mt3);
+      pathLine.name="pathLine";
+      scene.add(pathLine);
+    };
+    buildRouteLine();
+
+    // three colored rings on posts of different heights, standing EXACTLY on the course:
+    // every ring sits at 25% / 50% / 75% of the current Bezier snake (evenly along the arc),
+    // its post rises from the terrain at that point and the ring plane is turned
+    // perpendicular to the course direction, so the drone can fly straight through it.
+    // Ring size: the inner opening is 150% of the drone (rotor span ~28 units) ->
+    // centre radius 22.5 with a 1.5 thick tube = inner diameter 42 = 1.5 x 28.
+    // Post heights are rolled again for every ring and every course; together with the new
+    // curve that changes the whole slalom with each start (resetScene disposes the old
+    // group, no GPU leak). Every ring and post is also entered in the global obstacle list
+    // that renderLoop() checks for collisions.
+    const ringMats=[
+      // amber, green, pink - all three pop against the light blue sky and the dark ground
+      new THREE.MeshStandardMaterial({color:0xfbbf24,roughness:0.35,metalness:0.05,emissive:0xfbbf24,emissiveIntensity:0.25}),
+      new THREE.MeshStandardMaterial({color:0x4ade80,roughness:0.35,metalness:0.05,emissive:0x4ade80,emissiveIntensity:0.25}),
+      new THREE.MeshStandardMaterial({color:0xf472b6,roughness:0.35,metalness:0.05,emissive:0xf472b6,emissiveIntensity:0.25})
+    ];
+    const postMat=new THREE.MeshStandardMaterial({color:0x334155,roughness:0.55,metalness:0.6});
+    const buildRings=()=>{
+      const old=scene.getObjectByName('ringGroup');
+      if(old){ scene.remove(old); old.traverse(o=>{ if(o.geometry) o.geometry.dispose(); }); }
+      obstacles=[];// fresh collision list for the new course (global, read by renderLoop)
+      const g=new THREE.Group(); g.name='ringGroup';
+      const R=22.5, TUBE=1.5;// inner opening 42 = 150% of the ~28 wide drone
+      const tList=[0.25,0.5,0.75];
+      for(let i=0;i<3;i++){
+        const p=routeCurve.getPoint(tList[i]);
+        const tan=routeCurve.getTangent(tList[i]);
+        const fy=floorY(p.x,p.z);
+        const postH=6+Math.random()*10;// 6..16, different for every ring and every course
+        const post=new THREE.Mesh(new THREE.CylinderGeometry(0.8,1.2,postH,10),postMat);
+        post.position.set(p.x, fy+postH/2, p.z);// stands on the terrain
+        post.castShadow=true;
+        const ring=new THREE.Mesh(new THREE.TorusGeometry(R,TUBE,12,64),ringMats[i]);
+        ring.position.set(p.x, fy+postH+R, p.z);// the post reaches the lower edge of the ring
+        // the torus lies in its XY plane (axis = local z) -> turn that axis onto the course
+        ring.rotation.y=Math.atan2(tan.x,tan.z);
+        ring.castShadow=true;
+        g.add(post); g.add(ring);
+        // collision shapes: the ring as its centreline circle, the post as a vertical segment
+        obstacles.push({kind:'ring', x:p.x, y:fy+postH+R, z:p.z, R:R, tube:TUBE,
+                        ax:tan.x, ay:0, az:tan.z});
+        obstacles.push({kind:'post', x:p.x, z:p.z, y0:fy, y1:fy+postH, r:1.2});
+      }
+      scene.add(g);
+    };
+    buildRings();
+
+    // corridor light: a wide, soft, non-shadowing spot over the middle of the course so the
+    // whole stretch between pad 1 and pad 2 is evenly lit
+    const pathLight=new THREE.SpotLight(0xffffff, 0.9, 4000, 0.5, 0.5, 0.8);
+    pathLight.name="pathLight";// no shadows on purpose: it is a fill light for the route
+    scene.add(pathLight);
+    scene.add(pathLight.target);
+    const aimPathLight=()=>{
+      // aim at the middle of the CURVED course (not the chord) and open the cone wide
+      // enough to reach the farthest point of the S-curve
+      const mid=routeCurve.getPoint(0.5);
+      let maxR=0;
+      for(let i=0;i<=16;i++){// the snake bows out further than the old single S
+        const p=routeCurve.getPoint(i/16);
+        maxR=Math.max(maxR,Math.hypot(p.x,p.z));
+      }
+      const H=maxR*0.9+50;
+      pathLight.position.set(mid.x, H, mid.z);
+      pathLight.target.position.set(mid.x, 0, mid.z);
+      pathLight.target.updateMatrixWorld();
+      pathLight.angle=Math.atan((maxR+45)/H);// angle from the farthest course point -> everything lit
+    };
+    aimPathLight();
+    
+
+    // drone group
+    drone=new THREE.Group;
+    // rotation order: roll (Z) and pitch (X) about the drone's own axes, yaw (Y) about the
+    // world up-axis. With the default 'XYZ' the pitch would be applied LAST, i.e. about the
+    // world x axis: the nose would always tip the same way in space (e.g. tail down when
+    // flying towards the camera, or a visible roll instead of a pitch when flying along x)
+    // instead of dipping into the direction of flight.
+    drone.rotation.order='YXZ';
+    drone.castShadow=true;
+    drone.receiveShadow=true;
+    // ladybug fuselage: the body outline is traced from deckel.png instead of being a plain
+    // cylinder. deckelOutline holds 90 radial distances (in image pixels, measured from the
+    // alpha centroid of the 411x431 image, circularly smoothed over ~20 deg so the drawing
+    // strokes do not ripple the contour): index i = angle i*4 deg, 0 deg = image right,
+    // 90 deg = image bottom, 270 deg = image top = the head = the drone's nose (-z).
+    const deckelOutline=[204.05,204.64,205.23,205.91,206.82,207.59,208.09,208.64,209.18,209.68,
+      210.09,210.59,211,211.5,211.82,212.14,212.32,212.55,212.68,212.64,212.55,212.36,212.36,
+      212.32,212.36,212.55,212.91,212.91,212.68,212.41,212.09,211.73,211.36,211.05,210.45,
+      209.95,209.45,209,208.45,208,207.68,207.09,206.5,205.95,205.45,204.82,204.32,203.91,
+      203.36,202.59,201.91,201.36,201,200.55,201,201.55,203.05,204.95,207.41,209.77,212.05,
+      213.91,215.32,216.45,217.23,217.68,217.86,217.91,217.73,217.5,217.09,216.64,215.86,215,
+      214,212.64,211.14,209.14,206.73,204.64,203,201.77,201.18,200.91,201.41,201.91,202.41,
+      202.91,203.32,203.64];
+    // image px -> world units: the longest radius (the head tip, 217.91 px) becomes 4.7,
+    // so the flat top cap matches the old disc radius and the side wall (which the bevel
+    // pushes 0.3 further out) reaches exactly 5.0 at its widest - same size as the old
+    // rounded cylinder (radius 5, height 2).
+    const dk=4.7/Math.max.apply(null,deckelOutline);
+    const deckPts=deckelOutline.map(function(r,i){
+      const a=i/deckelOutline.length*Math.PI*2;
+      // image (x right, y down) -> shape (x, -y): after rotateX(-PI/2) the image top
+      // (head) ends up at -z, i.e. the drone's nose
+      return new THREE.Vector2(r*Math.cos(a)*dk, -r*Math.sin(a)*dk);
+    });
+    const deckShape=new THREE.Shape(deckPts);
+    // extruded shell: depth 1.4 + 2 x bevelThickness 0.3 = height 2, bevelSize 0.3 rounds
+    // the rim (top/bottom edges taper inward, the widest ring sits at mid height)
+    const bodyGeo=new THREE.ExtrudeGeometry(deckShape,
+      {depth:1.4,bevelEnabled:true,bevelThickness:0.3,bevelSize:0.3,bevelSegments:4,steps:1,curveSegments:1});
+    bodyGeo.rotateX(-Math.PI/2);
+    bodyGeo.translate(0,-0.7,0);// the bevel adds 0.3 top and bottom -> centre the body on y=0
+    md0=new THREE.Mesh(bodyGeo,mt8);
+    md0.castShadow=true;
+    //md0.receiveShadow=true;
+    md0.position.set(0,4,0);// spans y 3..5 like the old cylinder
+    drone.add(md0);
+
+    // smooth shading for the extruded shell: ExtrudeGeometry is non-indexed, so every copy
+    // of a shared corner (wall, bevel, cap rim) carries its own normal. The wall and bevel
+    // copies disagreed -> harsh vertical banding on the flanks. Recompute ONE area-weighted
+    // normal per unique vertex position instead: the flanks shade evenly and the rim gets a
+    // soft, rounded highlight (the caps keep 0,1,0 in their interior).
+    (function(){
+      const pa=bodyGeo.attributes.position, na=bodyGeo.attributes.normal;
+      const acc={}, A=new THREE.Vector3(), B=new THREE.Vector3(), C=new THREE.Vector3(),
+            e1=new THREE.Vector3(), e2=new THREE.Vector3(), fn=new THREE.Vector3();
+      for(let t=0;t<pa.count;t+=3){// accumulate the face normal of every triangle
+        A.fromBufferAttribute(pa,t); B.fromBufferAttribute(pa,t+1); C.fromBufferAttribute(pa,t+2);
+        fn.crossVectors(e1.subVectors(B,A), e2.subVectors(C,A));
+        for(let k=0;k<3;k++){
+          const key=pa.getX(t+k).toFixed(4)+'|'+pa.getY(t+k).toFixed(4)+'|'+pa.getZ(t+k).toFixed(4);
+          const v=acc[key]||(acc[key]=new THREE.Vector3());
+          v.add(fn);
+        }
+      }
+      const vkey=function(i){ return pa.getX(i).toFixed(4)+'|'+pa.getY(i).toFixed(4)+'|'+pa.getZ(i).toFixed(4); };
+      for(let i=0;i<pa.count;i++){
+        const v=acc[vkey(i)];
+        if(v && v.lengthSq()>1e-12){ v.normalize(); na.setXYZ(i,v.x,v.y,v.z); }
+      }
+      na.needsUpdate=true;
+    })();
+
+    // deck surface of the fuselage: the same traced outline as a flat lid carrying
+    // deckel.png, laid 0.01 above the body cap (y = 5.0) so the two never z-fight.
+    // ShapeGeometry stores the raw shape coordinates as UVs, so they are rewritten here:
+    // u = image x / 411, v = 1 - image y / 431 (v flipped -> image top = v 1 = nose side),
+    // image px = centroid + shape coord / dk
+    const deckGeo=new THREE.ShapeGeometry(deckShape);
+    {
+      const dp=deckGeo.attributes.position, duv=deckGeo.attributes.uv;
+      for(let i=0;i<dp.count;i++){
+        duv.setXY(i, (206.84+dp.getX(i)/dk)/411, 1-(218.75-dp.getY(i)/dk)/431);
+      }
+      duv.needsUpdate=true;
+    }
+    let md0deck=new THREE.Mesh(deckGeo, mt10);
+    md0deck.rotation.x=-Math.PI/2;// lay it flat, the top of the image points to the nose (-z)
+    md0deck.position.set(0,5.01,0);
+    drone.add(md0deck);
+
+    // create the rods supporting the rotors from box geometry
+    md1=new THREE.Mesh(bg,mt8);
+    md1.castShadow=true;
+    //md1.receiveShadow=true;
+    md1.scale.set(20,1,1);
+    md1.position.set(0, 4.5, 0);
+    md1.rotation.set(0,Math.PI*0.25,0);
+    drone.add(md1);
+    // create the rods supporting the rotors from box geometry
+    md2=new THREE.Mesh(bg,mt8);
+    md2.castShadow=true;
+    //md2.receiveShadow=true;
+    md2.scale.set(20,1,1);
+    md2.position.set(0, 4.5, 0);
+    md2.rotation.set(0,-Math.PI*0.25,0);
+    drone.add(md2);
+
+    // create a small blue mesh marking the front from box geometry
+    md3=new THREE.Mesh(bg,mt5);
+    md3.position.set(0,4,-5);
+    drone.add(md3);
+    // create a small red mesh marking the rear from box geometry
+    md4=new THREE.Mesh(bg,mt3);
+    md4.position.set(0,4,5);
+    drone.add(md4);
+
+    // two antennae at the front of the ladybug head: glossy black tapered rods with a
+    // rounded club tip, leaning forward, up and slightly outward
+    // (base sits inside the head shell so the rod emerges without a gap)
+    [-1,1].forEach(function(side,ix){
+      const base=new THREE.Vector3(side*1.0,4.5,-4.4);
+      const dir=new THREE.Vector3(side*0.3,0.45,-0.84).normalize();
+      const len=2.4;
+      const rod=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.14,len,10),mt11);
+      rod.name=(side<0?"antennaL":"antennaR");
+      rod.position.copy(base).addScaledVector(dir,len/2);// centre of the rod
+      rod.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),dir);
+      rod.castShadow=true;
+      drone.add(rod);
+      const club=new THREE.Mesh(new THREE.SphereGeometry(0.17,12,10),mt11);
+      club.name=(side<0?"antennaLTip":"antennaRTip");
+      club.position.copy(base).addScaledVector(dir,len);// ball at the rod's tip
+      club.castShadow=true;
+      drone.add(club);
+    });
+
+    // create the landing legs from box geometry (glossy black, like ladybug legs)
+    md5=new THREE.Mesh(bg,mt11);
+    md5.castShadow=true;
+    md5.receiveShadow=true;
+    md5.scale.set(10,0.5,0.5);
+    md5.position.set(-3,0.25,0);
+    md5.rotation.set(0,Math.PI/2,0);
+    drone.add(md5);
+    // create the landing legs from box geometry
+    md6=new THREE.Mesh(bg,mt11);
+    md6.castShadow=true;
+    md6.receiveShadow=true;
+    md6.scale.set(10,0.5,0.5);
+    md6.position.set(3,0.25,0);
+    md6.rotation.set(0,Math.PI/2,0);
+    drone.add(md6);
+    // create the landing legs from box geometry
+    md7=new THREE.Mesh(bg,mt11);
+    md7.castShadow=true;
+    md7.receiveShadow=true;
+    md7.scale.set(3,0.5,0.5);
+    md7.position.set(-3,1.5,0);
+    md7.rotation.set(0,0,Math.PI/2);
+    drone.add(md7);
+    // create the landing legs from box geometry
+    md8=new THREE.Mesh(bg,mt11);
+    md8.castShadow=true;
+    md8.receiveShadow=true;
+    md8.scale.set(3,0.5,0.5);
+    md8.position.set(3,1.5,0);
+    md8.rotation.set(0,0,Math.PI/2);
+    drone.add(md8);
+
+
+    // create the propeller blades (rotors) from box geometry
+    drone1=new THREE.Group;
+    drone1.position.set(-7,5,-7);
+    md11=new THREE.Mesh(bg,mt11);
+    md11.castShadow=true;
+    md11.receiveShadow=true;
+    md11.scale.set(10,0.5,0.5);
+    md11.rotation.set(0,Math.PI*0.5,0);
+    drone1.add(md11);
+    md12=new THREE.Mesh(bg,mt11);
+    md12.castShadow=true;
+    md12.receiveShadow=true;
+    md12.scale.set(8,0.5,0.5);
+    md12.rotation.set(0,Math.PI*0.0,0);
+    drone1.add(md12);
+    drone.add(drone1);
+    // create the propeller blades (rotors) from box geometry
+    drone2=new THREE.Group;
+    drone2.position.set(-7,5,7);
+    md21=new THREE.Mesh(bg,mt11);
+    md21.castShadow=true;
+    md21.receiveShadow=true;
+    md21.scale.set(10,0.5,0.5);
+    md21.rotation.set(0,Math.PI*0.5,0);
+    drone2.add(md21);
+    md22=new THREE.Mesh(bg,mt11);
+    md22.castShadow=true;
+    md22.receiveShadow=true;
+    md22.scale.set(8,0.5,0.5);
+    md22.rotation.set(0,Math.PI*0.0,0);
+    drone2.add(md22);
+    drone.add(drone2);
+    // create the propeller blades (rotors) from box geometry
+    drone3=new THREE.Group;
+    drone3.position.set(7,5,7);
+    md31=new THREE.Mesh(bg,mt11);
+    md31.castShadow=true;
+    md31.receiveShadow=true;
+    md31.scale.set(10,0.5,0.5);
+    md31.rotation.set(0,Math.PI*0.5,0);
+    drone3.add(md31);
+    md32=new THREE.Mesh(bg,mt11);
+    md32.castShadow=true;
+    md32.receiveShadow=true;
+    md32.scale.set(8,0.5,0.5);
+    md32.rotation.set(0,Math.PI*0.0,0);
+    drone3.add(md32);
+    drone.add(drone3);
+    // create the propeller blades (rotors) from box geometry
+    drone4=new THREE.Group;
+    drone4.position.set(7,5,-7);
+    md41=new THREE.Mesh(bg,mt11);
+    md41.castShadow=true;
+    md41.receiveShadow=true;
+    md41.scale.set(10,0.5,0.5);
+    md41.rotation.set(0,Math.PI*0.5,0);
+    drone4.add(md41);
+    md42=new THREE.Mesh(bg,mt11);
+    md42.castShadow=true;
+    md42.receiveShadow=true;
+    md42.scale.set(8,0.5,0.5);
+    md42.rotation.set(0,Math.PI*0.0,0);
+    drone4.add(md42);
+    drone.add(drone4);
+
+    scene.add(drone);
+
+    // round the edges of the whole drone slightly: every box part gets its own geometry at
+    // its final size (a rounded box that is scaled would stretch the radius along the length)
+    drone.traverse(function(o){
+      if(o.isMesh && o.geometry && o.geometry.type==="BoxGeometry"){
+        const sx=o.scale.x, sy=o.scale.y, sz=o.scale.z;
+        o.geometry=rbox(sx,sy,sz, 0.15*Math.min(sx,sy,sz));
+        o.scale.set(1,1,1);
+      }
+    });
+
+
+    // create the orbit controls (dragging with the left/right mouse button, using the wheel, etc. moves the camera)
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    //controls.target.set(0,7,0);
+    controls.target=drone.position;
+    controls.update();
+    controls.enablePan=false;
+    controls.enableZoom=false;
+    controls.enableRotate=false;
+
+    // flight keys: the keystroke is swallowed (preventDefault) so the browser cannot
+    // hand it to its find-as-you-type/search bar or scroll the page with the arrows.
+    // Modifier shortcuts (Ctrl/Cmd/Alt, e.g. Ctrl+F) are deliberately left alone.
+    const flightKeys=["w","s","a","d","arrowup","arrowdown","arrowleft","arrowright"];
+    document.addEventListener("keydown", e => {
+      const k=(e.key||"").toLowerCase();// also catches Shift+W / CapsLock -> "W"
+      if(flightKeys.includes(k) && !e.ctrlKey && !e.metaKey && !e.altKey){
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      if (k === "w") pos.c = "mf";
+      if (k === "s") pos.c = "mb";
+      if (k === "a") pos.c = "ml";
+      if (k === "d") pos.c = "mr";
+      if (k === "arrowup") pos.c = "up";
+      if (k === "arrowdown") pos.c = "dn";
+      if (k === "arrowleft") pos.c = "tl";
+      if (k === "arrowright") pos.c = "tr";
+    });
+    document.addEventListener("keyup", () => pos.c = "");
+
+    // click on the success message: reset the scene and roll a completely new course
+    // (drone back to pad 1, camera back to the starting view, new random pad 2 with new
+    // terrain, new route line, re-aimed corridor light, success message hidden again)
+    const resetScene=()=>{
+      pos.c=""; pos.x=0; pos.y=0; pos.z=0;
+      pos.vx=0; pos.vy=0; pos.vz=0; pos.turn=0;
+      newPad2();
+      buildTerrain();
+      scene.getObjectByName('pad2').position.set(pad2.x,0,pad2.z);
+      buildRouteLine();// new Bezier snake for the new pad position
+      buildRings();// new ring positions/colors, post heights rolled again + fresh obstacles
+      aimPathLight();
+      successShown=false;
+      document.getElementById('landedToast').classList.remove('show');
+      document.getElementById('crashToast').classList.remove('show');// no stale red message
+      // new course -> new rings: the pass counter starts from zero again
+      passedRings=[false,false,false];
+      ringPrevSide=[null,null,null];
+      ringPassCount=0;
+      updateRingBadge();
+      camera.position.set(0,100,150);// standard starting view
+      controls.update();// the camera looks at the drone (= controls.target), i.e. back at pad 1
+    };
+    document.getElementById('landedToast').addEventListener('click',resetScene);
+    // click on the collision message: hide it right away -> the pilot continues the flight
+    // (the auto-hide timer of showCrash is cancelled so it cannot fire later)
+    document.getElementById('crashToast').addEventListener('click',function(){
+      this.classList.remove('show');
+      clearTimeout(crashTimer);
+    });
+    updateRingBadge();// paint the counter text once at start-up
+
+    // three-way FPV camera alignment switch: starr (rigid on the drone) | Gimbal (damped) |
+    // Welt (world aligned). The row is dimmed outside the FPV view.
+    const alignRow=document.getElementById('alignRow');
+    // entering the gimbal mode: start from the CURRENT camera orientation (tilt removed),
+    // so switching modes never causes a jump - the view then glides to the target
+    const snapGimbal=function(){
+      fpvAlignQ.copy(camera.quaternion);
+      if(fpvTilt!==0){
+        // undo the local head tilt, it is re-applied after the alignment every frame
+        fpvAlignQ.multiply(fpvTiltQ.setFromAxisAngle(fpvAxisX, fpvTilt*Math.PI/180));
+      }
+    };
+    const setAlign=function(mode){
+      if(mode===fpvAlign) return;
+      fpvAlign=mode;
+      if(mode==='gimbal'&&fpv) snapGimbal();
+      [].forEach.call(alignRow.querySelectorAll('.align-bt'),function(b){
+        const on=(b.getAttribute('data-align')===mode);
+        b.classList.toggle('is-on',on);
+        b.setAttribute('aria-pressed',on?'true':'false');
+      });
+    };
+    alignRow.addEventListener('click',function(e){
+      const b=e.target.closest?e.target.closest('.align-bt'):null;
+      if(b) setAlign(b.getAttribute('data-align'));
+    });
+
+    // camera switch in the control panel: overview <-> first person view.
+    // Entering FPV stores the world-space offset of the overview camera relative to the
+    // drone, leaving FPV restores exactly that offset (same distance and direction, just
+    // wherever the drone is now), so the view is never lost after a long FPV flight.
+    const camBackOffset=new THREE.Vector3();
+    const viewToggle=document.getElementById('viewToggle');
+    const setFpv=function(on){
+      if(on===fpv) return;
+      if(on){
+        camBackOffset.copy(camera.position).sub(drone.position);
+        fpv=true;
+        if(fpvAlign==='gimbal') snapGimbal();// continue smoothly from the current view
+      }else{
+        fpv=false;
+        camera.position.copy(drone.position).add(camBackOffset);
+        controls.update();// orbit control takes over again: look at the drone
+      }
+      viewToggle.classList.toggle('is-on',fpv);
+      viewToggle.setAttribute('aria-pressed',fpv?'true':'false');
+      document.getElementById('viewLabel').textContent=fpv?'Sicht: FPV (Nase)':'Sicht: Überblick';
+      alignRow.classList.toggle('is-dim',!fpv);// alignment only matters in the FPV view
+    };
+    viewToggle.addEventListener('click',function(){ setFpv(!fpv); });
+
+    // white thumbwheel for the FPV camera head: -30° (look up) .. +90° (straight down at the
+    // landing pad). The wheel only protrudes from a narrow rectangular slot; it is driven by
+    // dragging along the slot, by the mouse wheel or by the arrow keys. The arrow keys are
+    // swallowed here (stopPropagation) while the wheel is focused, so they tilt the camera
+    // instead of steering the drone.
+    const TILT_MIN=-30, TILT_MAX=90, TILT_SPAN=TILT_MAX-TILT_MIN;
+    const SCALE_TRAVEL=150;// px the marker travels on the ruler (scale height 156 - 2 x 3)
+    const knob=document.getElementById('tiltKnob');
+    const tiltNeedle=document.getElementById('tiltNeedle');
+    const setTilt=function(v){
+      fpvTilt=Math.max(TILT_MIN,Math.min(TILT_MAX,Math.round(v)));
+      // marker slides along the ruler (top = -30°, bottom = +90°) and the knurling of the
+      // wheel crawls with it, so the ribs visibly run through the slot
+      tiltNeedle.style.transform='translateY('+((fpvTilt-TILT_MIN)/TILT_SPAN*SCALE_TRAVEL).toFixed(1)+'px)';
+      knob.style.setProperty('--spinY',(fpvTilt*1.1).toFixed(1)+'px');
+      knob.setAttribute('aria-valuenow',String(fpvTilt));
+      knob.setAttribute('aria-valuetext',fpvTilt+' Grad');
+    };
+    // drag along the slot: finger down = look further down, finger up = look up
+    // (0.8° per pixel -> the full -30..90 range spans the 150 px long wheel)
+    let dragY=null;
+    knob.addEventListener('pointerdown',function(e){
+      dragY=e.clientY;
+      try{ knob.setPointerCapture(e.pointerId); }catch(err){}
+      e.preventDefault();
+    });
+    knob.addEventListener('pointermove',function(e){
+      if(dragY===null) return;
+      const dy=e.clientY-dragY;
+      dragY=e.clientY;
+      setTilt(fpvTilt + dy*0.8);
+    });
+    const endDrag=function(){ dragY=null; };
+    knob.addEventListener('pointerup',endDrag);
+    knob.addEventListener('pointercancel',endDrag);
+    knob.addEventListener('wheel',function(e){
+      e.preventDefault();// scrolling the knob must not scroll the page
+      setTilt(fpvTilt + Math.sign(e.deltaY)*3);// wheel down = look further down
+    },{passive:false});
+    knob.addEventListener('keydown',function(e){
+      let step=0;
+      if(e.key==='ArrowUp') step=-3;        // look further up
+      else if(e.key==='ArrowRight') step=6; // dial clockwise = down
+      else if(e.key==='ArrowDown') step=3;  // look further down
+      else if(e.key==='ArrowLeft') step=-6;
+      else if(e.key==='Home'){ setTilt(0); e.preventDefault(); e.stopPropagation(); return; }
+      if(step!==0){
+        setTilt(fpvTilt+step);
+        e.preventDefault();
+        e.stopPropagation();// do not let the document flight keys fire at the same time
+      }
+    });
+    setTilt(fpvTilt);// paint the ruler marker and the knurling offset once at start-up
+
+    blinkStart=performance.now();// start the light-blink clock when the demo starts
+    setInterval(renderLoop,33);
+  }
+
+  function renderLoop () {
+    if(!fpv) controls.update();// in FPV the camera is placed below -> the orbit control must not fight it
+    // rotate the propeller blades (rotors)
+    drone1.rotation.y+=Math.PI/8;
+    drone2.rotation.y+=Math.PI/8;
+    drone3.rotation.y+=Math.PI/8;
+    drone4.rotation.y+=Math.PI/8;
+
+    // slow cloud drift (wraps while still far outside the camera view)
+    for(let i=0;i<clouds.children.length;i++){
+      let cl=clouds.children[i];
+      cl.position.x+=1.5;
+      if(cl.position.x>9000){cl.position.x=-9000;}
+    }
+
+    // blink the rear (red) and front (blue) marker boxes every 0.5 seconds
+    let blinkOn=Math.floor((performance.now()-blinkStart)/500)%2===0;
+    md3.visible=blinkOn;
+    md4.visible=blinkOn;
+    
+    let limit=1.0;
+    
+    pos.vx *= 0.95;
+    pos.vy *= 0.95;
+    pos.vz *= 0.95;
+    if(pos.c=="up"){
+      pos.vy+=0.1;
+      if(pos.vy>limit){vy=limit;}
+    }else if(pos.c=="dn"){
+      pos.vy-=0.1;
+      if(pos.vy<-limit){vy=-limit;}
+    }else if(pos.c=="tl"){
+      pos.turn += Math.PI/72;
+    }else if(pos.c=="tr"){
+      pos.turn -= Math.PI/72;
+    }else if(pos.c=="mf"){
+      pos.vz+=0.1;
+      if(pos.vz>limit){pos.vz=limit;}
+    }else if(pos.c=="mb"){
+      pos.vz-=0.1;
+      if(pos.vz<-limit){pos.vz=-limit;}
+    }else if(pos.c=="ml"){
+      pos.vx-=0.1;
+      if(pos.vx<-limit){pos.vx=-limit;}
+    }else if(pos.c=="mr"){
+      pos.vx+=0.1;
+      if(pos.vx>limit){pos.vx=limit;}
+    }
+
+    pos.y += pos.vy;
+    // ground: the drone may neither sink below the floor nor INTO the terrain - hills rise
+    // above y=0, so the old flat y=0 test becomes a real terrain test (pads and the start
+    // disc stay at 0 because of the max). Bounce behaviour is unchanged.
+    const gy=Math.max(floorY(pos.x,pos.z),0);
+    if(pos.y<gy){
+      pos.y -=pos.vy;
+      pos.vy=-pos.vy*0.5;
+      if(pos.y<gy) pos.y=gy;// safety net for large steps
+    }
+    const preX=pos.x, preY=pos.y, preZ=pos.z;// start of this movement step (for the bounce-back)
+    pos.x += Math.cos(-pos.turn-Math.PI/2)*pos.vz;
+    pos.z += Math.sin(-pos.turn-Math.PI/2)*pos.vz;
+    pos.x += Math.cos(-pos.turn)*pos.vx;
+    pos.z += Math.sin(-pos.turn)*pos.vx;
+
+    // ---- collision analysis: rings and posts of the current course. The drone is modelled
+    // as a sphere around its centre (radius = half the rotor span, measured once from the
+    // bounding box). A ring is its centreline circle, a post a vertical line segment.
+    // On impact the drone is put back to the start of this movement step, its speed is
+    // zeroed and a short red message appears (see showCrash). Flying exactly through the
+    // middle of a ring stays collision-free: the opening (radius 21) is wider than the
+    // drone sphere, so only the rim tube and the post below are dangerous.
+    if(obstacles.length){
+      if(droneColR<0){
+        const b=new THREE.Box3().setFromObject(drone);
+        droneColR=0.5*Math.max(b.max.x-b.min.x,b.max.z-b.min.z);
+        droneColCY=0.5*(b.min.y+b.max.y)-drone.position.y;
+      }
+      const sx=pos.x, sy=pos.y+droneColCY, sz=pos.z;
+      let hitKind='';
+      for(let i=0;i<obstacles.length&&!hitKind;i++){
+        const o=obstacles[i];
+        if(o.kind==='ring'){
+          // distance from the drone centre to the torus centreline circle
+          const dx=sx-o.x, dy=sy-o.y, dz=sz-o.z;
+          const a=dx*o.ax+dy*o.ay+dz*o.az;// component along the ring axis
+          const rx=dx-o.ax*a, ry=dy-o.ay*a, rz=dz-o.az*a;// component in the ring plane
+          const rl=Math.sqrt(rx*rx+ry*ry+rz*rz);// distance from the ring axis
+          const d=Math.sqrt((rl-o.R)*(rl-o.R)+a*a);
+          if(d<o.tube+droneColR) hitKind='ring';
+        }else{
+          // distance from the drone centre to the vertical post segment
+          const cy=Math.max(o.y0,Math.min(o.y1,sy));
+          const dx=sx-o.x, dy=sy-cy, dz=sz-o.z;
+          const rr=o.r+droneColR;
+          if(dx*dx+dy*dy+dz*dz<rr*rr) hitKind='post';
+        }
+      }
+      if(hitKind){
+        pos.x=preX; pos.y=preY; pos.z=preZ;// back to the safe position of this frame's start
+        pos.vx=0; pos.vy=0; pos.vz=0;// stop dead, the pilot has to steer around the obstacle
+        lastCollision=hitKind;
+        collisionCount++;
+        showCrash(hitKind==='ring'?'Kollision mit dem Ring!':'Kollision mit dem Pfosten!');
+      }
+
+      // ---- ring pass counter: signed distance of the drone centre from every ring plane.
+      // When the sign CHANGES the plane was crossed; the in-plane distance at that moment
+      // tells whether it happened inside the opening (counted) or outside the ring
+      // (ignored, e.g. flying past/above the ring). Every ring counts at most once.
+      // A frame that just ended in a collision is skipped - the drone was bounced back.
+      const cx=pos.x, cy2=pos.y+droneColCY, cz=pos.z;
+      let ringIdx=0;
+      for(let i=0;i<obstacles.length;i++){
+        const o=obstacles[i];
+        if(o.kind!=='ring') continue;
+        const dx=cx-o.x, dy=cy2-o.y, dz=cz-o.z;
+        const a=dx*o.ax+dy*o.ay+dz*o.az;// signed distance from the ring plane
+        const s=(a>=0)?1:-1;
+        if(!hitKind && ringPrevSide[ringIdx]!==null && ringPrevSide[ringIdx]!==s && !passedRings[ringIdx]){
+          const rx=dx-o.ax*a, ry=dy-o.ay*a, rz=dz-o.az*a;// component in the ring plane
+          const rl=Math.sqrt(rx*rx+ry*ry+rz*rz);
+          if(rl<o.R-o.tube){// crossed inside the opening -> a real pass through the ring
+            passedRings[ringIdx]=true;
+            ringPassCount++;
+            updateRingBadge();
+          }
+        }
+        ringPrevSide[ringIdx]=s;
+        ringIdx++;
+      }
+    }
+
+    drone.position.set(pos.x,pos.y,pos.z);
+    drone.rotation.set(-pos.vz*Math.PI/8, pos.turn, -pos.vx*Math.PI/8);
+
+    // first person view: the camera sits on the nose of the drone. How its orientation is
+    // derived depends on the alignment switch:
+    //   starr  - rigid on the drone: every pitch/roll of the drone goes into the picture
+    //   Gimbal - yaw follows the drone, pitch/roll are damped with inertia (slerp towards a
+    //            level orientation, 18% of the drone's pitch/roll stays as residual coupling)
+    //   Welt   - orientation locked to the world coordinates: only the yaw follows, the
+    //            horizon always stays level
+    // The tilt wheel is a LOCAL head tilt and is applied after the alignment in every mode.
+    // Offset: just above deck height (deck top 5.01) and 0.35 PAST the nose rim (z ~ -4.7),
+    // otherwise the own deck would fill the view as soon as the head tilts down. In front of
+    // the nose a downward tilt sees the ground (and the landing pad) without obstruction.
+    if(fpv){
+      camera.position.set(0,5.5,-5.35).applyQuaternion(drone.quaternion).add(drone.position);
+      if(fpvAlign==='welt'){
+        // world aligned: yaw only (the drone's yaw is exactly pos.turn), pitch/roll = 0
+        camera.quaternion.setFromEuler(fpvLevelE.set(0,pos.turn,0,'YXZ'));
+      }else if(fpvAlign==='gimbal'){
+        // desired orientation: level horizon, 18% of the drone's pitch/roll coupled back in
+        fpvTargetQ.setFromEuler(fpvLevelE.set(0,pos.turn,0,'YXZ')).slerp(drone.quaternion,0.18);
+        // exponential smoothing = gimbal inertia (~0.15 s time constant at 60 fps)
+        fpvAlignQ.slerp(fpvTargetQ,0.14);
+        camera.quaternion.copy(fpvAlignQ);
+      }else{
+        // rigid on the drone: full orientation, exactly as before
+        camera.quaternion.copy(drone.quaternion);
+      }
+      if(fpvTilt!==0){
+        // tilt the camera head locally: a POSITIVE X rotation raises the view, so a
+        // downward tilt is applied as a negative rotation about the local X axis
+        camera.quaternion.multiply(fpvTiltQ.setFromAxisAngle(fpvAxisX, -fpvTilt*Math.PI/180));
+      }
+    }
+
+    // success message: fade in the first time the drone touches down near the 2nd landing site
+    if(!successShown && pos.y<0.6 && Math.hypot(pos.x-pad2.x, pos.z-pad2.z)<14){
+      successShown=true;
+      document.getElementById("landedToast").classList.add("show");
+    }
+
+    renderer.render(scene, camera);
+
+  }
+
+  window.addEventListener('DOMContentLoaded', main, false);
+
+  window.addEventListener('load',function(){
+    //X: right  Y: up  Z: toward the viewer
+    //pos={"x":0,"y":0,"z":0,"vx":0,"vy":0,"vz":0,"turn":0};
+    document.getElementById("up").addEventListener("mousedown",up);
+    document.getElementById("dn").addEventListener("mousedown",dn);
+    document.getElementById("tl").addEventListener("mousedown",tl);
+    document.getElementById("tr").addEventListener("mousedown",tr);
+    document.getElementById("mf").addEventListener("mousedown",mf);
+    document.getElementById("mb").addEventListener("mousedown",mb);
+    document.getElementById("ml").addEventListener("mousedown",ml);
+    document.getElementById("mr").addEventListener("mousedown",mr);
+
+    document.getElementById("up").addEventListener("touchstart",up);
+    document.getElementById("dn").addEventListener("touchstart",dn);
+    document.getElementById("tl").addEventListener("touchstart",tl);
+    document.getElementById("tr").addEventListener("touchstart",tr);
+    document.getElementById("mf").addEventListener("touchstart",mf);
+    document.getElementById("mb").addEventListener("touchstart",mb);
+    document.getElementById("ml").addEventListener("touchstart",ml);
+    document.getElementById("mr").addEventListener("touchstart",mr);
+
+
+    window.addEventListener("mouseup",function(){pos.c="";});
+    window.addEventListener("touchend",function(){pos.c="";});
+  });
+
+  function up(){
+    pos.c="up";
+  }
+  function dn(){
+    pos.c="dn";
+  }
+  function tl(){
+    pos.c="tl";
+  }
+  function tr(){
+    pos.c="tr";
+  }
+  function mf(){
+    pos.c="mf";
+  }
+  function mb(){
+    pos.c="mb";
+  }
+  function ml(){
+    pos.c="ml";
+  }
+  function mr(){
+    pos.c="mr";
+  }
+
+</script>
+
+</head>
+<body>
+  <header>
+<!-- 728x90, already created 11/07/24 -->
+<!--
+<ins class="adsbygoogle"
+     style="display:block"
+     data-ad-client="ca-pub-6334792568243351"
+     data-ad-slot="7381926024"
+     data-ad-format="auto"
+     data-full-width-responsive="true"></ins>
+<script>
+     (adsbygoogle = window.adsbygoogle || []).push({});
+</script>
+-->
+  </header>
+  <main>
+
+
+    <!-- justify-content:center keeps the whole block (canvas + control panel) centred horizontally -->
+    <section style="display:flex;flex-wrap:wrap;align-items:stretch;justify-content:center;gap:16px;">
+      <!-- wrapper makes the toast position relative to the canvas -->
+      <div style="position:relative;">
+      <canvas id="can" style="width:600px; height:600px; max-width:calc(100vw - 36px);max-height:calc(100vw - 36px);border-radius:18px;box-shadow:0 12px 28px rgba(2,6,23,0.45),0 2px 6px rgba(2,6,23,0.35);-ms-touch-action:none;touch-action:none;cursor:grab;"></canvas>
+      <div class="landed-toast" id="landedToast" role="status">
+        <div class="t-title">Landung erfolgreich!</div>
+        <div class="t-sub">Erfolgreich im Ziel gelandet</div>
+        <div class="t-hint">Klick: neuer Kurs</div>
+      </div>
+      <!-- collision message (ring / post): auto-hides after 1.6 s or on click -->
+      <div class="crash-toast" id="crashToast" role="status">
+        <span id="crashTitle">Kollision!</span>
+      </div>
+      <!-- ring pass counter, always visible at the top of the canvas -->
+      <div class="ring-badge" id="ringBadge" role="status">Ringe: 0 von 3</div>
+      </div>
+      <div class="ctrl-panel">
+        <div class="ctrl-title">Steuerung</div>
+        <!-- camera switch: overview (default) <-> first person view from the drone's nose -->
+        <div class="view-row">
+          <button type="button" class="cbt view-bt" id="viewToggle" aria-pressed="false" aria-label="Kamera umbeschalten">
+            <span class="cam-dot"></span><span id="viewLabel">Sicht: Überblick</span>
+          </button>
+        </div>
+        <!-- three-way FPV camera alignment: starr (rigid) | Gimbal (damped) | Welt (world
+             aligned). Dimmed while the overview is active, it only affects the FPV view. -->
+        <div class="align-row is-dim" id="alignRow" role="group" aria-label="FPV-Kameraausrichtung">
+          <button type="button" class="cbt align-bt is-on" data-align="starr" aria-pressed="true">starr</button>
+          <button type="button" class="cbt align-bt" data-align="gimbal" aria-pressed="false">Gimbal</button>
+          <button type="button" class="cbt align-bt" data-align="welt" aria-pressed="false">Welt</button>
+        </div>
+        <div class="ctrl-pads">
+        <table class="pad">
+          <tr>
+            <td>
+            </td>
+            <td>
+              <a class="cbt" id="up" onclick="" aria-label="Steigen">↑</a>
+            </td>
+            <td>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <a class="cbt" id="tl" onclick="" aria-label="Links drehen">←</a>
+            </td>
+            <td>
+            </td>
+            <td>
+              <a class="cbt" id="tr" onclick="" aria-label="Rechts drehen">→</a>
+            </td>
+          </tr>
+          <tr>
+            <td>
+            </td>
+            <td>
+              <a class="cbt" id="dn" onclick="" aria-label="Sinken">↓</a>
+            </td>
+            <td>
+            </td>
+          </tr>
+        </table>
+        <!-- white thumbwheel in a narrow rectangular slot between the arrow keys and the
+             WASD keys: label above the wheel, ruler scale at its right side -->
+        <div class="pitch">
+          <div class="pitch-label">Kamerawinkel</div>
+          <div class="pitch-body">
+            <div class="pitch-stage">
+              <div class="pitch-wheel" id="tiltKnob" role="slider" tabindex="0"
+                   aria-label="Kamerawinkel in der FPV-Sicht"
+                   aria-valuemin="-30" aria-valuemax="90" aria-valuenow="0" aria-valuetext="0 Grad, geradeaus"></div>
+            </div>
+            <div class="pitch-scale" aria-hidden="true">
+              <span class="pitch-needle" id="tiltNeedle"></span>
+            </div>
+          </div>
+        </div>
+        <table class="pad">
+          <tr>
+            <td>
+            </td>
+            <td>
+              <a class="cbt" id="mf" onclick="" aria-label="Vorwärts">W</a>
+            </td>
+            <td>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <a class="cbt" id="ml" onclick="" aria-label="Seitwärts links">A</a>
+            </td>
+            <td>
+            </td>
+            <td>
+              <a class="cbt" id="mr" onclick="" aria-label="Seitwärts rechts">D</a>
+            </td>
+          </tr>
+          <tr>
+            <td>
+            </td>
+            <td>
+              <a class="cbt" id="mb" onclick="" aria-label="Rückwärts">S</a>
+            </td>
+            <td>
+            </td>
+          </tr>
+        </table>
+      </div>
+      <div class="hints">
+        <div class="hint hint-lights">
+          <span class="hint-side"><span class="dot dot-red"></span> rotes Schlusslicht</span>
+          <span class="hint-mid">blinken</span>
+          <span class="hint-side">blaues Frontlicht <span class="dot dot-blue"></span></span>
+        </div>
+        <div class="keys">
+          <span class="key"><kbd>↑</kbd> Steigen</span>
+          <span class="key"><kbd>↓</kbd> Sinken</span>
+          <span class="key"><kbd>←</kbd> links drehen</span>
+          <span class="key"><kbd>→</kbd> rechts drehen</span>
+          <span class="key"><kbd>W</kbd> vorwärts</span>
+          <span class="key"><kbd>S</kbd> rückwärts</span>
+          <span class="key"><kbd>A</kbd> seitwärts links</span>
+          <span class="key"><kbd>D</kbd> seitwärts rechts</span>
+        </div>
+      </div>
+      </div>
+    </section>
+  </main>
+ </body>
+</html>

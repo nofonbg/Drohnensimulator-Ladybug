@@ -61,7 +61,7 @@ und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
 | `flag_g.png` | Fahne am Ziel |
 | `inc.css` | Reststylesheet des Ursprungshosts (nicht benötigt) |
 | `docs/drohnensimulator.png` | Screenshot für diese README |
-| `LICENSE` | MIT-Lizenz des eigenen Codes (Namensnennung) |
+| `LICENSE` | CC BY-NC-SA 4.0 des eigenen Werks (Namensnennung, nicht-kommerziell, ShareAlike) |
 
 ## Starten
 
@@ -74,9 +74,16 @@ Neue Kurse entstehen bei jedem Start bzw. jedem Klick auf die Erfolgsmeldung.
 
 ## Lizenz
 
-**MIT License – Namensnennung** (vollständiger Text in [`LICENSE`](LICENSE)):
-Der eigene Code darf frei verwendet, verändert und weitergegeben werden – auch kommerziell –,
-solange der Urheberhinweis `Copyright (c) 2026 Norbert Forster` erhalten bleibt.
+**CC BY-NC-SA 4.0 – Namensnennung, nicht-kommerziell, gleiche Lizenz**
+(vollständiger Text der Lizenz in [`LICENSE`](LICENSE),
+Übersicht auf deutsch: <https://creativecommons.org/licenses/by-nc-sa/4.0/de>)
+
+Das eigene Werk darf geteilt, genutzt und bearbeitet werden, sofern gilt:
+
+1. **Namensnennung** – `© 2026 Norbert Forster, CC BY-NC-SA 4.0`
+2. **Nicht kommerziell** – keine Verwendung zu kommerziellen Zwecken
+3. **Weitergabe unter denselben Bedingungen** – Abwandlungen tragen dieselbe Lizenz
 
 Enthaltene Fremdteile behalten ihre eigenen Lizenzen: `three.min.js`, `Sky.js` und
-`OrbitControls.js` stammen aus dem [three.js](https://threejs.org/)-Projekt (MIT-Lizenz).
+`OrbitControls.js` stammen aus dem [three.js](https://threejs.org/)-Projekt (MIT-Lizenz,
+kommerzielle Nutzung durch diese Bibliothek also unberührt).

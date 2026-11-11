@@ -1,10 +1,13 @@
 # 🐞 Drohnen-Simulator (Ladybug-Drohne)
 
 Interaktive 3D-Demo im Browser: eine Marienkäfer-Drohne fliegt über ein unebenes Gelände
-durch einen zufällig erzeugten **Bezier-Schlangenparcours** mit drei großen Ringen auf
+durch einen zufällig erzeugten **Bézier-Parcours** mit drei großen Ringen auf
 Pfosten zum zweiten Landeplatz. Komplett clientseitig mit [three.js](https://threejs.org/)
 (r145, mitgeliefert) – **kein Build, kein Server nötig**: `index.html` einfach im Browser
-öffnen.
+öffnen.  
+Der Simulator ist Teil eines Moodle-Kurses zum Thema Drohnen steuern. Der Kurs erklärt gesetzliche 
+und rechtliche Anforderungen und Voraussetzungen, im zweiten Teil werden mit Überflugverbotskarten
+und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
 
 <img src="docs/drohnensimulator.png" alt="Drohnen-Simulator: Kurs mit drei Ringen auf Pfosten" width="700">
 

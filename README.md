@@ -61,6 +61,7 @@ und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
 | `flag_g.png` | Fahne am Ziel |
 | `inc.css` | Reststylesheet des Ursprungshosts (nicht benötigt) |
 | `docs/drohnensimulator.png` | Screenshot für diese README |
+| `LICENSE` | MIT-Lizenz des eigenen Codes (Namensnennung) |
 
 ## Starten
 
@@ -73,5 +74,9 @@ Neue Kurse entstehen bei jedem Start bzw. jedem Klick auf die Erfolgsmeldung.
 
 ## Lizenz
 
-Der eigene Code liegt im jeweiligen Repository-Status. `three.min.js`, `Sky.js` und
-`OrbitControls.js` stammen aus dem three.js-Projekt (MIT-Lizenz).
+**MIT License – Namensnennung** (vollständiger Text in [`LICENSE`](LICENSE)):
+Der eigene Code darf frei verwendet, verändert und weitergegeben werden – auch kommerziell –,
+solange der Urheberhinweis `Copyright (c) 2026 Norbert Forster` erhalten bleibt.
+
+Enthaltene Fremdteile behalten ihre eigenen Lizenzen: `three.min.js`, `Sky.js` und
+`OrbitControls.js` stammen aus dem [three.js](https://threejs.org/)-Projekt (MIT-Lizenz).

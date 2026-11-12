@@ -1,5 +1,8 @@
 # 🐞 Drohnen-Simulator (Ladybug-Drohne)
 
+[![Lizenz: CC BY-NC-SA 4.0](https://img.shields.io/badge/Lizenz-CC%20BY--NC--SA%204.0-lightgrey?logo=creativecommons&logoColor=black)](LICENSE)
+[![Live-Demo](https://img.shields.io/badge/Live--Demo-nofonbg.github.io-2563eb?logo=githubpages&logoColor=white)](https://nofonbg.github.io/Drohnensimulator-Ladybug/)
+
 Interaktive 3D-Demo im Browser: eine Marienkäfer-Drohne fliegt über ein unebenes Gelände
 durch einen zufällig erzeugten **Bézier-Parcours** mit drei großen Ringen auf
 Pfosten zum zweiten Landeplatz – oder per Umschalter als einfacher **Training**-Flug

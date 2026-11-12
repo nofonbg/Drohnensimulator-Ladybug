@@ -86,4 +86,6 @@ Das eigene Werk darf geteilt, genutzt und bearbeitet werden, sofern gilt:
 
 Enthaltene Fremdteile behalten ihre eigenen Lizenzen: `three.min.js`, `Sky.js` und
 `OrbitControls.js` stammen aus dem [three.js](https://threejs.org/)-Projekt (MIT-Lizenz,
-kommerzielle Nutzung durch diese Bibliothek also unberührt).
+kommerzielle Nutzung durch diese Bibliothek also unberührt).  
+
+Basierend auf einer Idee von [https://mam-mam.net](https://mam-mam.net/en/javascript/three_js_drone.html)

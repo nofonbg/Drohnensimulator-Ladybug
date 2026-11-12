@@ -1,6 +1,9 @@
 # macOS
 .DS_Store
 
+# original ground texture (superseded by flag_g.jpg, kept locally as source)
+flag_g.png
+
 # editors
 *.swp
 .idea/

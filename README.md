@@ -25,8 +25,9 @@ und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
   Positionen bei 25 % / 50 % / 75 % der Kurvenlänge.
 - **Kollisionsanalyse** pro Frame: Drohne als Kugel gegen Ring (Torus-Mittellinie),
   Pfosten (vertikales Segment) und **Bodengelände** (inkl. Hügel über y=0). Bei Treffer:
-  Zurücksetzen auf die sichere Position, Tempo 0, rote Meldung – **per Klick ausblendbar,
-  danach fliegt es einfach weiter**.
+  Zurücksetzen auf die sichere Position, Tempo 0, **Rückstoß vom Hindernis weg**
+  (sonst würde die Meldung sofort wieder erscheinen und der Flug blockieren),
+  rote Meldung – **per Klick ausblendbar, danach fliegt es einfach weiter**.
 - **Durchflug-Zähler** oben auf dem Canvas: „Ringe: 1 von 3" … bei allen drei
   „**3 von 3 Ringen - jetzt landen!**".
 - **Ziellandung** mit grüner Erfolgsmeldung „Erfolgreich im Ziel gelandet";
@@ -58,7 +59,7 @@ und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
 | `Sky.js`, `OrbitControls.js` | Himmel und Orbit-Steuerung (three.js-Beispiele) |
 | `deckel.png` | Deckel-Textur, Kontur der Rumpf-Extrusion **und Favicon** |
 | `landing.png` | Landeplatten-Textur (mit Alpha) |
-| `flag_g.png` | Bodentextur (Luftbild eines Herbstgeländes, 8×8 Kachelung) |
+| `flag_g.jpg` | Bodentextur (Luftbild eines Herbstgeländes, JPEG 512×512, 8×8 Kachelung) |
 | `inc.css` | Reststylesheet des Ursprungshosts (nicht benötigt) |
 | `docs/drohnensimulator.png` | Screenshot für diese README |
 | `LICENSE` | CC BY-NC-SA 4.0 des eigenen Werks (Namensnennung, nicht-kommerziell, ShareAlike) |

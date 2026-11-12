@@ -10,7 +10,12 @@ Der Simulator ist Teil eines Moodle-Kurses zum Thema Drohnen steuern. Der Kurs e
 und rechtliche Anforderungen und Voraussetzungen, im zweiten Teil werden mit Überflugverbotskarten
 und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
 
-<img src="docs/drohnensimulator.png" alt="Drohnen-Simulator: Kurs mit drei Ringen" width="700">
+<img src="docs/drohnensimulator.png" alt="Drohnen-Simulator: Steuerung mit dem Level-Umschalter Parcours und Training" width="700">
+
+> **Neu – die beiden Levels:** Im Steuerpanel lässt sich zwischen **Parcours**
+> (drei Ringe auf Pfosten mit Durchflug-Zähler) und **Training** (einfacher Flug vom
+> Start- zum Zielplatz ohne Ringe und Stangen) umschalten – beim Wechsel startet die
+> Drohne neu auf dem Startplatz mit einem frisch gewürfelten Kurs.
 
 ## Features
 
@@ -53,7 +58,7 @@ und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
 | Sicht-Knopf | Überblick ↔ FPV (Nase) |
 | `starr \| Gimbal \| Welt` | FPV-Ausrichtung der Kamera |
 | Kamerawinkel-Rad | Kopfneigung in der FPV |
-| `Parcours \| Training` | Modus: Parcours (Ringe + Pfosten) ↔ Training (einfacher Ziel-Flug); Umschalten = Neustart |
+| `Parcours \| Training` | Level: Parcours (Ringe + Pfosten) ↔ Training (einfacher Ziel-Flug); Umschalten = Neustart |
 | Klick auf Erfolgsmeldung | Neuer Kurs (alles neu gewürfelt) |
 | Klick auf Kollisionsmeldung | Meldung ausblenden, Flug fortsetzen |
 

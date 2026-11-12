@@ -2,7 +2,8 @@
 
 Interaktive 3D-Demo im Browser: eine Marienkäfer-Drohne fliegt über ein unebenes Gelände
 durch einen zufällig erzeugten **Bézier-Parcours** mit drei großen Ringen auf
-Pfosten zum zweiten Landeplatz. Komplett clientseitig mit [three.js](https://threejs.org/)
+Pfosten zum zweiten Landeplatz – oder per Umschalter als einfacher **Training**-Flug
+vom Startplatz zum Zielplatz ohne Ringe und Stangen. Komplett clientseitig mit [three.js](https://threejs.org/)
 (r145, mitgeliefert) – **kein Build, kein Server nötig**: `index.html` einfach im Browser
 öffnen.  
 Der Simulator ist Teil eines Moodle-Kurses zum Thema Drohnen steuern. Der Kurs erklärt gesetzliche 
@@ -30,6 +31,11 @@ und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
   rote Meldung – **per Klick ausblendbar, danach fliegt es einfach weiter**.
 - **Durchflug-Zähler** oben auf dem Canvas: „Ringe: 1 von 3" … bei allen drei
   „**3 von 3 Ringen - jetzt landen!**".
+- **Modus-Umschalter `Parcours | Training`** in der Steuerung: **Parcours** (Standard)
+  mit drei Ringen, Pfosten und Durchflug-Zähler oder **Training** – einfacher Flug vom
+  Startplatz zum Zielplatz ohne Ringe und Stangen. Umschalten wirft die Drohne zurück
+  auf den Startplatz und würfelt einen neuen Kurs (neues Ziel, neue Kurve, neues
+  Gelände); die rote Routenlinie bleibt in beiden Modi als Wegweiser zum Ziel sichtbar.
 - **Ziellandung** mit grüner Erfolgsmeldung „Erfolgreich im Ziel gelandet";
   **Klick = neuer Kurs** (neues Ziel, neue Kurve, neue Ring-/Pfostenverteilung, neues Gelände).
 - Rote, dem Gelände folgende Routenlinie + weiches Korridorlicht über dem Kurs.
@@ -47,6 +53,7 @@ und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
 | Sicht-Knopf | Überblick ↔ FPV (Nase) |
 | `starr \| Gimbal \| Welt` | FPV-Ausrichtung der Kamera |
 | Kamerawinkel-Rad | Kopfneigung in der FPV |
+| `Parcours \| Training` | Modus: Parcours (Ringe + Pfosten) ↔ Training (einfacher Ziel-Flug); Umschalten = Neustart |
 | Klick auf Erfolgsmeldung | Neuer Kurs (alles neu gewürfelt) |
 | Klick auf Kollisionsmeldung | Meldung ausblenden, Flug fortsetzen |
 

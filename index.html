@@ -164,6 +164,28 @@
   .align-bt.is-on:hover{
     background:linear-gradient(180deg,#7db8fd,#4b8ef7);
   }
+  /* course mode switch: parcours (three rings + posts + pass counter) <-> training
+     (plain flight from pad 1 to pad 2, no rings and no posts). Sits in the light-hint
+     row between the two light captions, where the "blinken" caption used to be. */
+  .mode-sw{display:inline-flex;gap:6px;}
+  .mode-bt{
+    width:auto;
+    height:2em;
+    padding:0 0.85em;
+    font-size:0.9em;
+    font-weight:600;
+    letter-spacing:0.04em;
+    border-radius:999px;
+    text-transform:none;
+  }
+  .mode-bt.is-on{
+    background:linear-gradient(180deg,#60a5fa,#3b82f6);
+    border-color:#93c5fd;
+    color:#0f172a;
+  }
+  .mode-bt.is-on:hover{
+    background:linear-gradient(180deg,#7db8fd,#4b8ef7);
+  }
   /* FPV camera angle wheel: a white thumbwheel that only protrudes partially from a
      narrow rectangular slot in the control desk (seen from above), with fine knurling
      (Kerben) on its surface. A ruler scale sits to its right. Between it stay the
@@ -443,6 +465,11 @@
   var pad2={"x":0, "z":0};
   // one-shot flag: the success message only fades in once
   var successShown=false;
+  // course mode: 'parcours' (default: three rings + posts + pass counter) or 'training'
+  // (plain flight from pad 1 to pad 2, no rings and no posts). Switched by the button pair
+  // in the light-hint row of the control panel; a switch always restarts the scene with a
+  // brand new course (same path as a click on the success message).
+  var courseMode='parcours';
   // camera mode: false = overview (orbit control), true = first person view glued to the nose
   var fpv=false;
   // FPV camera head tilt in degrees: negative = look up, positive = look down (-30..90),
@@ -492,6 +519,8 @@
   function updateRingBadge(){
     const el=document.getElementById('ringBadge');
     if(!el) return;
+    // training mode has no rings at all -> the counter badge stays hidden
+    el.style.display=(courseMode==='training')?'none':'';
     if(ringPassCount>=3){
       el.textContent='3 von 3 Ringen - jetzt landen!';
       el.classList.add('done');
@@ -991,6 +1020,10 @@
       const old=scene.getObjectByName('ringGroup');
       if(old){ scene.remove(old); old.traverse(o=>{ if(o.geometry) o.geometry.dispose(); }); }
       obstacles=[];// fresh collision list for the new course (global, read by renderLoop)
+      // training mode: plain flight from pad 1 to pad 2 - no rings, no posts. The empty
+      // obstacle list already switches off renderLoop's collision check and pass counter
+      // (both sit behind `if(obstacles.length)` / iterate the list).
+      if(courseMode==='training'){ updateRingBadge(); return; }
       const g=new THREE.Group(); g.name='ringGroup';
       const R=22.5, TUBE=1.5;// inner opening 42 = 150% of the ~28 wide drone
       const tList=[0.25,0.5,0.75];
@@ -1402,6 +1435,26 @@
       alignRow.classList.toggle('is-dim',!fpv);// alignment only matters in the FPV view
     };
     viewToggle.addEventListener('click',function(){ setFpv(!fpv); });
+
+    // course mode switch: parcours (three rings + posts + pass counter) <-> training
+    // (plain flight from pad 1 to pad 2, no rings and no posts). Switching restarts the
+    // scene: drone back to pad 1, camera back to the starting view, brand new course -
+    // exactly the same reset as a click on the success message.
+    const modeSw=document.getElementById('modeSw');
+    const setCourseMode=function(mode){
+      if(mode===courseMode) return;
+      courseMode=mode;
+      [].forEach.call(modeSw.querySelectorAll('.mode-bt'),function(b){
+        const on=(b.getAttribute('data-mode')===mode);
+        b.classList.toggle('is-on',on);
+        b.setAttribute('aria-pressed',on?'true':'false');
+      });
+      resetScene();// restart with a fresh course; buildRings() honours courseMode
+    };
+    modeSw.addEventListener('click',function(e){
+      const b=e.target.closest?e.target.closest('.mode-bt'):null;
+      if(b) setCourseMode(b.getAttribute('data-mode'));
+    });
 
     // white thumbwheel for the FPV camera head: -30° (look up) .. +90° (straight down at the
     // landing pad). The wheel only protrudes from a narrow rectangular slot; it is driven by
@@ -1881,9 +1934,14 @@
       </div>
       <div class="hints">
         <div class="hint hint-lights">
-          <span class="hint-side"><span class="dot dot-red"></span> rotes Schlusslicht</span>
-          <span class="hint-mid">blinken</span>
-          <span class="hint-side">blaues Frontlicht <span class="dot dot-blue"></span></span>
+          <span class="hint-side"><span class="dot dot-red"></span> Schlusslicht</span>
+          <span class="hint-mid">
+            <span class="mode-sw" id="modeSw" role="group" aria-label="Flugmodus">
+              <button type="button" class="cbt mode-bt is-on" data-mode="parcours" aria-pressed="true">Parcours</button>
+              <button type="button" class="cbt mode-bt" data-mode="training" aria-pressed="false">Training</button>
+            </span>
+          </span>
+          <span class="hint-side">Frontlicht <span class="dot dot-blue"></span></span>
         </div>
         <div class="keys">
           <span class="key"><kbd>↑</kbd> Steigen</span>

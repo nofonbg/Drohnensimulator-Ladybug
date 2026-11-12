@@ -678,7 +678,7 @@
       side:THREE.FrontSide
     });
     // floor
-    let floorTexture=new THREE.TextureLoader().load('flag_g.png');
+    let floorTexture=new THREE.TextureLoader().load('flag_g.jpg');// JPEG 512x512: 152 KB instead of 2.5 MB PNG
     floorTexture.wrapS=THREE.RepeatWrapping;
     floorTexture.wrapT=THREE.RepeatWrapping;
     // specify how often the texture repeats
@@ -1495,7 +1495,10 @@
     // as a sphere around its centre (radius = half the rotor span, measured once from the
     // bounding box). A ring is its centreline circle, a post a vertical line segment.
     // On impact the drone is put back to the start of this movement step, its speed is
-    // zeroed and a short red message appears (see showCrash). Flying exactly through the
+    // zeroed, a short red message appears (see showCrash) and the drone is nudged a small
+    // piece CLEAR of the touched obstacle - without that nudge the start-of-step position
+    // can still lie inside the contact shell, the message would reappear on the very next
+    // frame and the drone could never steer away (it was pinned). Flying exactly through the
     // middle of a ring stays collision-free: the opening (radius 21) is wider than the
     // drone sphere, so only the rim tube and the post below are dangerous.
     if(obstacles.length){
@@ -1505,7 +1508,7 @@
         droneColCY=0.5*(b.min.y+b.max.y)-drone.position.y;
       }
       const sx=pos.x, sy=pos.y+droneColCY, sz=pos.z;
-      let hitKind='';
+      let hitKind='', hitObs=null;// the obstacle that was touched (needed for the push-out)
       for(let i=0;i<obstacles.length&&!hitKind;i++){
         const o=obstacles[i];
         if(o.kind==='ring'){
@@ -1515,18 +1518,63 @@
           const rx=dx-o.ax*a, ry=dy-o.ay*a, rz=dz-o.az*a;// component in the ring plane
           const rl=Math.sqrt(rx*rx+ry*ry+rz*rz);// distance from the ring axis
           const d=Math.sqrt((rl-o.R)*(rl-o.R)+a*a);
-          if(d<o.tube+droneColR) hitKind='ring';
+          if(d<o.tube+droneColR){hitKind='ring'; hitObs=o;}
         }else{
           // distance from the drone centre to the vertical post segment
           const cy=Math.max(o.y0,Math.min(o.y1,sy));
           const dx=sx-o.x, dy=sy-cy, dz=sz-o.z;
           const rr=o.r+droneColR;
-          if(dx*dx+dy*dy+dz*dz<rr*rr) hitKind='post';
+          if(dx*dx+dy*dy+dz*dz<rr*rr){hitKind='post'; hitObs=o;}
         }
       }
       if(hitKind){
         pos.x=preX; pos.y=preY; pos.z=preZ;// back to the safe position of this frame's start
         pos.vx=0; pos.vy=0; pos.vz=0;// stop dead, the pilot has to steer around the obstacle
+        // Push the drone a small piece CLEAR of the touched obstacle. Without this nudge the
+        // start-of-step position can still lie inside the contact shell: the message would
+        // reappear on the very next frame and the drone could never steer away (it was
+        // pinned - every movement step was reverted again). The push goes along the surface
+        // normal to contact distance + ESC, which is far enough that a resting drone cannot
+        // immediately re-trigger, but small enough to look like a bounce, not a teleport.
+        const ESC=1.0;// extra clearance (world units) beyond the contact distance
+        if(hitObs.kind==='ring'){
+          const o=hitObs;
+          const ux0=pos.x-o.x, uy0=pos.y+droneColCY-o.y, uz0=pos.z-o.z;
+          const a=ux0*o.ax+uy0*o.ay+uz0*o.az;
+          const rx=ux0-o.ax*a, ry=uy0-o.ay*a, rz=uz0-o.az*a;
+          const rl=Math.sqrt(rx*rx+ry*ry+rz*rz);// collision needs rl~=o.R, so rl>0 here
+          const d=Math.sqrt((rl-o.R)*(rl-o.R)+a*a);
+          const need=o.tube+droneColR+ESC;
+          if(rl>1e-6&&d<need){
+            if(d>1e-6){
+              // straight out along the direction from the nearest point of the centreline
+              // circle through the drone centre -> lands at exactly contact distance + ESC
+              const k=(need-d)/d;
+              pos.x+=(ux0-o.R*rx/rl)*k;
+              pos.y+=(uy0-o.R*ry/rl)*k;
+              pos.z+=(uz0-o.R*rz/rl)*k;
+            }else{
+              // degenerate: drone centre exactly ON the centreline -> push radially outwards
+              pos.x+=rx/rl*need;
+              pos.y+=ry/rl*need;
+              pos.z+=rz/rl*need;
+            }
+          }
+        }else{
+          const o=hitObs;
+          const cy=Math.max(o.y0,Math.min(o.y1,pos.y+droneColCY));
+          const dx=pos.x-o.x, dy=pos.y+droneColCY-cy, dz=pos.z-o.z;
+          const dist=Math.sqrt(dx*dx+dy*dy+dz*dz);
+          const need=o.r+droneColR+ESC;
+          if(dist<need){
+            if(dist>1e-6){
+              const k=(need-dist)/dist;
+              pos.x+=dx*k; pos.y+=dy*k; pos.z+=dz*k;
+            }else{
+              pos.x+=need;// degenerate: exactly on the post axis -> push sideways out
+            }
+          }
+        }
         lastCollision=hitKind;
         collisionCount++;
         showCrash(hitKind==='ring'?'Kollision mit dem Ring!':'Kollision mit dem Pfosten!');

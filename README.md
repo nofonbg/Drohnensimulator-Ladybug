@@ -9,7 +9,7 @@ Der Simulator ist Teil eines Moodle-Kurses zum Thema Drohnen steuern. Der Kurs e
 und rechtliche Anforderungen und Voraussetzungen, im zweiten Teil werden mit Überflugverbotskarten
 und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
 
-<img src="docs/drohnensimulator.png" alt="Drohnen-Simulator: Kurs mit drei Ringen auf Pfosten" width="700">
+<img src="docs/drohnensimulator.png" alt="Drohnen-Simulator: Kurs mit drei Ringen" width="700">
 
 ## Features
 
@@ -86,4 +86,6 @@ Das eigene Werk darf geteilt, genutzt und bearbeitet werden, sofern gilt:
 
 Enthaltene Fremdteile behalten ihre eigenen Lizenzen: `three.min.js`, `Sky.js` und
 `OrbitControls.js` stammen aus dem [three.js](https://threejs.org/)-Projekt (MIT-Lizenz,
-kommerzielle Nutzung durch diese Bibliothek also unberührt).
+kommerzielle Nutzung durch diese Bibliothek also unberührt).  
+
+Basierend auf einer Idee von [https://mam-mam.net](https://mam-mam.net/en/javascript/three_js_drone.html)

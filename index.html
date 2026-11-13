@@ -460,7 +460,18 @@
   var controls;
   var scene,camera,renderer;
   
-  var pos={"c":"", "x":0, "y":0, "z":0, "vx":0, "vy":0, "vz":0, "turn":0};
+  var pos={"x":0, "y":0, "z":0, "vx":0, "vy":0, "vz":0, "turn":0};
+  // flight commands currently held down ('up','dn','tl','tr','mf','mb','ml','mr'), fed by
+  // the keyboard AND the on-screen keycaps. A SET instead of a single value so any
+  // combination can be evaluated in the same frame - one arrow key plus one WASD key
+  // (climb while accelerating, turn while flying), two WASD keys, and so on. Opposite
+  // keys (W+S, left+right) simply cancel out to a net zero. Deliberately global like pos.
+  var held=new Set();
+  // keyboard key -> flight command, shared by the keydown and the keyup listener
+  function keyCmd(k){
+    return {w:"mf", s:"mb", a:"ml", d:"mr",
+            arrowup:"up", arrowdown:"dn", arrowleft:"tl", arrowright:"tr"}[k]||null;
+  }
   // 2nd landing site: filled in main() with a random position (world x/z)
   var pad2={"x":0, "z":0};
   // one-shot flag: the success message only fades in once
@@ -1335,29 +1346,34 @@
     // flight keys: the keystroke is swallowed (preventDefault) so the browser cannot
     // hand it to its find-as-you-type/search bar or scroll the page with the arrows.
     // Modifier shortcuts (Ctrl/Cmd/Alt, e.g. Ctrl+F) are deliberately left alone.
+    // Every key adds / removes ITS OWN command in `held`, so any combination works at
+    // the same time (one arrow key + one WASD key, two WASD keys, ...) and releasing
+    // one key never cancels another one that is still held down.
     const flightKeys=["w","s","a","d","arrowup","arrowdown","arrowleft","arrowright"];
     document.addEventListener("keydown", e => {
       const k=(e.key||"").toLowerCase();// also catches Shift+W / CapsLock -> "W"
       if(flightKeys.includes(k) && !e.ctrlKey && !e.metaKey && !e.altKey){
         e.preventDefault();
         e.stopPropagation();
+        const c=keyCmd(k);
+        if(c) held.add(c);// idempotent: the keyboard auto-repeat fires keydown repeatedly
       }
-      if (k === "w") pos.c = "mf";
-      if (k === "s") pos.c = "mb";
-      if (k === "a") pos.c = "ml";
-      if (k === "d") pos.c = "mr";
-      if (k === "arrowup") pos.c = "up";
-      if (k === "arrowdown") pos.c = "dn";
-      if (k === "arrowleft") pos.c = "tl";
-      if (k === "arrowright") pos.c = "tr";
     });
-    document.addEventListener("keyup", () => pos.c = "");
+    document.addEventListener("keyup", e => {
+      const c=keyCmd((e.key||"").toLowerCase());
+      if(c) held.delete(c);// only THIS key's command is released, others stay active
+      // deliberately NOT gated on modifiers: a release must always get through
+    });
+    // a lost window (Alt+Tab, tab switch) can swallow keyup events -> clear the set so
+    // no command stays stuck on forever
+    window.addEventListener("blur", function(){ held.clear(); });
+    document.addEventListener("visibilitychange", function(){ if(document.hidden) held.clear(); });
 
     // click on the success message: reset the scene and roll a completely new course
     // (drone back to pad 1, camera back to the starting view, new random pad 2 with new
     // terrain, new route line, re-aimed corridor light, success message hidden again)
     const resetScene=()=>{
-      pos.c=""; pos.x=0; pos.y=0; pos.z=0;
+      held.clear(); pos.x=0; pos.y=0; pos.z=0;
       pos.vx=0; pos.vy=0; pos.vz=0; pos.turn=0;
       newPad2();
       buildTerrain();
@@ -1539,26 +1555,36 @@
     pos.vx *= 0.95;
     pos.vy *= 0.95;
     pos.vz *= 0.95;
-    if(pos.c=="up"){
+    // every command that is currently held down acts in the SAME frame - independent ifs
+    // instead of an else-if chain, so e.g. an arrow key and a WASD key fly together
+    // (climb while accelerating, turn while moving). Opposite keys cancel out to net 0.
+    if(held.has("up")){
       pos.vy+=0.1;
-      if(pos.vy>limit){vy=limit;}
-    }else if(pos.c=="dn"){
+      if(pos.vy>limit){pos.vy=limit;}
+    }
+    if(held.has("dn")){
       pos.vy-=0.1;
-      if(pos.vy<-limit){vy=-limit;}
-    }else if(pos.c=="tl"){
+      if(pos.vy<-limit){pos.vy=-limit;}
+    }
+    if(held.has("tl")){
       pos.turn += Math.PI/72;
-    }else if(pos.c=="tr"){
+    }
+    if(held.has("tr")){
       pos.turn -= Math.PI/72;
-    }else if(pos.c=="mf"){
+    }
+    if(held.has("mf")){
       pos.vz+=0.1;
       if(pos.vz>limit){pos.vz=limit;}
-    }else if(pos.c=="mb"){
+    }
+    if(held.has("mb")){
       pos.vz-=0.1;
       if(pos.vz<-limit){pos.vz=-limit;}
-    }else if(pos.c=="ml"){
+    }
+    if(held.has("ml")){
       pos.vx-=0.1;
       if(pos.vx<-limit){pos.vx=-limit;}
-    }else if(pos.c=="mr"){
+    }
+    if(held.has("mr")){
       pos.vx+=0.1;
       if(pos.vx>limit){pos.vx=limit;}
     }
@@ -1752,55 +1778,32 @@
   window.addEventListener('DOMContentLoaded', main, false);
 
   window.addEventListener('load',function(){
-    //X: right  Y: up  Z: toward the viewer
-    //pos={"x":0,"y":0,"z":0,"vx":0,"vy":0,"vz":0,"turn":0};
-    document.getElementById("up").addEventListener("mousedown",up);
-    document.getElementById("dn").addEventListener("mousedown",dn);
-    document.getElementById("tl").addEventListener("mousedown",tl);
-    document.getElementById("tr").addEventListener("mousedown",tr);
-    document.getElementById("mf").addEventListener("mousedown",mf);
-    document.getElementById("mb").addEventListener("mousedown",mb);
-    document.getElementById("ml").addEventListener("mousedown",ml);
-    document.getElementById("mr").addEventListener("mousedown",mr);
-
-    document.getElementById("up").addEventListener("touchstart",up);
-    document.getElementById("dn").addEventListener("touchstart",dn);
-    document.getElementById("tl").addEventListener("touchstart",tl);
-    document.getElementById("tr").addEventListener("touchstart",tr);
-    document.getElementById("mf").addEventListener("touchstart",mf);
-    document.getElementById("mb").addEventListener("touchstart",mb);
-    document.getElementById("ml").addEventListener("touchstart",ml);
-    document.getElementById("mr").addEventListener("touchstart",mr);
-
-
-    window.addEventListener("mouseup",function(){pos.c="";});
-    window.addEventListener("touchend",function(){pos.c="";});
+    // on-screen keycaps: pressing adds the cap's command to `held`, releasing removes
+    // ONLY that command - two caps can be held at the same time (multi-touch on the
+    // arrow and WASD pads) and letting go of one never cancels the other. Touch events
+    // stay bound to the element where the touch started, so touchend/touchcancel per
+    // element is exact. A mouse is a single pointer: the window-level mouseup releases
+    // the cap last pressed with the mouse, which also catches a release OUTSIDE the
+    // button (mouse down on the cap, drag away, let go). Command name == element id.
+    let mouseCap=null;// command the mouse is currently holding down
+    ["up","dn","tl","tr","mf","mb","ml","mr"].forEach(function(id){
+      const el=document.getElementById(id);
+      if(!el) return;
+      el.addEventListener("mousedown",function(e){
+        e.preventDefault();// no text selection / drag of the keycap
+        mouseCap=id; held.add(id);
+      });
+      el.addEventListener("touchstart",function(e){
+        e.preventDefault();// also suppresses the emulated mouse events of a touch
+        held.add(id);
+      });
+      el.addEventListener("touchend",function(){ held.delete(id); });
+      el.addEventListener("touchcancel",function(){ held.delete(id); });
+    });
+    window.addEventListener("mouseup",function(){
+      if(mouseCap){ held.delete(mouseCap); mouseCap=null; }
+    });
   });
-
-  function up(){
-    pos.c="up";
-  }
-  function dn(){
-    pos.c="dn";
-  }
-  function tl(){
-    pos.c="tl";
-  }
-  function tr(){
-    pos.c="tr";
-  }
-  function mf(){
-    pos.c="mf";
-  }
-  function mb(){
-    pos.c="mb";
-  }
-  function ml(){
-    pos.c="ml";
-  }
-  function mr(){
-    pos.c="mr";
-  }
 
 </script>
 

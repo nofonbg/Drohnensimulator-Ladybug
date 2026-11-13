@@ -64,6 +64,7 @@ und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
 | `Parcours \| Training` | Level: Parcours (Ringe + Pfosten) ↔ Training (einfacher Ziel-Flug); Umschalten = Neustart |
 | Klick auf Erfolgsmeldung | Neuer Kurs (alles neu gewürfelt) |
 | Klick auf Kollisionsmeldung | Meldung ausblenden, Flug fortsetzen |
+| ↑ + W, ← + W usw. | Tasten **beliebig kombinierbar** – z.B. steigen UND beschleunigen oder Kurve fliegen gleichzeitig |
 
 ## Dateien
 

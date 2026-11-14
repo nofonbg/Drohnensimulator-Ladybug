@@ -122,7 +122,6 @@ und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
 | `landing.png` | Landeplatten-Textur (mit Alpha) |
 | `flag_g.jpg` | Bodentextur (Luftbild eines Herbstgeländes, JPEG 512×512, 8×8 Kachelung) auf der Kreisscheibe |
 | `sky.jpg` | Himmeltextur: 2:1-Equirect-Panorama (1200×600), obere Bildhälfte Himmel, untere Wasserspiegelung; projiziert auf die Halbkugel (obere Hälfte per `offset.y`/`repeat.y` ausgewählt) |
-| `inc.css` | Reststylesheet des Ursprungshosts (nicht benötigt) |
 | `docs/drohnensimulator.png` | Screenshot für diese README |
 | `docs/wasser.jpg` | Screenshot der Wasserlandschaft (Küste mit beiden Buchten) |
 | `LICENSE` | CC BY-NC-SA 4.0 des eigenen Werks (Namensnennung, nicht-kommerziell, ShareAlike) |

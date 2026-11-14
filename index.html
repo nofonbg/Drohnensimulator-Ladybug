@@ -50,7 +50,7 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
   <!--                                                                      -->
   <!-- Enthält alle three.js-Objekte in EINEM Abschnitt, in der            -->
   <!-- Reihenfolge:                                                         -->
-  <!--   1. WELT    - Szene, Kamera, Renderer, Himmel, Licht, Wolken,       -->
+  <!--   1. WELT    - Szene, Kamera, Renderer, Himmel, Licht,               -->
   <!--                Materialien, Grundgeometrien, Gelände und Wasser      -->
   <!--   2. OBJEKTE - beide Landeplatten, rote Kurslinie, Ringe mit         -->
   <!--                Pfosten, Kurslicht und die Drohne                      -->
@@ -65,8 +65,10 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
   var drone,drone1,drone2,drone3,drone4;// Drohnengruppe und die vier Rotorgruppen
   var md0,md1,md2,md3,md4,md5,md6,md7,md8;// Rumpf, Träger, Markierungen, Landebeine
   var md11,md12,md21,md22,md31,md32,md41,md42;// Rotorblätter der vier Rotoren
-  var clouds,blinkStart;// Wolkengruppe und Startzeitpunkt des Lichtblinkens
-  var sky;// Himmelkuppel (sky.jpg-Textur), folgt der Kamera - siehe renderLoop()
+  var blinkStart;// Startzeitpunkt des Lichtblinkens der Markierungen (siehe renderLoop)
+  var sky;// Himmelkuppel (sky.jpg-Textur), fest auf dem Ursprung - siehe buildScene()
+  var skyTex;// Textur der Kuppel; in renderLoop() um SKY_DEG_PER_SEC pro Sekunde gedreht
+  var skyPrevT=0;// letzter Zeitstempel der Himmelsdrehung (ms), 0 = noch kein Frame gesehen
   // 2. Landeplatz: wird in buildScene() mit einer Zufallsposition (Welt-x/z) gefüllt
   var pad2={"x":0, "z":0};
   // ---- Horizont-Maße: EINE Zahl für Boden, Wasser UND Himmel -----------------
@@ -77,13 +79,18 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
   // Nachjustieren genügt hier - Scheibe, Kuppel, Wasser-Polygon, Kamera-Weit (far)
   // und Zoom-Begrenzung ziehen automatisch mit.
   const HORIZON_R=8000;// Radius der Himmelkuppel (Halbkugel) in Welteinheiten
+  const SKY_DEG_PER_SEC=0.5;// Drehung des Himmels (sky.jpg) um die Kugelachse in Grad
+  // pro Sekunde: 0,5° = eine Runde in 12 Minuten - ruhiger Wolkenzug, nahe an echten
+  // Verhältnissen (~15 m/s Wind auf 3 km Höhe ≈ 0,3°/s). Die Wolken ziehen damit
+  // sichtbar, ohne dass - wie früher mit Sprites - ein zweites, unabhängiges
+  // Wolkensystem mitläuft.
   const GROUND_R=HORIZON_R+16;// Bodenscheibe ragt 16 Einheiten über die Kuppel hinaus:
   // ihre 256 Facetten-Kanten liegen dann überALL über den 64 Kuppel-Facetten, es kann
   // kein Schlitzenzwischenstich ans Hellblau von scene.background durchblitzen
   const GROUND_SPOKES=256;// Speichen der Bodenscheibe (Ring-Übergänge teilen Vertices -> keine Risse)
   // Geländehöhe an einer Welt-x/z-Position: in buildScene() als Closure über das
   // Bodenhöhengitter angelegt und von der Routenlinie, den Ringpfosten sowie der
-  // Bodenkollision in renderLoop() genutzt - bewusst global wie die Wolken.
+  // Bodenkollision in renderLoop() genutzt - bewusst global wie skyTex/sky.
   var floorY=null;// Geländehöhe an einer Welt-x/z-Position, in buildScene() angelegt
   // ---- Wasser: die Landschaftsänderung. Die Küstenlinie zieht sich ein Drittel vor
   // dem FERNEN Rand der früheren 1000x1000-Landschaft entlang (z = -167 statt -500) und schneidet ZWEI
@@ -133,7 +140,7 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
 
     // ==== WELT =================================================================
     // Alles, was die Umgebung ausmacht: Szene, Kamera, Renderer, Himmel, Licht,
-    // Wolken, Materialien, Grundgeometrien, Gelände und Wasser.
+    // Materialien, Grundgeometrien, Gelände und Wasser.
     // ===========================================================================
     //■ Szene (Container für alle 3D-Objekte)
     scene = new THREE.Scene();
@@ -166,7 +173,9 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
     //     läuft es linear - also exakt die equirectwinkeltreue Projektion
     //   * u=0..1 spannt die volle Kugelrunde (360°), wrapS=RepeatWRapping verhindert
     //     einen Nahtstich am Schnitt u=0/1 (Rückseite der Kugel)
-    let skyTex=new THREE.TextureLoader().load('sky.jpg');
+    // skyTex ist GLOBALE (renderLoop() dreht sie pro Sekunde um SKY_DEG_PER_SEC, um
+    // die Wolken des Panoramas ziehen zu lassen - statt eines eigenen Sprite-Wolkensystems)
+    skyTex=new THREE.TextureLoader().load('sky.jpg');
     skyTex.wrapS=THREE.RepeatWrapping;
     skyTex.offset.set(0,0.5);
     skyTex.repeat.set(1,0.5);
@@ -189,74 +198,13 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
     sky.renderOrder=-1;// zuerst zeichnen, dann decken alle Objekte die Kuppel korrekt ab
     scene.add(sky);
 
-    //■ Kumulus-Wolken (prozedurale Alphatextur auf kamera-zuwendenden Sprites)
-    // Als DataTexture statt über eine 2D-Leinwand gebaut: Safari kann eine erst spät
-    // gerasterte Canvas als Müllbytes (Farbrauschen) hochladen, Rohpixeldaten sind sicher.
-    function makeCloudTexture(){
-      const size=256;
-      const data=new Uint8Array(size*size*4);
-      // Lappen im Sprite-Raum: v = 0 ist der UNTERE Wolkenrand, v = 1 der obere
-      const lobes=[[0.50,0.38,0.30],[0.30,0.36,0.20],[0.70,0.36,0.20],
-                   [0.40,0.53,0.22],[0.60,0.54,0.19],[0.50,0.65,0.15],
-                   [0.22,0.44,0.13],[0.78,0.44,0.13]];
-      for(let py=0;py<size;py++){
-        const v=(py+0.5)/size;
-        for(let px=0;px<size;px++){
-          const u=(px+0.5)/size;
-          let a=0;
-          for(let i=0;i<lobes.length;i++){
-            const dx=(u-lobes[i][0])/lobes[i][2];
-            const dy=(v-lobes[i][1])/lobes[i][2];
-            const d=Math.sqrt(dx*dx+dy*dy);
-            if(d<1){
-              // gleiche Alphakurve wie die alten radialen Canvas-Verläufe:
-              // 0,95 im Kern, 0,70 bei 55 % des Radius, 0 am Rand
-              const t=d<0.55 ? (0.95+(0.70-0.95)*(d/0.55))
-                             : (0.70*(1-(d-0.55)/0.45));
-              a=t+a*(1-t);// source-over: die Lappen verschmelzen zu einer Wolkenmasse
-            }
-          }
-          // Kumulus haben eine flache Unterseite: unter v = 0,336 ausblenden (bei v = 0,078 weg)
-          if(v<0.336){
-            let t=(v-0.078)/0.258;
-            if(t<0){t=0;}
-            if(t>1){t=1;}
-            t=t*t*(3-2*t);
-            a*=t;
-          }
-          const o=(py*size+px)*4;
-          data[o]=255; data[o+1]=255; data[o+2]=255;
-          data[o+3]=(a*255)|0;
-        }
-      }
-      const tex=new THREE.DataTexture(data,size,size,THREE.RGBAFormat);
-      tex.flipY=false;// Daten stehen von unten nach oben im Speicher, kein vertikaler Flip nötig
-      tex.minFilter=THREE.LinearFilter;// weiche Kanten (DataTexture nutzt sonst Nearest-Filterung)
-      tex.magFilter=THREE.LinearFilter;
-      tex.generateMipmaps=false;
-      tex.wrapS=THREE.ClampToEdgeWrapping;
-      tex.wrapT=THREE.ClampToEdgeWrapping;
-      tex.needsUpdate=true;
-      return tex;
-    }
-    let cloudTex=makeCloudTexture();
-    clouds=new THREE.Group;// global, damit renderLoop die Gruppe driftet (wie drone/drone1..4)
+    // Hinweis: die alten Kumulus-Sprites (prozedurale DataTexture + Drift-Loop im
+    // renderLoop) sind entfernt - die Wolkenbildung übernimmt jetzt allein sky.jpg,
+    // das in renderLoop() um SKY_DEG_PER_SEC pro Sekunde um die Kugelachse dreht.
+    // Damit läuft nur noch EIN Wolkensystem (statt Foto-Wolken + Sprite-Wolken
+    // unabhängig voneinander), und 13 alpha-geblendete Sprites samt DataTexture-Bau
+    // (65 000 Pixel-Iterationen beim Start) entfallen.
     blinkStart=0;// globaler Startzeitpunkt für das Blinken von Rück-/Frontlicht
-    let cloudData=[[-2600, 750,-5200,1400],[ 1800,1050,-6400,1200],[-900,1500,-7800,1700],
-                   [ 3400,1250,-4300,1100],[-4200,1000,-3600,1300],[  700, 700,-3100, 900],
-                   [ 4800,1600,-7200,1600],[-2000,1900,-8800,1500],[ 2500, 850, 3800,1200],
-                   [-3300,1150, 5000,1400],[ 1000,1400, 6800,1300],[-5400, 950, -900,1100],
-                   [ 5400,1300, 1600,1250]];
-    for(let i=0;i<cloudData.length;i++){
-      let d=cloudData[i];
-      let sp=new THREE.Sprite(new THREE.SpriteMaterial({
-        map:cloudTex, transparent:true, opacity:0.9, depthWrite:false, color:0xffffff
-      }));
-      sp.position.set(d[0],d[1],d[2]);
-      sp.scale.set(d[3],d[3]*0.5,1);// Kumulus sind breiter als sie hoch sind
-      clouds.add(sp);
-    }
-    scene.add(clouds);
 
     //■ Lichtquellen ------------------------------------------------
     // Umgebungslicht (Licht auf jedes Objekt aus jeder Richtung), damit unbeleuchtete Flächen nie schwarz werden
@@ -1390,12 +1338,17 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
     drone3.rotation.y+=Math.PI/8;
     drone4.rotation.y+=Math.PI/8;
 
-    // langsame Wolken-Drift (springt um, noch weit außerhalb des Bilds)
-    for(let i=0;i<clouds.children.length;i++){
-      let cl=clouds.children[i];
-      cl.position.x+=1.5;
-      if(cl.position.x>9000){cl.position.x=-9000;}
+    // Himmelsdrehung: sky.jpg um SKY_DEG_PER_SEC Grad pro Sekunde um die Kugelachse
+    // drehen -> die Wolken des Panoramas ziehen sichtbar über den Himmel. offset.x
+    // ist reiner Textur-Offset (wrapS=RepeatWRapping, s.o.), kostet also nur einen
+    // Uniform-Wert pro Frame; zeitbasiert (dt, gedeckelt) wie die Wellenanimation
+    // weiter unten, damit ein Hintergrund-Tab die Bewegung nicht vorspringen lässt.
+    const skyNowT=performance.now();
+    if(skyPrevT>0){
+      const skyDt=Math.min((skyNowT-skyPrevT)/1000,0.1);// Deckel 0,1 s wie bei den Wellen
+      skyTex.offset.x+=(SKY_DEG_PER_SEC/360)*skyDt;// 360° = volle Texturrunde (u=0..1)
     }
+    skyPrevT=skyNowT;
 
     // hintere (rote) und vordere (blaue) Markierung alle 0,5 s blinken lassen
     let blinkOn=Math.floor((performance.now()-blinkStart)/500)%2===0;

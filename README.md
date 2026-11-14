@@ -56,7 +56,10 @@ und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
   (Zenit → Horizont) wird winkeltreu auf eine Halbkugel projiziert – statt des bisherigen
   `Sky.js`-Prozedurhimmels. **Ein Maß an einer Stelle**: Kuppel (`HORIZON_R` = 8000),
   Bodenscheibe, Wasser-Polygon, Kamera-Weitbereich und Zoom-Grenze lesen dieselbe
-  Konstante – nachjustieren genügt an einer Stelle.
+  Konstante – nachjustieren genügt an einer Stelle. Die Kuppel dreht sich mit
+  **0,5° pro Sekunde** (eine Runde in 12 Minuten) um die Kugelachse, sodass die Wolken
+  des Panoramas sichtbar ziehen; die früheren prozeduralen Sprite-Wolken sind entfernt
+  (ein Wolkensystem statt zwei konkurrierender, 13 alpha-geblendete Sprites weniger).
 - **Boden als Kreisscheibe**: `flag_g.jpg` liegt nicht mehr auf einem 1000×1000-Quadrat,
   sondern auf einer radialen Scheibe bis Radius 8016 (Speichen-Raster, innen so dicht wie
   das alte Gitter, nach außen grob anwachsend). Die runde Außenkante endet **exakt auf
@@ -83,7 +86,7 @@ und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
 - **Ziellandung** mit grüner Erfolgsmeldung „Erfolgreich im Ziel gelandet";
   **Klick = neuer Kurs** (neues Ziel, neue Kurve, neue Ring-/Pfostenverteilung, neues Gelände).
 - Rote, dem Gelände folgende Routenlinie + weiches Korridorlicht über dem Kurs.
-- Wolkendrift, blinkende Positionslichter (0,5 s), zufälliges Ziel 140–260 Einheiten entfernt,
+- Blinkende Positionslichter (0,5 s), zufälliges Ziel 140–260 Einheiten entfernt,
   texturierte Landeplatten, animierter Deckel-Ladybug mit schwarzen Beinen und Rotorblättern.
 
 ## Steuerung

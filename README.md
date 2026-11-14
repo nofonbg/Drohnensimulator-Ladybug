@@ -83,12 +83,11 @@ und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
 | `index.html` | App-Struktur: HTML-Aufbau und gesamtes JavaScript (Aufbau der 3D-Szene + Steuerung); **alle Kommentare auf Deutsch** |
 | `drohne.css` | Alle Stylesheet-Regeln, alphabetisch sortiert (aus `index.html` ausgelagert) |
 | `three.min.js` | three.js r145 (MIT) |
-| `Sky.js` | Himmel-Skript von three.js – **wird nicht mehr geladen** (Himmel ist jetzt `sky.jpg`, siehe dort); nur noch als Altbestand im Ordner |
 | `OrbitControls.js` | Orbit-Steuerung (three.js-Beispiel) |
 | `Water.js`, `Water_2_M_Normal.jpg` | three.js-Beispiel „Water": spiegelnde Wasserfläche mit Wellenbewegung (Normal-Textur 512×512) |
 | `deckel.png` | Deckel-Textur, Kontur der Rumpf-Extrusion **und Favicon** |
 | `landing.png` | Landeplatten-Textur (mit Alpha) |
-| `flag_g.jpg` | Bodentextur (Luftbild eines Herbstgeländes, JPEG 512×512, 8×8 Kachelung) auf der Kreisscheibe |
+| `flag_g.jpg` | Bodentextur (Luftbild eines Herbstgeländes, JPEG 512×512, 8×8 Kachelung) auf der Kreisscheibe, KI generiert |
 | `sky.jpg` | abgeleitet aus https://sketchupfree.com/sketchup-textures/hdr-textures/sky-outside/sunrise-sunset-hdr-77 |
 | `docs/drohnensimulator.png` | Screenshot für diese README |
 | `LICENSE` | CC BY-NC-SA 4.0 des eigenen Werks (Namensnennung, nicht-kommerziell, ShareAlike) |
@@ -120,4 +119,4 @@ dem [three.js](https://threejs.org/)-Projekt (MIT-Lizenz,
 kommerzielle Nutzung durch diese Bibliothek also unberührt). `Sky.js` (ebenfalls MIT,
 three.js) liegt nur noch als Altbestand bei und wird nicht mehr geladen.  
 
-Nach [https://mam-mam.net](https://mam-mam.net/en/javascript/three_js_drone.html)
+Nach einer Idee von mam [https://mam-mam.net](https://mam-mam.net/en/javascript/three_js_drone.html)

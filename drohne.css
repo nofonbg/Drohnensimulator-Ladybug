@@ -5,9 +5,9 @@
    ===================================================================== */
 
   /* Basis-Button des FPV-Ausrichtungsschalters (starr/Gimbal/Welt). Die Schriftgröße
-     steht bewusst NICHT hier, sondern in .align-row .align-bt weiter unten: die
-     alphabetische Ordnung dieser Datei zwingt .align-bt VOR .cbt, und bei gleicher
-     Spezifität gewinnt die spätere Regel - .cbt setzt dort font-size:1.15em. */
+     steht bewusst NICHT hier, sondern in der eigenen Regel .align-row .align-bt weiter
+     unten: die alphabetische Ordnung dieser Datei zwingt .align-bt VOR .cbt, und bei
+     gleicher Spezifität gewinnt die spätere Regel - .cbt setzt dort font-size:1.4em. */
   .align-bt{
     width:auto;
     height:2em;
@@ -36,11 +36,13 @@
     gap:6px;
   }
 
-  /* Schriftgröße der drei Ausrichtungs-Buttons starr/Gimbal/Welt: 0.9em statt der
-     effektiven 1.15em aus .cbt. Der zusammengesetzte Selektor .align-row .align-bt
-     hat die höhere Spezifität (0,2,0 gegenüber 0,1,0 von .cbt) und ist damit unabhängig
-     von der alphabetischen Reihenfolge wirksam - die reine Klasse .align-bt verliert
-     gegen .cbt, weil "a" vor "c" sortiert wird. */
+  /* Eigene Schriftregel für die drei Ausrichtungs-Buttons starr/Gimbal/Welt - sie hängt
+     bewusst NICHT an .cbt: font-size:0.9em gilt nur für diese drei, während .cbt mit
+     1.4em die übrigen Kacheln vergrößert. Der zusammengesetzte Selektor
+     .align-row .align-bt hat die höhere Spezifität (0,2,0 gegenüber 0,1,0) und gewinnt
+     deshalb ungeachtet der alphabetischen Reihenfolge; die reine Klasse .align-bt
+     verliert gegen .cbt, weil "a" vor "c" sortiert wird - hier steht die Regel also
+     an der Stelle, an der die Sortierung sie zwingt, mit doppelter Spezifität. */
   .align-row .align-bt{font-size:0.9em;}
 
   /* außerhalb der FPV-Sicht ist der Ausrichtungsschalter wirkungslos -> abgedunkelt */
@@ -48,6 +50,11 @@
 
   .canvas-box{position:relative;}
 
+  /* Grundbutton der Pfeiltasten- und WASD-Kacheln, Schriftgröße 1.4em (Kachel wächst
+     mit: width/height:3em beziehen sich auf die eigene font-size). Die Spezialvarianten
+     haben eigene font-size-Regeln: .mode-bt (0.9em) und .view-bt (1em) gewinnen, weil sie
+     in der alphabetischen Ordnung NACH .cbt stehen; .align-bt (starr/Gimbal/Welt) steht
+     davor und braucht deshalb den zusammengesetzten Selektor .align-row .align-bt. */
   .cbt{
     display:inline-flex;
     align-items:center;
@@ -56,7 +63,7 @@
     height:3em;
     margin:0;
     padding:0;
-    font-size:1.15em;
+    font-size:1.4em;
     font-weight:600;
     line-height:1;
     color:#e2e8f0;

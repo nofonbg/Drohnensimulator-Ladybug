@@ -1,0 +1,496 @@
+/* =====================================================================
+   drohne.css - Darstellung des Ladybug-Drohnen-Simulators
+   Ausgelagert aus index.html; die Regeln sind alphabetisch sortiert.
+   Lizenziert unter CC BY-NC-SA 4.0 (c) 2026 Norbert Forster
+   ===================================================================== */
+
+  .align-bt{
+    width:auto;
+    height:2em;
+    padding:0 0.9em;
+    font-size:0.85em;
+    font-weight:600;
+    letter-spacing:0.05em;
+    border-radius:999px;
+    gap:6px;
+  }
+
+  .align-bt.is-on{
+    background:linear-gradient(180deg,#60a5fa,#3b82f6);
+    border-color:#93c5fd;
+    color:#0f172a;
+  }
+
+  .align-bt.is-on:hover{
+    background:linear-gradient(180deg,#7db8fd,#4b8ef7);
+  }
+
+  /* three-way FPV camera alignment switch, sits between the view switch and the key pads:
+     starr (rigid on the drone) | Gimbal (damped) | Welt (world aligned) */
+  .align-row{
+    display:flex;
+    justify-content:center;
+    gap:6px;
+  }
+
+  /* outside the FPV view the alignment switch is meaningless -> dimmed */
+  .align-row.is-dim{opacity:0.45;filter:saturate(0.55);}
+
+  .cbt{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:3em;
+    height:3em;
+    margin:0;
+    padding:0;
+    font-size:1.15em;
+    font-weight:600;
+    line-height:1;
+    color:#e2e8f0;
+    background:linear-gradient(180deg,#334155,#1e293b);
+    border:1px solid #475569;
+    border-radius:14px;
+    box-shadow:0 1px 2px rgba(0,0,0,0.4),0 4px 10px rgba(0,0,0,0.3);
+    text-decoration:none;
+    box-sizing:border-box;
+    cursor:pointer;
+    vertical-align:middle;
+    text-align:center;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout:none;
+    transition:transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+  }
+
+  .cbt:active{
+    background:linear-gradient(180deg,#1e293b,#0f172a);
+    box-shadow:inset 0 2px 4px rgba(0,0,0,0.55);
+    transform:translateY(1px) scale(0.97);
+  }
+
+  .cbt:focus-visible{
+    outline:2px solid #60a5fa;
+    outline-offset:2px;
+  }
+
+  .cbt:hover{
+    background:linear-gradient(180deg,#3b506e,#24344d);
+    box-shadow:0 2px 4px rgba(0,0,0,0.4),0 8px 16px rgba(0,0,0,0.35);
+    transform:translateY(-1px);
+  }
+
+  /* collision message: red variant of the success toast, sits ABOVE it (top 30% vs 46%).
+     It auto-hides after 1.6 s, but can ALSO be dismissed with a click -> the flight
+     continues; while shown it is clickable, while hidden it blocks nothing. */
+  .crash-toast{
+    position:absolute;
+    left:50%; top:30%;
+    transform:translate(-50%,-50%) scale(0.96);
+    opacity:0;
+    visibility:hidden;
+    transition:opacity .2s ease, transform .2s ease, visibility 0s linear .2s;
+    padding:10px 24px;
+    box-sizing:border-box;
+    background:linear-gradient(180deg,#3f1d1d 0%,#1c0d0d 100%);
+    border:1px solid #ef4444;
+    border-radius:14px;
+    box-shadow:0 10px 24px rgba(2,6,23,0.5),0 2px 6px rgba(2,6,23,0.35);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:#fecaca;
+    font-size:0.95em;
+    font-weight:700;
+    letter-spacing:.06em;
+    text-align:center;
+    white-space:nowrap;
+    pointer-events:none;
+    z-index:19;
+  }
+
+  .crash-toast.show{
+    opacity:1;
+    visibility:visible;
+    transform:translate(-50%,-50%) scale(1);
+    transition:opacity .2s ease, transform .2s ease, visibility 0s;
+    pointer-events:auto;
+    cursor:pointer;
+  }
+
+  .crash-toast.show:hover{filter:brightness(1.15);}
+
+  .ctrl-pads{display:flex;justify-content:space-between;align-items:flex-start;}
+
+  /* modern control panel (right of the canvas) */
+  .ctrl-panel{
+    flex:0 0 560px;
+    max-width:100%;
+    box-sizing:border-box;
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+    gap:14px;
+    padding:18px 22px;
+    background:linear-gradient(180deg,#1e293b 0%,#0f172a 100%);
+    border:1px solid #334155;
+    border-radius:18px;
+    box-shadow:0 12px 28px rgba(2,6,23,0.45),0 2px 6px rgba(2,6,23,0.35);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:#e2e8f0;
+  }
+
+  .ctrl-title{
+    margin:0;
+    font-size:2em;
+    font-weight:700;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:#94a3b8;
+    text-align:center;
+  }
+
+  .dot{
+    width:0.7em;
+    height:0.7em;
+    border-radius:50%;
+    display:inline-block;
+    flex:0 0 auto;
+  }
+
+  .dot-blue{background:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,0.22);}
+
+  .dot-red{background:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,0.22);}
+
+  .fblue{color:blue;font-weight:bold;}
+
+  .forange{color:orange;font-weight:bold;}
+
+  .fred{color:red;font-weight:bold;}
+
+  .hint{display:flex;align-items:center;gap:5px;flex-wrap:wrap;}
+
+  .hint-lights{
+    display:grid;
+    grid-template-columns:1fr auto 1fr;
+    align-items:center;
+    gap:16px;
+    color:#cbd5e1;
+  }
+
+  .hint-lights .hint-mid{
+    color:#64748b;
+    font-size:0.85em;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    text-align:center;
+  }
+
+  .hint-lights .hint-side{display:flex;align-items:center;gap:8px;}
+
+  .hint-lights .hint-side:last-child{justify-content:flex-end;}
+
+  .hints{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    font-size:0.95em;
+    line-height:1.5;
+    color:#94a3b8;
+  }
+
+  .key{
+    display:flex;
+    align-items:center;
+    gap:5px;
+    white-space:nowrap;
+    color:#94a3b8;
+  }
+
+  /* both keycap rows share one 4-column grid so the keys line up vertically */
+  .keys{
+    display:grid;
+    grid-template-columns:repeat(4,auto);
+    column-gap:10px;
+    row-gap:7px;
+    justify-content:space-between;
+    align-items:center;
+  }
+
+  /* success message: fades in when the drone lands on the 2nd landing site
+     (same look as .ctrl-panel: dark gradient, 18px corners, same shadow) */
+  .landed-toast{
+    position:absolute;
+    left:50%; top:46%;
+    transform:translate(-50%,-50%) scale(0.94);
+    opacity:0;
+    visibility:hidden;
+    transition:opacity .7s ease, transform .7s ease, visibility 0s linear .7s;
+    padding:16px 28px;
+    box-sizing:border-box;
+    background:linear-gradient(180deg,#1e293b 0%,#0f172a 100%);
+    border:1px solid #334155;
+    border-radius:18px;
+    box-shadow:0 12px 28px rgba(2,6,23,0.45),0 2px 6px rgba(2,6,23,0.35);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:#e2e8f0;
+    text-align:center;
+    white-space:nowrap;
+    pointer-events:none;
+    z-index:20;
+  }
+
+  .landed-toast .t-hint{margin-top:7px;font-size:.7em;letter-spacing:.05em;color:#64748b;}
+
+  .landed-toast .t-sub{margin-top:5px;font-size:.85em;color:#94a3b8;}
+
+  .landed-toast .t-title{font-size:1.05em;font-weight:700;letter-spacing:.08em;color:#4ade80;}
+
+  .landed-toast.show{
+    opacity:1;
+    visibility:visible;
+    transform:translate(-50%,-50%) scale(1);
+    transition:opacity .7s ease, transform .7s ease, visibility 0s;
+    pointer-events:auto;/* only clickable once the goal is reached -> restarts the scene */
+    cursor:pointer;
+  }
+
+  .landed-toast.show:hover{filter:brightness(1.12);}
+
+  .mode-bt{
+    width:auto;
+    height:2em;
+    padding:0 0.85em;
+    font-size:0.9em;
+    font-weight:600;
+    letter-spacing:0.04em;
+    border-radius:999px;
+    text-transform:none;
+  }
+
+  .mode-bt.is-on{
+    background:linear-gradient(180deg,#60a5fa,#3b82f6);
+    border-color:#93c5fd;
+    color:#0f172a;
+  }
+
+  .mode-bt.is-on:hover{
+    background:linear-gradient(180deg,#7db8fd,#4b8ef7);
+  }
+
+  /* course mode switch: parcours (three rings + posts + pass counter) <-> training
+     (plain flight from pad 1 to pad 2, no rings and no posts). Sits in the light-hint
+     row between the two light captions, where the "blinken" caption used to be. */
+  .mode-sw{display:inline-flex;gap:6px;}
+
+  .pad{border-collapse:collapse;}
+
+  .pad td{padding:3px;}
+
+  /* FPV camera angle wheel: a white thumbwheel that only protrudes partially from a
+     narrow rectangular slot in the control desk (seen from above), with fine knurling
+     (Kerben) on its surface. A ruler scale sits to its right. Between it stay the
+     arrow-key pad and the WASD pad. Drag along the slot, roll the mouse wheel over it
+     or use the arrow keys. */
+  .pitch{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    flex:0 0 auto;
+    padding-top:4px;
+  }
+
+  .pitch-body{display:flex;align-items:center;gap:8px;}
+
+  .pitch-label{
+    font-size:0.9em;
+    font-weight:600;
+    letter-spacing:0.05em;
+    color:#cbd5e1;
+    white-space:nowrap;
+    margin-bottom:7px;
+    margin-right:24px;/* centre the label over the wheel, not over wheel + scale */
+  }
+
+  /* current-angle marker sliding along the scale */
+  .pitch-needle{
+    position:absolute;
+    left:-3px;
+    top:0;
+    width:21px;
+    height:3px;
+    border-radius:2px;
+    background:#60a5fa;
+    box-shadow:0 0 5px rgba(96,165,250,0.75);
+    transform:translateY(0);
+    transition:transform 0.06s linear;
+    z-index:2;
+  }
+
+  /* ruler scale right of the wheel, drawn like the ASCII pattern  |- | |- | |-  :
+     vertical axis, long tick every 20 px, short tick in between */
+  .pitch-scale{
+    position:relative;
+    width:17px;
+    height:156px;
+  }
+
+  .pitch-scale::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    background-image:
+      repeating-linear-gradient(180deg,#cbd5e1 0 2px,transparent 2px 20px),/* long ticks */
+      repeating-linear-gradient(180deg,#64748b 0 2px,transparent 2px 20px),/* short ticks */
+      linear-gradient(#475569,#475569);                                   /* axis | */
+    background-size:14px 100%,7px 100%,2px 100%;
+    background-position:0 0,0 10px,0 0;
+    background-repeat:no-repeat;
+  }
+
+  /* the narrow rectangular slot cut into the desk */
+  .pitch-stage{
+    position:relative;
+    width:46px;
+    height:156px;
+    border-radius:13px;
+    background:linear-gradient(180deg,#080d18,#020617);
+    box-shadow:inset 0 5px 10px rgba(0,0,0,0.95),
+               inset 0 -4px 8px rgba(0,0,0,0.9),
+               inset 0 0 0 1px rgba(15,23,42,0.9),
+               0 1px 0 rgba(255,255,255,0.07);
+  }
+
+  /* the thumbwheel: only its rounded top surface rises out of the slot. The knurling
+     (fine parallel Kerben) is moved by the JS (background-position via --spinY), so the
+     ribs crawl along the slot whenever the camera angle changes */
+  .pitch-wheel{
+    position:absolute;
+    left:6px;
+    right:6px;
+    top:7px;
+    bottom:7px;
+    border-radius:12px;
+    cursor:grab;
+    touch-action:none;
+    user-select:none;
+    -webkit-user-select:none;
+    -webkit-touch-callout:none;
+    background-image:
+      /* fine parallel knurling (Kerben) across the wheel - the layer that moves */
+      repeating-linear-gradient(180deg,
+        rgba(11,18,32,0) 0 3px, rgba(11,18,32,0.34) 3px 4.4px),
+      /* the rounded ends of the wheel sink into shadow at the slot edges */
+      linear-gradient(180deg,rgba(11,18,32,0.42) 0,rgba(11,18,32,0) 15%,
+                             rgba(11,18,32,0) 84%,rgba(11,18,32,0.55) 100%),
+      /* white body, light from the left like on the reference photo */
+      linear-gradient(90deg,#ffffff 0%,#eef1f5 42%,#d3d9e0 78%,#b7bfca 100%);
+    background-position:0 var(--spinY,0px),0 0,0 0;
+    background-repeat:repeat,no-repeat,no-repeat;
+    box-shadow:0 3px 7px rgba(0,0,0,0.6),
+               inset 1.5px 0 0 rgba(255,255,255,0.8),
+               inset -1.5px 0 0 rgba(15,23,42,0.25);
+    z-index:2;
+  }
+
+  .pitch-wheel:active{cursor:grabbing;}
+
+  .pitch-wheel:focus-visible{
+    outline:2px solid #60a5fa;
+    outline-offset:3px;
+  }
+
+  /* ring pass counter: small pill at the top centre of the canvas, always visible.
+     Counts how many of the three rings were flown through; at 3/3 it turns green and
+     shows the landing hint. pointer-events:none -> it never blocks anything. */
+  .ring-badge{
+    position:absolute;
+    left:50%; top:16px;
+    transform:translateX(-50%);
+    padding:7px 20px;
+    box-sizing:border-box;
+    background:rgba(15,23,42,0.88);
+    border:1px solid #38bdf8;
+    border-radius:999px;
+    box-shadow:0 6px 16px rgba(2,6,23,0.4);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:#e2e8f0;
+    font-size:0.82em;
+    font-weight:700;
+    letter-spacing:.07em;
+    text-align:center;
+    white-space:nowrap;
+    pointer-events:none;
+    z-index:18;
+  }
+
+  .ring-badge.done{
+    border-color:#4ade80;
+    color:#4ade80;
+    background:rgba(9,32,20,0.92);
+    box-shadow:0 6px 18px rgba(74,222,128,0.25);
+  }
+
+  .view-bt{
+    width:100%;
+    height:2.7em;
+    font-family:inherit;
+    font-size:1em;
+    letter-spacing:0.06em;
+    border-radius:999px;
+    gap:9px;
+  }
+
+  /* status lamp inside the switch: gray = overview, glowing blue = FPV */
+  .view-bt .cam-dot{
+    width:0.7em;
+    height:0.7em;
+    border-radius:50%;
+    background:#64748b;
+    box-shadow:0 0 0 3px rgba(100,116,139,0.25);
+    transition:background 0.12s ease, box-shadow 0.12s ease;
+    flex:0 0 auto;
+  }
+
+  .view-bt.is-on{
+    background:linear-gradient(180deg,#60a5fa,#3b82f6);
+    border-color:#93c5fd;
+    color:#0f172a;
+  }
+
+  .view-bt.is-on .cam-dot{
+    background:#0f172a;
+    box-shadow:0 0 0 3px rgba(15,23,42,0.25);
+  }
+
+  .view-bt.is-on:hover{
+    background:linear-gradient(180deg,#7db8fd,#4b8ef7);
+  }
+
+  /* camera-mode switch (overview <-> first person view), full width under the title */
+  .view-row{display:flex;justify-content:center;}
+
+  code{font-weight:bold;font-size:0.9em;color:#333;}
+
+  kbd{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-width:1.7em;
+    padding:0.15em 0.3em;
+    font-family:inherit;
+    font-size:0.9em;
+    font-weight:600;
+    color:#e2e8f0;
+    background:linear-gradient(180deg,#334155,#1e293b);
+    border:1px solid #475569;
+    border-bottom-width:2px;
+    border-radius:6px;
+    box-shadow:0 1px 0 rgba(255,255,255,0.06) inset;
+  }
+
+  pre.fblack{background:black;color:#FFF;padding:0.5em;}
+
+  pre.fgray{background:#F4F4F4;color:#000;padding:0.5em;}
+
+  table{border-collapse:collapse;}
+
+  td,th{padding:4px;}

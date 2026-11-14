@@ -20,6 +20,14 @@ und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
 > Start- zum Zielplatz ohne Ringe und Stangen) umschalten – beim Wechsel startet die
 > Drohne neu auf dem Startplatz mit einem frisch gewürfelten Kurs.
 
+> **Neu – Wasserlandschaft:** Am Fernrand der Karte liegt eine **Wasserfläche mit
+> Wellenbewegung** – etwa ein Drittel der Landschaft – die **zwei Buchten unterschiedlicher
+> Größe** ins Gelände schneidet. Die Wasseroberfläche zählt als Boden: Aufsetzen quittiert
+> die rote Meldung **„Drohne gewassert!"**. In der Überblick-Sicht lässt sich die Kamera
+> jetzt zoomen und drehen, um die Küste zu betrachten.
+
+<img src="docs/wasser.jpg" alt="Wasserlandschaft am Rand der Drohnen-Karte: Küste mit großer und kleiner Bucht, Wellenbewegung auf der Wasserfläche" width="700">
+
 ## Features
 
 - **Kamera-Dreifach-Umschalter `starr | Gimbal | Welt`**: FPV von der Drohnenase aus –
@@ -33,10 +41,21 @@ und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
   Innenöffnung **150 % der Drohnengröße**, Ringebene exakt senkrecht zum Kurs,
   Positionen bei 25 % / 50 % / 75 % der Kurvenlänge.
 - **Kollisionsanalyse** pro Frame: Drohne als Kugel gegen Ring (Torus-Mittellinie),
-  Pfosten (vertikales Segment) und **Bodengelände** (inkl. Hügel über y=0). Bei Treffer:
-  Zurücksetzen auf die sichere Position, Tempo 0, **Rückstoß vom Hindernis weg**
+  Pfosten (vertikales Segment) und **Bodengelände** (inkl. Hügel über y=0 **und der
+  Wasserfläche**). Bei Treffer: Zurücksetzen auf die sichere Position, Tempo 0,
+  **Rückstoß vom Hindernis weg**
   (sonst würde die Meldung sofort wieder erscheinen und der Flug blockieren),
   rote Meldung – **per Klick ausblendbar, danach fliegt es einfach weiter**.
+- **Wasserlandschaft mit Wellenbewegung**: eine Wasserfläche entlang des Fernrands
+  (z = −500 bis −167 = **genau ein Drittel** der 1000×1000-Landschaft) schneidet **zwei
+  Buchten unterschiedlicher Größe** ins Gelände – animierte Normal-Textur plus Spiegelung
+  über das three.js-Beispiel `Water`. Die Oberfläche ist das **Bodenniveau auf See**:
+  Aufsetzen darauf meldet **„Drohne gewassert!"** (einmal pro Wat, ausblendbar wie eine
+  Kollisionsmeldung). Zielplatz, Routenlinie und Ringe werden gegen die Küste geprüft und
+  **nie ins Wasser gewürfelt**; das Ufer fällt natürlich zum Grund ab.
+- **Überblick-Kamera frei bewegbar**: Mausrad bzw. Pinch zoomt, Ziehen mit Maus oder
+  Finger dreht den Blick um die Drohne (Zoom/Drehen waren bisher gesperrt) – die
+  Startposition bleibt unverändert bei (0, 100, 150).
 - **Durchflug-Zähler** oben auf dem Canvas: „Ringe: 1 von 3" … bei allen drei
   „**3 von 3 Ringen - jetzt landen!**".
 - **Modus-Umschalter `Parcours | Training`** in der Steuerung: **Parcours** (Standard)
@@ -64,20 +83,26 @@ und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
 | `Parcours \| Training` | Level: Parcours (Ringe + Pfosten) ↔ Training (einfacher Ziel-Flug); Umschalten = Neustart |
 | Klick auf Erfolgsmeldung | Neuer Kurs (alles neu gewürfelt) |
 | Klick auf Kollisionsmeldung | Meldung ausblenden, Flug fortsetzen |
+| Mausrad / Pinch | Überblick: Zoom auf die Drohne (damit die Küste erreichbar ist) |
+| Ziehen (Maus / Finger) | Überblick: Blick um die Drohne drehen |
+| Aufsetzen auf dem Wasser | rote Meldung **„Drohne gewassert!"** – die Wasseroberfläche ist Boden |
 | ↑ + W, ← + W usw. | Tasten **beliebig kombinierbar** – z.B. steigen UND beschleunigen oder Kurve fliegen gleichzeitig |
 
 ## Dateien
 
 | Datei | Zweck |
 |---|---|
-| `index.html` | Komplette App (CSS + JavaScript in einer Datei) |
+| `index.html` | App-Struktur: HTML-Aufbau und gesamtes JavaScript (Aufbau der 3D-Szene + Steuerung) |
+| `drohne.css` | Alle Stylesheet-Regeln, alphabetisch sortiert (aus `index.html` ausgelagert) |
 | `three.min.js` | three.js r145 (MIT) |
 | `Sky.js`, `OrbitControls.js` | Himmel und Orbit-Steuerung (three.js-Beispiele) |
+| `Water.js`, `Water_2_M_Normal.jpg` | three.js-Beispiel „Water": spiegelnde Wasserfläche mit Wellenbewegung (Normal-Textur 512×512) |
 | `deckel.png` | Deckel-Textur, Kontur der Rumpf-Extrusion **und Favicon** |
 | `landing.png` | Landeplatten-Textur (mit Alpha) |
 | `flag_g.jpg` | Bodentextur (Luftbild eines Herbstgeländes, JPEG 512×512, 8×8 Kachelung) |
 | `inc.css` | Reststylesheet des Ursprungshosts (nicht benötigt) |
 | `docs/drohnensimulator.png` | Screenshot für diese README |
+| `docs/wasser.jpg` | Screenshot der Wasserlandschaft (Küste mit beiden Buchten) |
 | `LICENSE` | CC BY-NC-SA 4.0 des eigenen Werks (Namensnennung, nicht-kommerziell, ShareAlike) |
 
 ## Starten
@@ -101,8 +126,9 @@ Das eigene Werk darf geteilt, genutzt und bearbeitet werden, sofern gilt:
 2. **Nicht kommerziell** – keine Verwendung zu kommerziellen Zwecken
 3. **Weitergabe unter denselben Bedingungen** – Abwandlungen tragen dieselbe Lizenz
 
-Enthaltene Fremdteile behalten ihre eigenen Lizenzen: `three.min.js`, `Sky.js` und
-`OrbitControls.js` stammen aus dem [three.js](https://threejs.org/)-Projekt (MIT-Lizenz,
+Enthaltene Fremdteile behalten ihre eigenen Lizenzen: `three.min.js`, `Sky.js`,
+`OrbitControls.js` und `Water.js` samt Wassertextur `Water_2_M_Normal.jpg` stammen aus
+dem [three.js](https://threejs.org/)-Projekt (MIT-Lizenz,
 kommerzielle Nutzung durch diese Bibliothek also unberührt).  
 
 Basierend auf einer Idee von [https://mam-mam.net](https://mam-mam.net/en/javascript/three_js_drone.html)

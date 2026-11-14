@@ -25,435 +25,9 @@
   <script src="three.min.js"></script>
   <script src="OrbitControls.js"></script>
   <script src="Sky.js"></script>
+  <script src="Water.js"></script><!-- three.js r145 example: reflective water with waves -->
 
-<style>
-  pre.fblack{background:black;color:#FFF;padding:0.5em;}
-  pre.fgray{background:#F4F4F4;color:#000;padding:0.5em;}
-  code{font-weight:bold;font-size:0.9em;color:#333;}
-  table{border-collapse:collapse;}
-  td,th{padding:4px;}
-  .fred{color:red;font-weight:bold;}
-  .fblue{color:blue;font-weight:bold;}
-  .forange{color:orange;font-weight:bold;}
-  /* modern control panel (right of the canvas) */
-  .ctrl-panel{
-    flex:0 0 560px;
-    max-width:100%;
-    box-sizing:border-box;
-    display:flex;
-    flex-direction:column;
-    justify-content:space-between;
-    gap:14px;
-    padding:18px 22px;
-    background:linear-gradient(180deg,#1e293b 0%,#0f172a 100%);
-    border:1px solid #334155;
-    border-radius:18px;
-    box-shadow:0 12px 28px rgba(2,6,23,0.45),0 2px 6px rgba(2,6,23,0.35);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    color:#e2e8f0;
-  }
-  .ctrl-title{
-    margin:0;
-    font-size:2em;
-    font-weight:700;
-    letter-spacing:0.14em;
-    text-transform:uppercase;
-    color:#94a3b8;
-    text-align:center;
-  }
-  .ctrl-pads{display:flex;justify-content:space-between;align-items:flex-start;}
-  .pad{border-collapse:collapse;}
-  .pad td{padding:3px;}
-  .cbt{
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    width:3em;
-    height:3em;
-    margin:0;
-    padding:0;
-    font-size:1.15em;
-    font-weight:600;
-    line-height:1;
-    color:#e2e8f0;
-    background:linear-gradient(180deg,#334155,#1e293b);
-    border:1px solid #475569;
-    border-radius:14px;
-    box-shadow:0 1px 2px rgba(0,0,0,0.4),0 4px 10px rgba(0,0,0,0.3);
-    text-decoration:none;
-    box-sizing:border-box;
-    cursor:pointer;
-    vertical-align:middle;
-    text-align:center;
-    user-select: none;
-    -webkit-user-select: none;
-    -webkit-touch-callout:none;
-    transition:transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
-  }
-  .cbt:hover{
-    background:linear-gradient(180deg,#3b506e,#24344d);
-    box-shadow:0 2px 4px rgba(0,0,0,0.4),0 8px 16px rgba(0,0,0,0.35);
-    transform:translateY(-1px);
-  }
-  .cbt:active{
-    background:linear-gradient(180deg,#1e293b,#0f172a);
-    box-shadow:inset 0 2px 4px rgba(0,0,0,0.55);
-    transform:translateY(1px) scale(0.97);
-  }
-  .cbt:focus-visible{
-    outline:2px solid #60a5fa;
-    outline-offset:2px;
-  }
-  /* camera-mode switch (overview <-> first person view), full width under the title */
-  .view-row{display:flex;justify-content:center;}
-  .view-bt{
-    width:100%;
-    height:2.7em;
-    font-family:inherit;
-    font-size:1em;
-    letter-spacing:0.06em;
-    border-radius:999px;
-    gap:9px;
-  }
-  /* status lamp inside the switch: gray = overview, glowing blue = FPV */
-  .view-bt .cam-dot{
-    width:0.7em;
-    height:0.7em;
-    border-radius:50%;
-    background:#64748b;
-    box-shadow:0 0 0 3px rgba(100,116,139,0.25);
-    transition:background 0.12s ease, box-shadow 0.12s ease;
-    flex:0 0 auto;
-  }
-  .view-bt.is-on{
-    background:linear-gradient(180deg,#60a5fa,#3b82f6);
-    border-color:#93c5fd;
-    color:#0f172a;
-  }
-  .view-bt.is-on:hover{
-    background:linear-gradient(180deg,#7db8fd,#4b8ef7);
-  }
-  .view-bt.is-on .cam-dot{
-    background:#0f172a;
-    box-shadow:0 0 0 3px rgba(15,23,42,0.25);
-  }
-  /* three-way FPV camera alignment switch, sits between the view switch and the key pads:
-     starr (rigid on the drone) | Gimbal (damped) | Welt (world aligned) */
-  .align-row{
-    display:flex;
-    justify-content:center;
-    gap:6px;
-  }
-  /* outside the FPV view the alignment switch is meaningless -> dimmed */
-  .align-row.is-dim{opacity:0.45;filter:saturate(0.55);}
-  .align-bt{
-    width:auto;
-    height:2em;
-    padding:0 0.9em;
-    font-size:0.85em;
-    font-weight:600;
-    letter-spacing:0.05em;
-    border-radius:999px;
-    gap:6px;
-  }
-  .align-bt.is-on{
-    background:linear-gradient(180deg,#60a5fa,#3b82f6);
-    border-color:#93c5fd;
-    color:#0f172a;
-  }
-  .align-bt.is-on:hover{
-    background:linear-gradient(180deg,#7db8fd,#4b8ef7);
-  }
-  /* course mode switch: parcours (three rings + posts + pass counter) <-> training
-     (plain flight from pad 1 to pad 2, no rings and no posts). Sits in the light-hint
-     row between the two light captions, where the "blinken" caption used to be. */
-  .mode-sw{display:inline-flex;gap:6px;}
-  .mode-bt{
-    width:auto;
-    height:2em;
-    padding:0 0.85em;
-    font-size:0.9em;
-    font-weight:600;
-    letter-spacing:0.04em;
-    border-radius:999px;
-    text-transform:none;
-  }
-  .mode-bt.is-on{
-    background:linear-gradient(180deg,#60a5fa,#3b82f6);
-    border-color:#93c5fd;
-    color:#0f172a;
-  }
-  .mode-bt.is-on:hover{
-    background:linear-gradient(180deg,#7db8fd,#4b8ef7);
-  }
-  /* FPV camera angle wheel: a white thumbwheel that only protrudes partially from a
-     narrow rectangular slot in the control desk (seen from above), with fine knurling
-     (Kerben) on its surface. A ruler scale sits to its right. Between it stay the
-     arrow-key pad and the WASD pad. Drag along the slot, roll the mouse wheel over it
-     or use the arrow keys. */
-  .pitch{
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    flex:0 0 auto;
-    padding-top:4px;
-  }
-  .pitch-label{
-    font-size:0.9em;
-    font-weight:600;
-    letter-spacing:0.05em;
-    color:#cbd5e1;
-    white-space:nowrap;
-    margin-bottom:7px;
-    margin-right:24px;/* centre the label over the wheel, not over wheel + scale */
-  }
-  .pitch-body{display:flex;align-items:center;gap:8px;}
-  /* the narrow rectangular slot cut into the desk */
-  .pitch-stage{
-    position:relative;
-    width:46px;
-    height:156px;
-    border-radius:13px;
-    background:linear-gradient(180deg,#080d18,#020617);
-    box-shadow:inset 0 5px 10px rgba(0,0,0,0.95),
-               inset 0 -4px 8px rgba(0,0,0,0.9),
-               inset 0 0 0 1px rgba(15,23,42,0.9),
-               0 1px 0 rgba(255,255,255,0.07);
-  }
-  /* the thumbwheel: only its rounded top surface rises out of the slot. The knurling
-     (fine parallel Kerben) is moved by the JS (background-position via --spinY), so the
-     ribs crawl along the slot whenever the camera angle changes */
-  .pitch-wheel{
-    position:absolute;
-    left:6px;
-    right:6px;
-    top:7px;
-    bottom:7px;
-    border-radius:12px;
-    cursor:grab;
-    touch-action:none;
-    user-select:none;
-    -webkit-user-select:none;
-    -webkit-touch-callout:none;
-    background-image:
-      /* fine parallel knurling (Kerben) across the wheel - the layer that moves */
-      repeating-linear-gradient(180deg,
-        rgba(11,18,32,0) 0 3px, rgba(11,18,32,0.34) 3px 4.4px),
-      /* the rounded ends of the wheel sink into shadow at the slot edges */
-      linear-gradient(180deg,rgba(11,18,32,0.42) 0,rgba(11,18,32,0) 15%,
-                             rgba(11,18,32,0) 84%,rgba(11,18,32,0.55) 100%),
-      /* white body, light from the left like on the reference photo */
-      linear-gradient(90deg,#ffffff 0%,#eef1f5 42%,#d3d9e0 78%,#b7bfca 100%);
-    background-position:0 var(--spinY,0px),0 0,0 0;
-    background-repeat:repeat,no-repeat,no-repeat;
-    box-shadow:0 3px 7px rgba(0,0,0,0.6),
-               inset 1.5px 0 0 rgba(255,255,255,0.8),
-               inset -1.5px 0 0 rgba(15,23,42,0.25);
-    z-index:2;
-  }
-  .pitch-wheel:active{cursor:grabbing;}
-  .pitch-wheel:focus-visible{
-    outline:2px solid #60a5fa;
-    outline-offset:3px;
-  }
-  /* ruler scale right of the wheel, drawn like the ASCII pattern  |- | |- | |-  :
-     vertical axis, long tick every 20 px, short tick in between */
-  .pitch-scale{
-    position:relative;
-    width:17px;
-    height:156px;
-  }
-  .pitch-scale::before{
-    content:"";
-    position:absolute;
-    inset:0;
-    background-image:
-      repeating-linear-gradient(180deg,#cbd5e1 0 2px,transparent 2px 20px),/* long ticks */
-      repeating-linear-gradient(180deg,#64748b 0 2px,transparent 2px 20px),/* short ticks */
-      linear-gradient(#475569,#475569);                                   /* axis | */
-    background-size:14px 100%,7px 100%,2px 100%;
-    background-position:0 0,0 10px,0 0;
-    background-repeat:no-repeat;
-  }
-  /* current-angle marker sliding along the scale */
-  .pitch-needle{
-    position:absolute;
-    left:-3px;
-    top:0;
-    width:21px;
-    height:3px;
-    border-radius:2px;
-    background:#60a5fa;
-    box-shadow:0 0 5px rgba(96,165,250,0.75);
-    transform:translateY(0);
-    transition:transform 0.06s linear;
-    z-index:2;
-  }
-  .hints{
-    display:flex;
-    flex-direction:column;
-    gap:10px;
-    font-size:0.95em;
-    line-height:1.5;
-    color:#94a3b8;
-  }
-  .hint{display:flex;align-items:center;gap:5px;flex-wrap:wrap;}
-  /* both keycap rows share one 4-column grid so the keys line up vertically */
-  .keys{
-    display:grid;
-    grid-template-columns:repeat(4,auto);
-    column-gap:10px;
-    row-gap:7px;
-    justify-content:space-between;
-    align-items:center;
-  }
-  .key{
-    display:flex;
-    align-items:center;
-    gap:5px;
-    white-space:nowrap;
-    color:#94a3b8;
-  }
-  .hint-lights{
-    display:grid;
-    grid-template-columns:1fr auto 1fr;
-    align-items:center;
-    gap:16px;
-    color:#cbd5e1;
-  }
-  .hint-lights .hint-side{display:flex;align-items:center;gap:8px;}
-  .hint-lights .hint-side:last-child{justify-content:flex-end;}
-  .hint-lights .hint-mid{
-    color:#64748b;
-    font-size:0.85em;
-    letter-spacing:0.1em;
-    text-transform:uppercase;
-    text-align:center;
-  }
-  kbd{
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    min-width:1.7em;
-    padding:0.15em 0.3em;
-    font-family:inherit;
-    font-size:0.9em;
-    font-weight:600;
-    color:#e2e8f0;
-    background:linear-gradient(180deg,#334155,#1e293b);
-    border:1px solid #475569;
-    border-bottom-width:2px;
-    border-radius:6px;
-    box-shadow:0 1px 0 rgba(255,255,255,0.06) inset;
-  }
-  .dot{
-    width:0.7em;
-    height:0.7em;
-    border-radius:50%;
-    display:inline-block;
-    flex:0 0 auto;
-  }
-  .dot-red{background:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,0.22);}
-  .dot-blue{background:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,0.22);}
-  /* success message: fades in when the drone lands on the 2nd landing site
-     (same look as .ctrl-panel: dark gradient, 18px corners, same shadow) */
-  .landed-toast{
-    position:absolute;
-    left:50%; top:46%;
-    transform:translate(-50%,-50%) scale(0.94);
-    opacity:0;
-    visibility:hidden;
-    transition:opacity .7s ease, transform .7s ease, visibility 0s linear .7s;
-    padding:16px 28px;
-    box-sizing:border-box;
-    background:linear-gradient(180deg,#1e293b 0%,#0f172a 100%);
-    border:1px solid #334155;
-    border-radius:18px;
-    box-shadow:0 12px 28px rgba(2,6,23,0.45),0 2px 6px rgba(2,6,23,0.35);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    color:#e2e8f0;
-    text-align:center;
-    white-space:nowrap;
-    pointer-events:none;
-    z-index:20;
-  }
-  .landed-toast.show{
-    opacity:1;
-    visibility:visible;
-    transform:translate(-50%,-50%) scale(1);
-    transition:opacity .7s ease, transform .7s ease, visibility 0s;
-    pointer-events:auto;/* only clickable once the goal is reached -> restarts the scene */
-    cursor:pointer;
-  }
-  .landed-toast.show:hover{filter:brightness(1.12);}
-  .landed-toast .t-title{font-size:1.05em;font-weight:700;letter-spacing:.08em;color:#4ade80;}
-  .landed-toast .t-sub{margin-top:5px;font-size:.85em;color:#94a3b8;}
-  .landed-toast .t-hint{margin-top:7px;font-size:.7em;letter-spacing:.05em;color:#64748b;}
-  /* ring pass counter: small pill at the top centre of the canvas, always visible.
-     Counts how many of the three rings were flown through; at 3/3 it turns green and
-     shows the landing hint. pointer-events:none -> it never blocks anything. */
-  .ring-badge{
-    position:absolute;
-    left:50%; top:16px;
-    transform:translateX(-50%);
-    padding:7px 20px;
-    box-sizing:border-box;
-    background:rgba(15,23,42,0.88);
-    border:1px solid #38bdf8;
-    border-radius:999px;
-    box-shadow:0 6px 16px rgba(2,6,23,0.4);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    color:#e2e8f0;
-    font-size:0.82em;
-    font-weight:700;
-    letter-spacing:.07em;
-    text-align:center;
-    white-space:nowrap;
-    pointer-events:none;
-    z-index:18;
-  }
-  .ring-badge.done{
-    border-color:#4ade80;
-    color:#4ade80;
-    background:rgba(9,32,20,0.92);
-    box-shadow:0 6px 18px rgba(74,222,128,0.25);
-  }
-  /* collision message: red variant of the success toast, sits ABOVE it (top 30% vs 46%).
-     It auto-hides after 1.6 s, but can ALSO be dismissed with a click -> the flight
-     continues; while shown it is clickable, while hidden it blocks nothing. */
-  .crash-toast{
-    position:absolute;
-    left:50%; top:30%;
-    transform:translate(-50%,-50%) scale(0.96);
-    opacity:0;
-    visibility:hidden;
-    transition:opacity .2s ease, transform .2s ease, visibility 0s linear .2s;
-    padding:10px 24px;
-    box-sizing:border-box;
-    background:linear-gradient(180deg,#3f1d1d 0%,#1c0d0d 100%);
-    border:1px solid #ef4444;
-    border-radius:14px;
-    box-shadow:0 10px 24px rgba(2,6,23,0.5),0 2px 6px rgba(2,6,23,0.35);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    color:#fecaca;
-    font-size:0.95em;
-    font-weight:700;
-    letter-spacing:.06em;
-    text-align:center;
-    white-space:nowrap;
-    pointer-events:none;
-    z-index:19;
-  }
-  .crash-toast.show{
-    opacity:1;
-    visibility:visible;
-    transform:translate(-50%,-50%) scale(1);
-    transition:opacity .2s ease, transform .2s ease, visibility 0s;
-    pointer-events:auto;
-    cursor:pointer;
-  }
-  .crash-toast.show:hover{filter:brightness(1.15);}
-</style>
+<link rel="stylesheet" href="drohne.css">
 
 
 <script>
@@ -499,6 +73,41 @@
   // floorY is ASSIGNED in main() (closure over the terrain grid), obstacles is refilled by
   // buildRings() with every course - the same "deliberately global" pattern as clouds
   var floorY=null;// terrain height at a world x/z position, set up in main()
+  // ---- water: the landscape change. A band of sea runs along the FAR edge of the
+  // 1000x1000 terrain (z = -500 .. -167 = exactly one third of its area) and cuts TWO
+  // bays of different size into the land. All values are in TERRAIN units, i.e. exactly
+  // the coordinates floorY() returns (the floor mesh itself sits at world y = -1, so the
+  // water surface is rendered one unit lower - see waterMesh.position.y in main()).
+  var COAST_Z=-167;// straight coastline: sea where z < coastZ(x), land where z > coastZ(x)
+  var WATER_LEVEL=-1.5;// water surface in terrain units (rendered world y = WATER_LEVEL-1)
+  var WATER_SEABED=-4.5;// sea bed in terrain units -> 3 units of water depth over it
+  // smooth bay: 0 outside |x-cx| >= hw, `depth` at the centre, cosine ramp without corners
+  const bayBump=(x,cx,hw,depth)=>{
+    const dx=Math.abs(x-cx);
+    if(dx>=hw) return 0;
+    return depth*0.5*(1+Math.cos(Math.PI*dx/hw));
+  };
+  // coastline of the current landscape: the straight band edge plus the two bays, both
+  // cut INLAND (towards +z): a LARGE bay in the west (reaches z = -57) and a clearly
+  // SMALLER one in the east (reaches z = -112) - the sizes differ on purpose
+  const coastZ=(x)=>
+    COAST_Z
+    +bayBump(x,-150,130,110)// large bay: mouth 260 wide, 110 deep
+    +bayBump(x, 170, 85, 55);// small bay: mouth 170 wide, 55 deep
+  // true where the sea plane exists - drives the terrain carve, the flight physics and
+  // the splash message, so shoreline, water mesh and collision always agree
+  const isWater=(x,z)=>z<coastZ(x);
+  // ground height FOR THE FLIGHT PHYSICS: on land the terrain exactly as before (never
+  // below 0), inside the sea region the water SURFACE - the drone rests ON the water
+  // instead of sinking to the sea bed. The lifted beach strip still wins because max()
+  // keeps any ground that pokes above the waterline.
+  const groundY=(x,z)=>{
+    const h=floorY(x,z);
+    return isWater(x,z)?Math.max(h,WATER_LEVEL):Math.max(h,0);
+  };
+  var waterMesh=null;// THREE.Water sea surface, created in main(), animated in renderLoop
+  var waterPrevT=0;// last wave-animation timestamp (ms), 0 = no frame seen yet
+  var waterTouched=false;// the drone is already resting on the sea (one splash msg per dip)
   var obstacles=[];// rings + posts of the current course, checked every frame
   var lastCollision='';// '' | 'ring' | 'post' - kind of the most recent impact
   var collisionCount=0;// how many impacts happened since the page load
@@ -888,7 +497,26 @@
         let fade=Math.min(Math.max((r-30)/70,0),1);
         fade=fade*fade*(3-2*fade);
         // sinks are deepened x6 -> strong light/dark relief from the raking sun alone
-        fpos.setZ(i, (h>0 ? h : h*6)*fade);
+        let zz=(h>0 ? h : h*6)*fade;
+        // ---- coastline (the plane is rotated -90 deg about x -> world z = -geometry y):
+        // inside the water region the displaced height is replaced by the sea profile.
+        // The beach strip (up to 40 units INLAND of the coast) is lifted to just above the
+        // waterline - otherwise a dry valley could sink below sea level right at the shore
+        // and the water plane would end in mid-air. From the shoreline the ground ramps
+        // smoothly down to the uneven sea bed, so the band AND both bays get a natural
+        // sloping shore instead of a cliff. (Outside -40 the height field stays untouched.)
+        const wz=-y;// world z of this vertex
+        const d=coastZ(x)-wz;// >0: inside the sea region, distance behind the coastline
+        if(d>-40){
+          const base=Math.max(zz,WATER_LEVEL+0.3);// dry shore: at least 0.3 above the water
+          if(d<=0){
+            zz=base;
+          }else{
+            let t=Math.min(d/30,1); t=t*t*(3-2*t);// smoothstep ramp -> soft shoreline
+            zz=base+((WATER_SEABED+h*0.5)-base)*t;// sea bed follows the noise a little
+          }
+        }
+        fpos.setZ(i, zz);
       }
       // flatten the ground underneath the 2nd pad (flat within 25, fading out to 55),
       // the same idea as the flat disc around pad 1 at the origin
@@ -909,12 +537,33 @@
     };
 
     // 2nd landing site: random direction and distance (140-260 units from pad 1) - rolled
-    // again by resetScene(), so every start of a new course puts it somewhere else
+    // again by resetScene(), so every start of a new course puts it somewhere else.
+    // The whole course corridor must be DRY: a strip of +/-75 units around the chord
+    // (the Bezier bows reach at most ~60 units sideways, see courseCurve) is sampled
+    // against the coastline, because pad 2, the route line and the ring posts may never
+    // end up in the sea - the course has to stay visible on land.
+    const corridorDry=(x0,z0,x1,z1,margin)=>{
+      const dx=x1-x0, dz=z1-z0, len=Math.hypot(dx,dz)||1;
+      const nx=-dz/len, nz=dx/len;// unit vector perpendicular to the chord
+      for(let i=0;i<=24;i++){
+        const t=i/24;
+        for(let s=-2;s<=2;s++){
+          const px=x0+dx*t+nx*margin*0.5*s, pz=z0+dz*t+nz*margin*0.5*s;
+          if(isWater(px,pz)) return false;
+        }
+      }
+      return true;
+    };
     const newPad2=()=>{
-      const pad2Angle=Math.random()*Math.PI*2;
-      const pad2Dist=140+Math.random()*120;
-      pad2.x=Math.cos(pad2Angle)*pad2Dist;
-      pad2.z=Math.sin(pad2Angle)*pad2Dist;
+      for(let k=0;k<400;k++){
+        const pad2Angle=Math.random()*Math.PI*2;
+        const pad2Dist=140+Math.random()*120;
+        const x=Math.cos(pad2Angle)*pad2Dist, z=Math.sin(pad2Angle)*pad2Dist;
+        if(corridorDry(0,0,x,z,75)){ pad2.x=x; pad2.z=z; return; }
+      }
+      // practically impossible fallback (400 rolls rejected): straight INLAND (+z),
+      // which is always dry - the coastline never reaches further than z = -57
+      pad2.x=0; pad2.z=230;
     };
     newPad2();
     buildTerrain();
@@ -941,6 +590,41 @@
     pad2Mesh.position.set(pad2.x,0,pad2.z);
     pad2Mesh.name="pad2";
     scene.add(pad2Mesh);
+
+    // ---- sea: the water surface of the landscape change. The polygon follows the
+    // coastline (both bays included) out to the far edge of the terrain, so the plane
+    // exists exactly where isWater() says the sea is. ShapeGeometry lives in its own XY
+    // plane -> shapeY = -worldZ; the MESH (not the geometry) is turned flat, because
+    // THREE.Water derives its mirror plane from the mesh's local +Z axis.
+    {
+      const shape=new THREE.Shape();
+      const X0=-500, X1=500, NS=126;// terrain spans -500..500, coast sampled every ~8 units
+      shape.moveTo(X0,-coastZ(X0));// start of the coastline, west end
+      for(let i=1;i<=NS;i++){
+        const x=X0+(X1-X0)*i/NS;
+        shape.lineTo(x,-coastZ(x));// walk the coastline (bays included) to the east
+      }
+      shape.lineTo(X1,500);// world z = -500 -> shapeY = 500: the far edge of the terrain
+      shape.lineTo(X0,500);
+      const wgeo=new THREE.ShapeGeometry(shape);
+      const waterNormals=new THREE.TextureLoader().load('Water_2_M_Normal.jpg');
+      waterNormals.wrapS=waterNormals.wrapT=THREE.RepeatWrapping;// waves scroll over the sea
+      waterMesh=new THREE.Water(wgeo,{
+        textureWidth:512,
+        textureHeight:512,
+        waterNormals:waterNormals,
+        // same direction as the sky's sun (Sky.js above), so highlight and sky match
+        sunDirection:new THREE.Vector3(10000,30000,-40000).normalize(),
+        sunColor:0xffffff,
+        waterColor:0x1b4a5e,// deep blue-green instead of the grey default
+        distortionScale:3.0,// wave distortion of the reflection (default 20 is too wild)
+        fog:false
+      });
+      waterMesh.rotation.x=-Math.PI/2;// local +Z (mirror normal) points up in the world
+      waterMesh.position.y=WATER_LEVEL-1;// terrain units -> world (floor plane sits at -1)
+      waterMesh.name='water';
+      scene.add(waterMesh);
+    }
 
     // terrain height at a world x/z position: the red route line, the ring posts and the
     // ground collision in renderLoop() are placed/measured with it. Assigned to the GLOBAL
@@ -1023,8 +707,8 @@
     const ringMats=[
       // amber, green, pink - all three pop against the light blue sky and the dark ground
       new THREE.MeshStandardMaterial({color:0xfbbf24,roughness:0.35,metalness:0.05,emissive:0xfbbf24,emissiveIntensity:0.25}),
-      new THREE.MeshStandardMaterial({color:0x4ade80,roughness:0.35,metalness:0.05,emissive:0x4ade80,emissiveIntensity:0.25}),
-      new THREE.MeshStandardMaterial({color:0xf472b6,roughness:0.35,metalness:0.05,emissive:0xf472b6,emissiveIntensity:0.25})
+      new THREE.MeshStandardMaterial({color:0x1c6136,roughness:0.35,metalness:0.05,emissive:0x4ade80,emissiveIntensity:0.25}),
+      new THREE.MeshStandardMaterial({color:0xd03100,roughness:0.35,metalness:0.05,emissive:0xf472b6,emissiveIntensity:0.25})
     ];
     const postMat=new THREE.MeshStandardMaterial({color:0x334155,roughness:0.55,metalness:0.6});
     const buildRings=()=>{
@@ -1340,8 +1024,13 @@
     controls.target=drone.position;
     controls.update();
     controls.enablePan=false;
-    controls.enableZoom=false;
-    controls.enableRotate=false;
+    // zoom (wheel / pinch) and orbit (drag / one finger) are ENABLED: the default view is
+    // too close to show the sea at the far edge, so the pilot must be able to pull back
+    // and circle around the drone to see the coastline with its two bays. minDistance
+    // keeps the camera outside the rotor span (28 units) instead of inside the model.
+    controls.enableZoom=true;
+    controls.enableRotate=true;
+    controls.minDistance=20;
 
     // flight keys: the keystroke is swallowed (preventDefault) so the browser cannot
     // hand it to its find-as-you-type/search bar or scroll the page with the arrows.
@@ -1549,6 +1238,16 @@
     let blinkOn=Math.floor((performance.now()-blinkStart)/500)%2===0;
     md3.visible=blinkOn;
     md4.visible=blinkOn;
+
+    // wave animation: the normal map drifts over the sea surface, driven by the REAL
+    // elapsed time (capped so a background tab cannot jump the waves ahead on focus)
+    if(waterMesh){
+      const nowT=performance.now();
+      if(waterPrevT>0){
+        waterMesh.material.uniforms.time.value+=Math.min((nowT-waterPrevT)/1000,0.1);
+      }
+      waterPrevT=nowT;
+    }
     
     let limit=1.0;
     
@@ -1592,12 +1291,22 @@
     pos.y += pos.vy;
     // ground: the drone may neither sink below the floor nor INTO the terrain - hills rise
     // above y=0, so the old flat y=0 test becomes a real terrain test (pads and the start
-    // disc stay at 0 because of the max). Bounce behaviour is unchanged.
-    const gy=Math.max(floorY(pos.x,pos.z),0);
+    // disc stay at 0 because of the max). Bounce behaviour is unchanged. Over the sea
+    // groundY() reports the WATER SURFACE, so the drone lands on the water, not on the bed.
+    const gy=groundY(pos.x,pos.z);
     if(pos.y<gy){
       pos.y -=pos.vy;
       pos.vy=-pos.vy*0.5;
       if(pos.y<gy) pos.y=gy;// safety net for large steps
+    }
+    // splash: one short red message when the drone touches down on the sea - exactly like
+    // a ring impact (same showCrash, same click-to-dismiss). waterTouched limits it to one
+    // message per dip, so floating on the waves does not re-trigger it every frame; the
+    // beach strip never counts because the drone then rests ABOVE the waterline.
+    if(isWater(pos.x,pos.z)&&pos.y<=WATER_LEVEL+0.05){
+      if(!waterTouched){ waterTouched=true; showCrash('Drohne gewassert!'); }
+    }else{
+      waterTouched=false;
     }
     const preX=pos.x, preY=pos.y, preZ=pos.z;// start of this movement step (for the bounce-back)
     pos.x += Math.cos(-pos.turn-Math.PI/2)*pos.vz;
@@ -1643,7 +1352,7 @@
         // otherwise clamp it straight back into the shell on the next frame.
         const ESC=1.0;// extra clearance (world units) beyond the contact distance
         for(let round=0;round<6;round++){
-          const gy=Math.max(floorY(pos.x,pos.z),0);
+          const gy=groundY(pos.x,pos.z);
           if(pos.y<gy) pos.y=gy;// never leave the escape below the terrain
           let c=null;// first contact at the current escape position
           for(let i=0;i<obstacles.length&&!c;i++){
@@ -1666,7 +1375,7 @@
               const k=(need-c.d)/dl;
               tx+=ux*k; ty+=uy*k; tz+=uz*k;
             }
-            if(ty<Math.max(floorY(tx,tz),0)){
+            if(ty<groundY(tx,tz)){
               // normal push would end underground (drone under a low rim): slide out
               // sideways instead - away from the post column, or ALONG THE RING AXIS when
               // the drone sits exactly on the column (the gap grows linearly there, while
@@ -1679,7 +1388,7 @@
               let found=false;
               for(let t=0.5;t<=40;t+=0.5){
                 const qx=pos.x+hx*t, qz=pos.z+hz*t;
-                const cyy=Math.max(pos.y, Math.max(floorY(qx,qz),0))+droneColCY;
+                const cyy=Math.max(pos.y, groundY(qx,qz))+droneColCY;
                 if(ringGap(o,qx,cyy,qz)>=need){tx=qx; tz=qz; ty=cyy; found=true; break;}
               }
               if(!found){tx=pos.x; ty=pos.y+droneColCY; tz=pos.z;}// keep, retry next round

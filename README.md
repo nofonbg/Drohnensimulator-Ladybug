@@ -15,62 +15,32 @@ und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
 
 <img src="docs/drohnensimulator.png" alt="Drohnen-Simulator: Steuerung mit dem Level-Umschalter Parcours und Training" width="700">
 
-> **Neu – die beiden Levels:** Im Steuerpanel lässt sich zwischen **Parcours**
-> (drei Ringe auf Pfosten mit Durchflug-Zähler) und **Training** (einfacher Flug vom
-> Start- zum Zielplatz ohne Ringe und Stangen) umschalten – beim Wechsel startet die
-> Drohne neu auf dem Startplatz mit einem frisch gewürfelten Kurs.
-
-> **Neu – Himmel und Horizont:** Der Himmel ist die Panoramatextur `sky.jpg` auf einer
-> Halbkugel, das Gelände eine **Kreisscheibe** – beide teilen sich denselben Radius (8000)
-> und enden auf Augenhöhe. Dadurch läuft das **Meer von der Küste bis zum Horizont**
-> und trifft an der Horizontkante nahtlos auf den Himmel (keine sichtbare Kante, kein
-> Durchblitzen des Szene-Hintergrunds).
-
-> **Neu – Wasserlandschaft:** Die **Wasserfläche mit Wellenbewegung** folgt der Küste mit
-> ihren **zwei Buchten unterschiedlicher Größe** und reicht bis zum Scheibenrand. Die
-> Wasseroberfläche zählt als Boden: Aufsetzen quittiert die rote Meldung
-> **„Drohne gewassert!"**. In der Überblick-Sicht lässt sich die Kamera
-> zoomen und drehen, um die Küste zu betrachten.
-
-<img src="docs/wasser.jpg" alt="Wasserlandschaft der Drohnen-Karte: Küste mit großer und kleiner Bucht, Wellenbewegung auf der Wasserfläche bis zum Horizont" width="700">
-
 ## Features
 
 - **Kamera-Dreifach-Umschalter `starr | Gimbal | Welt`**: FPV von der Drohnenase aus –
   starr gekoppelt, gedämpftes Gimbal oder welt-ausgerichtet (exakter Horizont).
 - **Thumbwheel „Kamerawinkel"** mit Lineal-Skala zwischen den Steuer-Pads
   (Mauszug, Rad, Pfeiltasten) als lokaler Kopfneigungswinkel in jedem Modus.
-- **Bezier-Schlangenlinie** als Parcours: 3–4 kubische Bézier-Segmente, die Biegung
-  wechselt immer zur Gegenseite → echte Schlangenlinie; Sehnen-/Bogenlänge werden
-  arc-length-parametrisiert abgetastet.
+- **Parcours:** 3–4 kubische Bézier-Segmente
 - **Drei farbige Ringe** (Bernstein, Grün, Rosa) auf **unterschiedlich hohen Pfosten** –
   Innenöffnung **150 % der Drohnengröße**, Ringebene exakt senkrecht zum Kurs,
   Positionen bei 25 % / 50 % / 75 % der Kurvenlänge.
 - **Kollisionsanalyse** pro Frame: Drohne als Kugel gegen Ring (Torus-Mittellinie),
   Pfosten (vertikales Segment) und **Bodengelände** (inkl. Hügel über y=0 **und der
   Wasserfläche**). Bei Treffer: Zurücksetzen auf die sichere Position, Tempo 0,
-  **Rückstoß vom Hindernis weg**
-  (sonst würde die Meldung sofort wieder erscheinen und der Flug blockieren),
-  rote Meldung – **per Klick ausblendbar, danach fliegt es einfach weiter**.
+  Rückstoß vom Hindernis weg – per Klick ausblendbar, danach fliegt die Drohne einfach weiter.
 - **Himmel als Halbkugel mit `sky.jpg`**: die obere Bildhälfte des 2:1-Equirect-Panoramas
   (Zenit → Horizont) wird winkeltreu auf eine Halbkugel projiziert – statt des bisherigen
-  `Sky.js`-Prozedurhimmels. **Ein Maß an einer Stelle**: Kuppel (`HORIZON_R` = 8000),
-  Bodenscheibe, Wasser-Polygon, Kamera-Weitbereich und Zoom-Grenze lesen dieselbe
-  Konstante – nachjustieren genügt an einer Stelle. Die Kuppel dreht sich mit
+  `Sky.js`-Prozedurhimmels. Die Kuppel dreht sich mit
   **0,5° pro Sekunde** (eine Runde in 12 Minuten) um die Kugelachse, sodass die Wolken
-  des Panoramas sichtbar ziehen; die früheren prozeduralen Sprite-Wolken sind entfernt
-  (ein Wolkensystem statt zwei konkurrierender, 13 alpha-geblendete Sprites weniger).
-- **Boden als Kreisscheibe**: `flag_g.jpg` liegt nicht mehr auf einem 1000×1000-Quadrat,
-  sondern auf einer radialen Scheibe bis Radius 8016 (Speichen-Raster, innen so dicht wie
-  das alte Gitter, nach außen grob anwachsend). Die runde Außenkante endet **exakt auf
-  der Himmelkuppel** → nahtloser Horizont ohne Kante und ohne Schlitz zum
-  Szene-Hintergrund; die UV-Formel ist die alte (gleiche Kachelstellung), jenseits
-  von ±500 läuft die Textur per RepeatWrapping weiter.
+  des Panoramas sichtbar ziehen.
+- **Boden als Kreisscheibe**: `flag_g.jpg` Die runde Außenkante endet **exakt auf
+  der Himmelkuppel** → nahtloser Horizont
 - **Wasserlandschaft mit Wellenbewegung**: die Küstenlinie (z = −167, **zwei Buchten
   unterschiedlicher Größe**) schneidet **Land** ins Gelände, von da läuft das **Meer bis
   zum Scheibenrand** – animierte Normal-Textur plus Spiegelung über das three.js-Beispiel
   `Water`. Die Oberfläche ist das **Bodenniveau auf See**:
-  Aufsetzen darauf meldet **„Drohne gewassert!"** (einmal pro Wat, ausblendbar wie eine
+  Aufsetzen darauf meldet **„Drohne gewassert!"** (einmal pro Wasserung, ausblendbar wie eine
   Kollisionsmeldung). Zielplatz, Routenlinie und Ringe werden gegen die Küste geprüft und
   **nie ins Wasser gewürfelt**; das Ufer fällt natürlich zum Grund ab.
 - **Überblick-Kamera frei bewegbar**: Mausrad bzw. Pinch zoomt, Ziehen mit Maus oder
@@ -80,10 +50,10 @@ und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
   „**3 von 3 Ringen - jetzt landen!**".
 - **Modus-Umschalter `Parcours | Training`** in der Steuerung: **Parcours** (Standard)
   mit drei Ringen, Pfosten und Durchflug-Zähler oder **Training** – einfacher Flug vom
-  Startplatz zum Zielplatz ohne Ringe und Stangen. Umschalten wirft die Drohne zurück
+  Startplatz zum Zielplatz ohne Ringe und Stangen, Rundflug oder Flug entlang der Küste. Umschalten wirft die Drohne zurück
   auf den Startplatz und würfelt einen neuen Kurs (neues Ziel, neue Kurve, neues
   Gelände); die rote Routenlinie bleibt in beiden Modi als Wegweiser zum Ziel sichtbar.
-- **Ziellandung** mit grüner Erfolgsmeldung „Erfolgreich im Ziel gelandet";
+- **Ziellandung** mit Meldung „Erfolgreich im Ziel gelandet";
   **Klick = neuer Kurs** (neues Ziel, neue Kurve, neue Ring-/Pfostenverteilung, neues Gelände).
 - Rote, dem Gelände folgende Routenlinie + weiches Korridorlicht über dem Kurs.
 - Blinkende Positionslichter (0,5 s), zufälliges Ziel 140–260 Einheiten entfernt,
@@ -121,9 +91,8 @@ und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
 | `deckel.png` | Deckel-Textur, Kontur der Rumpf-Extrusion **und Favicon** |
 | `landing.png` | Landeplatten-Textur (mit Alpha) |
 | `flag_g.jpg` | Bodentextur (Luftbild eines Herbstgeländes, JPEG 512×512, 8×8 Kachelung) auf der Kreisscheibe |
-| `sky.jpg` | Himmeltextur: 2:1-Equirect-Panorama (1200×600), obere Bildhälfte Himmel, untere Wasserspiegelung; projiziert auf die Halbkugel (obere Hälfte per `offset.y`/`repeat.y` ausgewählt) |
+| `sky.jpg` | abgeleitet aus https://sketchupfree.com/sketchup-textures/hdr-textures/sky-outside/sunrise-sunset-hdr-77 |
 | `docs/drohnensimulator.png` | Screenshot für diese README |
-| `docs/wasser.jpg` | Screenshot der Wasserlandschaft (Küste mit beiden Buchten) |
 | `LICENSE` | CC BY-NC-SA 4.0 des eigenen Werks (Namensnennung, nicht-kommerziell, ShareAlike) |
 
 ## Starten
@@ -153,4 +122,4 @@ dem [three.js](https://threejs.org/)-Projekt (MIT-Lizenz,
 kommerzielle Nutzung durch diese Bibliothek also unberührt). `Sky.js` (ebenfalls MIT,
 three.js) liegt nur noch als Altbestand bei und wird nicht mehr geladen.  
 
-Basierend auf einer Idee von [https://mam-mam.net](https://mam-mam.net/en/javascript/three_js_drone.html)
+Nach [https://mam-mam.net](https://mam-mam.net/en/javascript/three_js_drone.html)

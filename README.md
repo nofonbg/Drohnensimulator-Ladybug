@@ -42,7 +42,7 @@ und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
   Kollisionsmeldung). Zielplatz, Routenlinie und Ringe werden gegen die Küste geprüft und
   **nie ins Wasser gewürfelt**; das Ufer fällt natürlich zum Grund ab.
 - **Überblick-Kamera frei bewegbar**: Mausrad bzw. Pinch zoomt, Ziehen mit Maus oder
-  Finger dreht den Blick um die Drohne (Zoom/Drehen waren bisher gesperrt) – die
+  Finger dreht den Blick um die Drohne – die
   Startposition bleibt unverändert bei (0, 100, 150).
 - **Durchflug-Zähler** oben auf dem Canvas: „Ringe: 1 von 3" … bei allen drei
   „**3 von 3 Ringen - jetzt landen!**".

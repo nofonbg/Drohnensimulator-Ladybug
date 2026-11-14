@@ -30,17 +30,15 @@ und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
   Wasserfläche**). Bei Treffer: Zurücksetzen auf die sichere Position, Tempo 0,
   Rückstoß vom Hindernis weg – per Klick ausblendbar, danach fliegt die Drohne einfach weiter.
 - **Himmel als Halbkugel mit `sky.jpg`**: die obere Bildhälfte des 2:1-Equirect-Panoramas
-  (Zenit → Horizont) wird winkeltreu auf eine Halbkugel projiziert – statt des bisherigen
-  `Sky.js`-Prozedurhimmels. Die Kuppel dreht sich mit
+  (Zenit → Horizont) wird winkeltreu auf eine Halbkugel projiziert. Die Kuppel dreht sich mit
   **0,5° pro Sekunde** (eine Runde in 12 Minuten) um die Kugelachse, sodass die Wolken
   des Panoramas sichtbar ziehen.
-- **Boden als Kreisscheibe**: `flag_g.jpg` Die runde Außenkante endet **exakt auf
-  der Himmelkuppel** → nahtloser Horizont
+- **Boden als Kreisscheibe**: `flag_g.jpg` und nahtloser Horizont
 - **Wasserlandschaft mit Wellenbewegung**: die Küstenlinie (z = −167, **zwei Buchten
-  unterschiedlicher Größe**) schneidet **Land** ins Gelände, von da läuft das **Meer bis
+  unterschiedlicher Größe**) schneiden **Land** ins Gelände, von da läuft das **Meer bis
   zum Scheibenrand** – animierte Normal-Textur plus Spiegelung über das three.js-Beispiel
   `Water`. Die Oberfläche ist das **Bodenniveau auf See**:
-  Aufsetzen darauf meldet **„Drohne gewassert!"** (einmal pro Wasserung, ausblendbar wie eine
+  Aufsetzen darauf meldet **„Drohne gewassert!"** (einmal pro Wasserung, ausblendbar wie bei
   Kollisionsmeldung). Zielplatz, Routenlinie und Ringe werden gegen die Küste geprüft und
   **nie ins Wasser gewürfelt**; das Ufer fällt natürlich zum Grund ab.
 - **Überblick-Kamera frei bewegbar**: Mausrad bzw. Pinch zoomt, Ziehen mit Maus oder

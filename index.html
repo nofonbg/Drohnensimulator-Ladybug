@@ -13,6 +13,7 @@
   <link rel="icon" type="image/png" href="deckel.png">
   <!-- removed: <script src="mamimageviewer.js" defer></script> - image viewer of the original
        host, this demo displays no image gallery, so the file was dropped entirely -->
+<!-- Rest der Ursprungsseite: leerer Klick-Handler auf <main> (bewusst erhalten) -->
 <script>
   window.addEventListener('load',function(){
     document.getElementsByTagName('main')[0].addEventListener('click',function(){});
@@ -22,6 +23,7 @@
   <meta name="Description" content="Control a 3D drone directly in your browser using both on‑screen buttons and keyboard input. Built with Three.js, this demo shows smooth flight movement, camera following, and complete source code.">
   <meta name="Keywords" content="3D,WebGL,three.js,javascript,drone">
 
+  <!-- ===== JS-Skripte: externe Bibliotheken (three.js r145) ===== -->
   <script src="three.min.js"></script>
   <script src="OrbitControls.js"></script>
   <script src="Sky.js"></script>
@@ -30,54 +32,39 @@
 <link rel="stylesheet" href="drohne.css">
 
 
+  <!-- ===================================================================== -->
+  <!-- JS-Skript Teil 1: Aufbau der 3D-Szene                                -->
+  <!--                                                                      -->
+  <!-- Enthält alle three.js-Objekte in EINEM Abschnitt, in der            -->
+  <!-- Reihenfolge:                                                         -->
+  <!--   1. WELT    - Szene, Kamera, Renderer, Himmel, Licht, Wolken,       -->
+  <!--                Materialien, Grundgeometrien, Gelände und Wasser      -->
+  <!--   2. OBJEKTE - beide Landeplatten, rote Kurslinie, Ringe mit         -->
+  <!--                Pfosten, Kurslicht und die Drohne                      -->
+  <!-- main() ruft zuerst buildScene() (dieser Block) und danach            -->
+  <!-- setupControls() (Teil 2, Steuerung) auf.                             -->
+  <!-- ===================================================================== -->
 <script>
   var controls;
   var scene,camera,renderer;
-  
-  var pos={"x":0, "y":0, "z":0, "vx":0, "vy":0, "vz":0, "turn":0};
-  // flight commands currently held down ('up','dn','tl','tr','mf','mb','ml','mr'), fed by
-  // the keyboard AND the on-screen keycaps. A SET instead of a single value so any
-  // combination can be evaluated in the same frame - one arrow key plus one WASD key
-  // (climb while accelerating, turn while flying), two WASD keys, and so on. Opposite
-  // keys (W+S, left+right) simply cancel out to a net zero. Deliberately global like pos.
-  var held=new Set();
-  // keyboard key -> flight command, shared by the keydown and the keyup listener
-  function keyCmd(k){
-    return {w:"mf", s:"mb", a:"ml", d:"mr",
-            arrowup:"up", arrowdown:"dn", arrowleft:"tl", arrowright:"tr"}[k]||null;
-  }
-  // 2nd landing site: filled in main() with a random position (world x/z)
+  // ---- Globale Szenenobjekte: von buildScene() angelegt und von renderLoop()
+  // (Bereich Steuerung) pro Frame benutzt - deshalb bewusst global deklariert.
+  var drone,drone1,drone2,drone3,drone4;// Drohnengruppe und die vier Rotorgruppen
+  var md0,md1,md2,md3,md4,md5,md6,md7,md8;// Rumpf, Träger, Markierungen, Landebeine
+  var md11,md12,md21,md22,md31,md32,md41,md42;// Rotorblätter der vier Rotoren
+  var clouds,blinkStart;// Wolkengruppe und Startzeitpunkt des Lichtblinkens
+  // 2nd landing site: filled in buildScene() with a random position (world x/z)
   var pad2={"x":0, "z":0};
-  // one-shot flag: the success message only fades in once
-  var successShown=false;
-  // course mode: 'parcours' (default: three rings + posts + pass counter) or 'training'
-  // (plain flight from pad 1 to pad 2, no rings and no posts). Switched by the button pair
-  // in the light-hint row of the control panel; a switch always restarts the scene with a
-  // brand new course (same path as a click on the success message).
-  var courseMode='parcours';
-  // camera mode: false = overview (orbit control), true = first person view glued to the nose
-  var fpv=false;
-  // FPV camera head tilt in degrees: negative = look up, positive = look down (-30..90),
-  // driven by the white angle wheel between the arrow-key and WASD pads
-  var fpvTilt=0;
-  var fpvTiltQ=new THREE.Quaternion();// scratch quaternion, reused every frame (no per-frame allocation)
-  var fpvAxisX=new THREE.Vector3(1,0,0);
-  // FPV camera alignment: 'starr' = rigid on the drone (full pitch/roll goes into the picture),
-  // 'gimbal' = yaw follows, pitch/roll damped with inertia (like a 2-axis gimbal),
-  // 'welt' = orientation locked to the world coordinates (only yaw follows, horizon always level)
-  var fpvAlign='starr';
-  var fpvAlignQ=new THREE.Quaternion(); // smoothed gimbal orientation, reused every frame
-  var fpvTargetQ=new THREE.Quaternion();// scratch: desired orientation of the current frame
-  var fpvLevelE=new THREE.Euler(0,0,0,'YXZ');// scratch: yaw-only (world aligned) orientation
-  // collision analysis (all read by renderLoop, which lives at top level like this block):
-  // floorY is ASSIGNED in main() (closure over the terrain grid), obstacles is refilled by
-  // buildRings() with every course - the same "deliberately global" pattern as clouds
+  // Geländehöhe an einer Welt-x/z-Position: in buildScene() als Closure über das
+  // Bodenhöhengitter angelegt und von der Routenlinie, den Ringpfosten sowie der
+  // Bodenkollision in renderLoop() genutzt - bewusst global wie die Wolken.
+  var floorY=null;// terrain height at a world x/z position, set up in buildScene()
   var floorY=null;// terrain height at a world x/z position, set up in main()
   // ---- water: the landscape change. A band of sea runs along the FAR edge of the
   // 1000x1000 terrain (z = -500 .. -167 = exactly one third of its area) and cuts TWO
   // bays of different size into the land. All values are in TERRAIN units, i.e. exactly
   // the coordinates floorY() returns (the floor mesh itself sits at world y = -1, so the
-  // water surface is rendered one unit lower - see waterMesh.position.y in main()).
+  // water surface is rendered one unit lower - see waterMesh.position.y in buildScene()).
   var COAST_Z=-167;// straight coastline: sea where z < coastZ(x), land where z > coastZ(x)
   var WATER_LEVEL=-1.5;// water surface in terrain units (rendered world y = WATER_LEVEL-1)
   var WATER_SEABED=-4.5;// sea bed in terrain units -> 3 units of water depth over it
@@ -105,91 +92,23 @@
     const h=floorY(x,z);
     return isWater(x,z)?Math.max(h,WATER_LEVEL):Math.max(h,0);
   };
-  var waterMesh=null;// THREE.Water sea surface, created in main(), animated in renderLoop
+  var waterMesh=null;// THREE.Water sea surface, created in buildScene(), animated in renderLoop
   var waterPrevT=0;// last wave-animation timestamp (ms), 0 = no frame seen yet
   var waterTouched=false;// the drone is already resting on the sea (one splash msg per dip)
-  var obstacles=[];// rings + posts of the current course, checked every frame
-  var lastCollision='';// '' | 'ring' | 'post' - kind of the most recent impact
-  var collisionCount=0;// how many impacts happened since the page load
-  var droneColR=-1;// collision sphere of the drone, measured once from its bounding box
-  var droneColCY=4;// centre of that sphere above the drone group origin
-  var crashAt=-1e9, crashTimer=null;// -1e9: a collision right after page load may message
-  // short red collision message: auto-hides after 1.6 s AND can be dismissed with a click
-  // (the listener is installed in main), so the pilot simply continues the flight. Cooldown
-  // so a drone pressed against an obstacle does not spam it every frame.
-  function showCrash(text){
-    const now=performance.now();
-    if(now-crashAt<1200) return;
-    crashAt=now;
-    const el=document.getElementById('crashToast');
-    if(!el) return;
-    document.getElementById('crashTitle').textContent=text;
-    el.classList.add('show');
-    clearTimeout(crashTimer);
-    crashTimer=setTimeout(function(){ el.classList.remove('show'); },1600);
-  }
-  // ---- ring pass counter (read by renderLoop): which of the 3 rings of the current course
-  // has the drone already flown THROUGH? ringPrevSide[i] holds the signed distance of the
-  // drone centre from ring plane i of the previous frame -> a sign change = plane crossed,
-  // and if that crossing happened inside the opening (not somewhere outside the ring) the
-  // ring counts. resetScene() resets everything for the new course.
-  var passedRings=[false,false,false];
-  var ringPrevSide=[null,null,null];
-  var ringPassCount=0;
-  function updateRingBadge(){
-    const el=document.getElementById('ringBadge');
-    if(!el) return;
-    // training mode has no rings at all -> the counter badge stays hidden
-    el.style.display=(courseMode==='training')?'none':'';
-    if(ringPassCount>=3){
-      el.textContent='3 von 3 Ringen - jetzt landen!';
-      el.classList.add('done');
-    }else{
-      el.textContent='Ringe: '+ringPassCount+' von 3';
-      el.classList.remove('done');
-    }
-  }
-  // Distance from a point to the centreline circle of a ring (no contact threshold). Same
-  // formula as the ring branch of obstacleContact below; the escape loop uses it to STEER to
-  // an exact clearance, not just to "somewhere outside".
-  function ringGap(o, sx, sy, sz){
-    const dx=sx-o.x, dy=sy-o.y, dz=sz-o.z;
-    const a=dx*o.ax+dy*o.ay+dz*o.az;// component along the ring axis
-    const rx=dx-o.ax*a, ry=dy-o.ay*a, rz=dz-o.az*a;// component in the ring plane
-    const rl=Math.sqrt(rx*rx+ry*ry+rz*rz);// distance from the ring axis
-    return Math.sqrt((rl-o.R)*(rl-o.R)+a*a);
-  }
-  // Contact test of the drone sphere (centre sx/sy/sz) against ONE obstacle. Returns null
-  // when there is enough clearance, otherwise a small info object holding the measured gap
-  // and the geometry needed to push the drone out. Shared by the per-frame check in
-  // renderLoop and by the escape loop that frees a drone which is already in contact.
-  function obstacleContact(o, sx, sy, sz){
-    if(o.kind==='ring'){
-      // distance from the drone centre to the torus centreline circle
-      const dx=sx-o.x, dy=sy-o.y, dz=sz-o.z;
-      const a=dx*o.ax+dy*o.ay+dz*o.az;// component along the ring axis
-      const rx=dx-o.ax*a, ry=dy-o.ay*a, rz=dz-o.az*a;// component in the ring plane
-      const rl=Math.sqrt(rx*rx+ry*ry+rz*rz);// distance from the ring axis
-      const d=Math.sqrt((rl-o.R)*(rl-o.R)+a*a);
-      const need=o.tube+droneColR;
-      if(d<need) return {kind:'ring', o:o, d:d, need:need, dx:dx, dy:dy, dz:dz,
-                         rx:rx, ry:ry, rz:rz, rl:rl};
-    }else{
-      // distance from the drone centre to the vertical post segment
-      const cy=Math.max(o.y0,Math.min(o.y1,sy));
-      const dx=sx-o.x, dy=sy-cy, dz=sz-o.z;
-      const rr=o.r+droneColR;
-      const d2=dx*dx+dy*dy+dz*dz;
-      if(d2<rr*rr) return {kind:'post', o:o, d:Math.sqrt(d2), need:rr, dx:dx, dy:dy, dz:dz};
-    }
-    return null;
-  }
-  var main = function () {
+  // Neustart der Szene (neuer Kurs): wird in buildScene() angelegt, weil es die
+  // Bau-Funktionen der Szene braucht; die Steuerung ruft es auf (Klick auf die
+  // Erfolgsmeldung und Wechsel zwischen Parcours und Training).
+  var resetScene=null;
+  function buildScene(){
     // get the target canvas and read its width and height
     let can=document.getElementById('can');
     let w = 600;// width
     let h = 600;// height
 
+    // ==== WELT =================================================================
+    // Alles, was die Umgebung ausmacht: Szene, Kamera, Renderer, Himmel, Licht,
+    // Wolken, Materialien, Grundgeometrien, Gelände und Wasser.
+    // ===========================================================================
     //■ Scene
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0xccddff);
@@ -574,22 +493,20 @@
     m0.position.set(0,-1,0);
     scene.add(m0);
 
-    m0=new THREE.Mesh(pg,mt4);
-    m0.rotation.set(-Math.PI/2,0,0);
-    //m0.castShadow=true;
-    m0.receiveShadow=true;
-    m0.scale.set(30,29.3,1);// 50% larger than before, proportions of the 980x957 image kept
-    m0.position.set(0,0,0);
-    scene.add(m0);
-
-    // ---- 2nd landing site: same landing.png pad, placed at the random position chosen above
-    let pad2Mesh=new THREE.Mesh(pg,mt4);
-    pad2Mesh.rotation.set(-Math.PI/2,0,0);
-    pad2Mesh.receiveShadow=true;
-    pad2Mesh.scale.set(30,29.3,1);// identical size to pad 1
-    pad2Mesh.position.set(pad2.x,0,pad2.z);
-    pad2Mesh.name="pad2";
-    scene.add(pad2Mesh);
+    // terrain height at a world x/z position: the red route line, the ring posts and the
+    // ground collision in renderLoop() are placed/measured with it. Assigned to the GLOBAL
+    // floorY (the closure keeps hold of the terrain grid), because renderLoop needs it.
+    // (the floor plane is rotated -90 deg about x -> world (x,z) = geometry (x,-z);
+    //  PlaneGeometry(1000,1000,160,160) -> 161x161 vertices, spacing 6.25, row index = iy*161+ix)
+    floorY=(wx,wz)=>{
+      const fx=(wx+500)/6.25, fy=(500+wz)/6.25;
+      const x0=Math.min(Math.max(Math.floor(fx),0),159), y0=Math.min(Math.max(Math.floor(fy),0),159);
+      const x1=Math.min(x0+1,160), y1=Math.min(y0+1,160);
+      const tx=Math.min(Math.max(fx-x0,0),1), ty=Math.min(Math.max(fy-y0,0),1);
+      const z=(ix,iy)=>fpos.getZ(iy*161+ix);
+      const h=(z(x0,y0)*(1-tx)+z(x1,y0)*tx)*(1-ty)+(z(x0,y1)*(1-tx)+z(x1,y1)*tx)*ty;
+      return -1+h;// the floor mesh sits at y = -1
+    };
 
     // ---- sea: the water surface of the landscape change. The polygon follows the
     // coastline (both bays included) out to the far edge of the terrain, so the plane
@@ -626,20 +543,26 @@
       scene.add(waterMesh);
     }
 
-    // terrain height at a world x/z position: the red route line, the ring posts and the
-    // ground collision in renderLoop() are placed/measured with it. Assigned to the GLOBAL
-    // floorY (the closure keeps hold of the terrain grid), because renderLoop needs it.
-    // (the floor plane is rotated -90 deg about x -> world (x,z) = geometry (x,-z);
-    //  PlaneGeometry(1000,1000,160,160) -> 161x161 vertices, spacing 6.25, row index = iy*161+ix)
-    floorY=(wx,wz)=>{
-      const fx=(wx+500)/6.25, fy=(500+wz)/6.25;
-      const x0=Math.min(Math.max(Math.floor(fx),0),159), y0=Math.min(Math.max(Math.floor(fy),0),159);
-      const x1=Math.min(x0+1,160), y1=Math.min(y0+1,160);
-      const tx=Math.min(Math.max(fx-x0,0),1), ty=Math.min(Math.max(fy-y0,0),1);
-      const z=(ix,iy)=>fpos.getZ(iy*161+ix);
-      const h=(z(x0,y0)*(1-tx)+z(x1,y0)*tx)*(1-ty)+(z(x0,y1)*(1-tx)+z(x1,y1)*tx)*ty;
-      return -1+h;// the floor mesh sits at y = -1
-    };
+    // ==== OBJEKTE ===============================================================
+    // Alles, was auf der Welt steht: beide Landeplatten, die rote Kurslinie,
+    // die Ringe mit Pfosten, das Kurslicht und die Drohne.
+    // ===========================================================================
+    m0=new THREE.Mesh(pg,mt4);
+    m0.rotation.set(-Math.PI/2,0,0);
+    //m0.castShadow=true;
+    m0.receiveShadow=true;
+    m0.scale.set(30,29.3,1);// 50% larger than before, proportions of the 980x957 image kept
+    m0.position.set(0,0,0);
+    scene.add(m0);
+
+    // ---- 2nd landing site: same landing.png pad, placed at the random position chosen above
+    let pad2Mesh=new THREE.Mesh(pg,mt4);
+    pad2Mesh.rotation.set(-Math.PI/2,0,0);
+    pad2Mesh.receiveShadow=true;
+    pad2Mesh.scale.set(30,29.3,1);// identical size to pad 1
+    pad2Mesh.position.set(pad2.x,0,pad2.z);
+    pad2Mesh.name="pad2";
+    scene.add(pad2Mesh);
 
     // ---- course: a piecewise cubic Bezier "snake" from pad 1 (origin) to pad 2. The chord
     // is split into 3-4 segments; every segment bows out to ONE side (both control points
@@ -1017,7 +940,152 @@
       }
     });
 
+    // click on the success message: reset the scene and roll a completely new course
+    // (drone back to pad 1, camera back to the starting view, new random pad 2 with new
+    // terrain, new route line, re-aimed corridor light, success message hidden again)
+    resetScene=function(){
+      held.clear(); pos.x=0; pos.y=0; pos.z=0;
+      pos.vx=0; pos.vy=0; pos.vz=0; pos.turn=0;
+      newPad2();
+      buildTerrain();
+      scene.getObjectByName('pad2').position.set(pad2.x,0,pad2.z);
+      buildRouteLine();// new Bezier snake for the new pad position
+      buildRings();// new ring positions/colors, post heights rolled again + fresh obstacles
+      aimPathLight();
+      successShown=false;
+      document.getElementById('landedToast').classList.remove('show');
+      document.getElementById('crashToast').classList.remove('show');// no stale red message
+      // new course -> new rings: the pass counter starts from zero again
+      passedRings=[false,false,false];
+      ringPrevSide=[null,null,null];
+      ringPassCount=0;
+      updateRingBadge();
+      camera.position.set(0,100,150);// standard starting view
+      controls.update();// the camera looks at the drone (= controls.target), i.e. back at pad 1
+    };
+  }
 
+</script>
+
+  <!-- ===================================================================== -->
+  <!-- JS-Skript Teil 2: Steuerung                                           -->
+  <!--                                                                      -->
+  <!-- Flugzustand, Kollisionserkennung, Bedienelemente des Panels          -->
+  <!-- (Sicht-Umschalter, FPV-Ausrichtung, Kursmodus, Kamerawinkel-Rad),    -->
+  <!-- Toast-Meldungen, Frameschleife renderLoop() und der Start der App.    -->
+  <!-- ===================================================================== -->
+<script>
+  var pos={"x":0, "y":0, "z":0, "vx":0, "vy":0, "vz":0, "turn":0};
+  // flight commands currently held down ('up','dn','tl','tr','mf','mb','ml','mr'), fed by
+  // the keyboard AND the on-screen keycaps. A SET instead of a single value so any
+  // combination can be evaluated in the same frame - one arrow key plus one WASD key
+  // (climb while accelerating, turn while flying), two WASD keys, and so on. Opposite
+  // keys (W+S, left+right) simply cancel out to a net zero. Deliberately global like pos.
+  var held=new Set();
+  // keyboard key -> flight command, shared by the keydown and the keyup listener
+  function keyCmd(k){
+    return {w:"mf", s:"mb", a:"ml", d:"mr",
+            arrowup:"up", arrowdown:"dn", arrowleft:"tl", arrowright:"tr"}[k]||null;
+  }
+  // one-shot flag: the success message only fades in once
+  var successShown=false;
+  // course mode: 'parcours' (default: three rings + posts + pass counter) or 'training'
+  // (plain flight from pad 1 to pad 2, no rings and no posts). Switched by the button pair
+  // in the light-hint row of the control panel; a switch always restarts the scene with a
+  // brand new course (same path as a click on the success message).
+  var courseMode='parcours';
+  // camera mode: false = overview (orbit control), true = first person view glued to the nose
+  var fpv=false;
+  // FPV camera head tilt in degrees: negative = look up, positive = look down (-30..90),
+  // driven by the white angle wheel between the arrow-key and WASD pads
+  var fpvTilt=0;
+  var fpvTiltQ=new THREE.Quaternion();// scratch quaternion, reused every frame (no per-frame allocation)
+  var fpvAxisX=new THREE.Vector3(1,0,0);
+  // FPV camera alignment: 'starr' = rigid on the drone (full pitch/roll goes into the picture),
+  // 'gimbal' = yaw follows, pitch/roll damped with inertia (like a 2-axis gimbal),
+  // 'welt' = orientation locked to the world coordinates (only yaw follows, horizon always level)
+  var fpvAlign='starr';
+  var fpvAlignQ=new THREE.Quaternion(); // smoothed gimbal orientation, reused every frame
+  var fpvTargetQ=new THREE.Quaternion();// scratch: desired orientation of the current frame
+  var fpvLevelE=new THREE.Euler(0,0,0,'YXZ');// scratch: yaw-only (world aligned) orientation
+  var obstacles=[];// rings + posts of the current course, checked every frame
+  var lastCollision='';// '' | 'ring' | 'post' - kind of the most recent impact
+  var collisionCount=0;// how many impacts happened since the page load
+  var droneColR=-1;// collision sphere of the drone, measured once from its bounding box
+  var droneColCY=4;// centre of that sphere above the drone group origin
+  var crashAt=-1e9, crashTimer=null;// -1e9: a collision right after page load may message
+  // short red collision message: auto-hides after 1.6 s AND can be dismissed with a click
+  // (the listener is installed in setupControls()), so the pilot simply continues the flight. Cooldown
+  // so a drone pressed against an obstacle does not spam it every frame.
+  function showCrash(text){
+    const now=performance.now();
+    if(now-crashAt<1200) return;
+    crashAt=now;
+    const el=document.getElementById('crashToast');
+    if(!el) return;
+    document.getElementById('crashTitle').textContent=text;
+    el.classList.add('show');
+    clearTimeout(crashTimer);
+    crashTimer=setTimeout(function(){ el.classList.remove('show'); },1600);
+  }
+  // ---- ring pass counter (read by renderLoop): which of the 3 rings of the current course
+  // has the drone already flown THROUGH? ringPrevSide[i] holds the signed distance of the
+  // drone centre from ring plane i of the previous frame -> a sign change = plane crossed,
+  // and if that crossing happened inside the opening (not somewhere outside the ring) the
+  // ring counts. resetScene() resets everything for the new course.
+  var passedRings=[false,false,false];
+  var ringPrevSide=[null,null,null];
+  var ringPassCount=0;
+  function updateRingBadge(){
+    const el=document.getElementById('ringBadge');
+    if(!el) return;
+    // training mode has no rings at all -> the counter badge stays hidden
+    el.style.display=(courseMode==='training')?'none':'';
+    if(ringPassCount>=3){
+      el.textContent='3 von 3 Ringen - jetzt landen!';
+      el.classList.add('done');
+    }else{
+      el.textContent='Ringe: '+ringPassCount+' von 3';
+      el.classList.remove('done');
+    }
+  }
+  // Distance from a point to the centreline circle of a ring (no contact threshold). Same
+  // formula as the ring branch of obstacleContact below; the escape loop uses it to STEER to
+  // an exact clearance, not just to "somewhere outside".
+  function ringGap(o, sx, sy, sz){
+    const dx=sx-o.x, dy=sy-o.y, dz=sz-o.z;
+    const a=dx*o.ax+dy*o.ay+dz*o.az;// component along the ring axis
+    const rx=dx-o.ax*a, ry=dy-o.ay*a, rz=dz-o.az*a;// component in the ring plane
+    const rl=Math.sqrt(rx*rx+ry*ry+rz*rz);// distance from the ring axis
+    return Math.sqrt((rl-o.R)*(rl-o.R)+a*a);
+  }
+  // Contact test of the drone sphere (centre sx/sy/sz) against ONE obstacle. Returns null
+  // when there is enough clearance, otherwise a small info object holding the measured gap
+  // and the geometry needed to push the drone out. Shared by the per-frame check in
+  // renderLoop and by the escape loop that frees a drone which is already in contact.
+  function obstacleContact(o, sx, sy, sz){
+    if(o.kind==='ring'){
+      // distance from the drone centre to the torus centreline circle
+      const dx=sx-o.x, dy=sy-o.y, dz=sz-o.z;
+      const a=dx*o.ax+dy*o.ay+dz*o.az;// component along the ring axis
+      const rx=dx-o.ax*a, ry=dy-o.ay*a, rz=dz-o.az*a;// component in the ring plane
+      const rl=Math.sqrt(rx*rx+ry*ry+rz*rz);// distance from the ring axis
+      const d=Math.sqrt((rl-o.R)*(rl-o.R)+a*a);
+      const need=o.tube+droneColR;
+      if(d<need) return {kind:'ring', o:o, d:d, need:need, dx:dx, dy:dy, dz:dz,
+                         rx:rx, ry:ry, rz:rz, rl:rl};
+    }else{
+      // distance from the drone centre to the vertical post segment
+      const cy=Math.max(o.y0,Math.min(o.y1,sy));
+      const dx=sx-o.x, dy=sy-cy, dz=sz-o.z;
+      const rr=o.r+droneColR;
+      const d2=dx*dx+dy*dy+dz*dz;
+      if(d2<rr*rr) return {kind:'post', o:o, d:Math.sqrt(d2), need:rr, dx:dx, dy:dy, dz:dz};
+    }
+    return null;
+  }
+
+  function setupControls(){
     // create the orbit controls (dragging with the left/right mouse button, using the wheel, etc. moves the camera)
     controls = new THREE.OrbitControls(camera, renderer.domElement);
     //controls.target.set(0,7,0);
@@ -1058,29 +1126,6 @@
     window.addEventListener("blur", function(){ held.clear(); });
     document.addEventListener("visibilitychange", function(){ if(document.hidden) held.clear(); });
 
-    // click on the success message: reset the scene and roll a completely new course
-    // (drone back to pad 1, camera back to the starting view, new random pad 2 with new
-    // terrain, new route line, re-aimed corridor light, success message hidden again)
-    const resetScene=()=>{
-      held.clear(); pos.x=0; pos.y=0; pos.z=0;
-      pos.vx=0; pos.vy=0; pos.vz=0; pos.turn=0;
-      newPad2();
-      buildTerrain();
-      scene.getObjectByName('pad2').position.set(pad2.x,0,pad2.z);
-      buildRouteLine();// new Bezier snake for the new pad position
-      buildRings();// new ring positions/colors, post heights rolled again + fresh obstacles
-      aimPathLight();
-      successShown=false;
-      document.getElementById('landedToast').classList.remove('show');
-      document.getElementById('crashToast').classList.remove('show');// no stale red message
-      // new course -> new rings: the pass counter starts from zero again
-      passedRings=[false,false,false];
-      ringPrevSide=[null,null,null];
-      ringPassCount=0;
-      updateRingBadge();
-      camera.position.set(0,100,150);// standard starting view
-      controls.update();// the camera looks at the drone (= controls.target), i.e. back at pad 1
-    };
     document.getElementById('landedToast').addEventListener('click',resetScene);
     // click on the collision message: hide it right away -> the pilot continues the flight
     // (the auto-hide timer of showCrash is cancelled so it cannot fire later)
@@ -1215,8 +1260,6 @@
     });
     setTilt(fpvTilt);// paint the ruler marker and the knurling offset once at start-up
 
-    blinkStart=performance.now();// start the light-blink clock when the demo starts
-    setInterval(renderLoop,33);
   }
 
   function renderLoop () {
@@ -1484,6 +1527,15 @@
 
   }
 
+  // ==== Start der Anwendung =================================================
+  // Reihenfolge: erst die 3D-Szene aufbauen (Teil 1), dann die Bedienelemente
+  // verdrahten (Teil 2) und zum Schluss die Frameschleife starten (~30 fps).
+  function main(){
+    buildScene();// Teil 1: Aufbau der 3D-Szene
+    setupControls();// Teil 2: Steuerung
+    blinkStart=performance.now();// start the light-blink clock when the demo starts
+    setInterval(renderLoop,33);
+  }
   window.addEventListener('DOMContentLoaded', main, false);
 
   window.addEventListener('load',function(){
@@ -1532,14 +1584,17 @@
 </script>
 -->
   </header>
+  <!-- ===== Bereich: Seite - links die 3D-Ansicht, rechts das Steuerungspanel ===== -->
   <main>
 
 
     <!-- justify-content:center keeps the whole block (canvas + control panel) centred horizontally -->
-    <section style="display:flex;flex-wrap:wrap;align-items:stretch;justify-content:center;gap:16px;">
+    <!-- Gesamtaufbau: Canvas und Bedienpanel nebeneinander, auf kleinen Schirmen untereinander -->
+    <section class="stage-row">
       <!-- wrapper makes the toast position relative to the canvas -->
-      <div style="position:relative;">
-      <canvas id="can" style="width:600px; height:600px; max-width:calc(100vw - 36px);max-height:calc(100vw - 36px);border-radius:18px;box-shadow:0 12px 28px rgba(2,6,23,0.45),0 2px 6px rgba(2,6,23,0.35);-ms-touch-action:none;touch-action:none;cursor:grab;"></canvas>
+      <!-- 3D-Ansicht: Canvas mit den überlagerten Meldungen (Landung, Kollision, Ringzähler) -->
+      <div class="canvas-box">
+      <canvas id="can" class="scene-canvas"></canvas>
       <div class="landed-toast" id="landedToast" role="status">
         <div class="t-title">Landung erfolgreich!</div>
         <div class="t-sub">Erfolgreich im Ziel gelandet</div>
@@ -1552,6 +1607,7 @@
       <!-- ring pass counter, always visible at the top of the canvas -->
       <div class="ring-badge" id="ringBadge" role="status">Ringe: 0 von 3</div>
       </div>
+      <!-- ===== Bereich: Steuerungspanel ===== -->
       <div class="ctrl-panel">
         <div class="ctrl-title">Steuerung</div>
         <!-- camera switch: overview (default) <-> first person view from the drone's nose -->
@@ -1573,26 +1629,26 @@
             <td>
             </td>
             <td>
-              <a class="cbt" id="up" onclick="" aria-label="Steigen">↑</a>
+              <a class="cbt" id="up" aria-label="Steigen">↑</a>
             </td>
             <td>
             </td>
           </tr>
           <tr>
             <td>
-              <a class="cbt" id="tl" onclick="" aria-label="Links drehen">←</a>
+              <a class="cbt" id="tl" aria-label="Links drehen">←</a>
             </td>
             <td>
             </td>
             <td>
-              <a class="cbt" id="tr" onclick="" aria-label="Rechts drehen">→</a>
+              <a class="cbt" id="tr" aria-label="Rechts drehen">→</a>
             </td>
           </tr>
           <tr>
             <td>
             </td>
             <td>
-              <a class="cbt" id="dn" onclick="" aria-label="Sinken">↓</a>
+              <a class="cbt" id="dn" aria-label="Sinken">↓</a>
             </td>
             <td>
             </td>
@@ -1618,26 +1674,26 @@
             <td>
             </td>
             <td>
-              <a class="cbt" id="mf" onclick="" aria-label="Vorwärts">W</a>
+              <a class="cbt" id="mf" aria-label="Vorwärts">W</a>
             </td>
             <td>
             </td>
           </tr>
           <tr>
             <td>
-              <a class="cbt" id="ml" onclick="" aria-label="Seitwärts links">A</a>
+              <a class="cbt" id="ml" aria-label="Seitwärts links">A</a>
             </td>
             <td>
             </td>
             <td>
-              <a class="cbt" id="mr" onclick="" aria-label="Seitwärts rechts">D</a>
+              <a class="cbt" id="mr" aria-label="Seitwärts rechts">D</a>
             </td>
           </tr>
           <tr>
             <td>
             </td>
             <td>
-              <a class="cbt" id="mb" onclick="" aria-label="Rückwärts">S</a>
+              <a class="cbt" id="mb" aria-label="Rückwärts">S</a>
             </td>
             <td>
             </td>

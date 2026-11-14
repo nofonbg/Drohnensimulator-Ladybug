@@ -92,7 +92,7 @@ und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
 
 | Datei | Zweck |
 |---|---|
-| `index.html` | App-Struktur: HTML-Aufbau und gesamtes JavaScript (Aufbau der 3D-Szene + Steuerung) |
+| `index.html` | App-Struktur: HTML-Aufbau und gesamtes JavaScript (Aufbau der 3D-Szene + Steuerung); **alle Kommentare auf Deutsch** |
 | `drohne.css` | Alle Stylesheet-Regeln, alphabetisch sortiert (aus `index.html` ausgelagert) |
 | `three.min.js` | three.js r145 (MIT) |
 | `Sky.js`, `OrbitControls.js` | Himmel und Orbit-Steuerung (three.js-Beispiele) |

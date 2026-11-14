@@ -1,18 +1,27 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Licensed under CC BY-NC-SA 4.0 (Attribution-NonCommercial-ShareAlike 4.0
-         International) - (c) 2026 Norbert Forster, see LICENSE for the full text -->
+    <!--
+Lizenziert unter CC BY-NC-SA 4.0 (Namensnennung, nicht-kommerziell,
+         ShareAlike 4.0 International) - (c) 2026 Norbert Forster, siehe LICENSE für den Volltext
+-->
     <link rel="canonical" href="https://mam-mam.net/en/javascript/three_js_drone.html" />
   <meta charset="UTF-8">
   <meta name="robots" content="index,follow,max-image-preview:large" />
-  <!-- removed: <link rel="stylesheet" href="/css/inc.css" /> - absolute path of the original
-       host, it only produced a 404 on any other server (and was blocked locally anyway) -->
+  <!--
+entfernt: <link rel="stylesheet" href="/css/inc.css" /> - absoluter Pfad des Ursprungs-
+        hosts, führte auf jedem anderen Server nur zu einem 404 (und wurde lokal ohnehin blockiert)
+-->
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <!-- favicon: the drone's deckel.png works directly as a PNG icon in every browser -->
+  <!--
+Favicon: der Deckel der Drohne (deckel.png) funktioniert in jedem Browser direkt als
+        PNG-Icon - eigene Icon-Datei nicht nötig
+-->
   <link rel="icon" type="image/png" href="deckel.png">
-  <!-- removed: <script src="mamimageviewer.js" defer></script> - image viewer of the original
-       host, this demo displays no image gallery, so the file was dropped entirely -->
+  <!--
+entfernt: <script src="mamimageviewer.js" defer></script> - Bildbetrachter des Ursprungs-
+        hosts; diese Demo zeigt keine Galerie, daher wurde die Datei ganz weggelassen
+-->
 <!-- Rest der Ursprungsseite: leerer Klick-Handler auf <main> (bewusst erhalten) -->
 <script>
   window.addEventListener('load',function(){
@@ -27,7 +36,9 @@
   <script src="three.min.js"></script>
   <script src="OrbitControls.js"></script>
   <script src="Sky.js"></script>
-  <script src="Water.js"></script><!-- three.js r145 example: reflective water with waves -->
+  <script src="Water.js"></script><!--
+three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water.js)
+-->
 
 <link rel="stylesheet" href="drohne.css">
 
@@ -53,100 +64,99 @@
   var md0,md1,md2,md3,md4,md5,md6,md7,md8;// Rumpf, Träger, Markierungen, Landebeine
   var md11,md12,md21,md22,md31,md32,md41,md42;// Rotorblätter der vier Rotoren
   var clouds,blinkStart;// Wolkengruppe und Startzeitpunkt des Lichtblinkens
-  // 2nd landing site: filled in buildScene() with a random position (world x/z)
+  // 2. Landeplatz: wird in buildScene() mit einer Zufallsposition (Welt-x/z) gefüllt
   var pad2={"x":0, "z":0};
   // Geländehöhe an einer Welt-x/z-Position: in buildScene() als Closure über das
   // Bodenhöhengitter angelegt und von der Routenlinie, den Ringpfosten sowie der
   // Bodenkollision in renderLoop() genutzt - bewusst global wie die Wolken.
-  var floorY=null;// terrain height at a world x/z position, set up in buildScene()
-  var floorY=null;// terrain height at a world x/z position, set up in main()
-  // ---- water: the landscape change. A band of sea runs along the FAR edge of the
-  // 1000x1000 terrain (z = -500 .. -167 = exactly one third of its area) and cuts TWO
-  // bays of different size into the land. All values are in TERRAIN units, i.e. exactly
-  // the coordinates floorY() returns (the floor mesh itself sits at world y = -1, so the
-  // water surface is rendered one unit lower - see waterMesh.position.y in buildScene()).
-  var COAST_Z=-167;// straight coastline: sea where z < coastZ(x), land where z > coastZ(x)
-  var WATER_LEVEL=-1.5;// water surface in terrain units (rendered world y = WATER_LEVEL-1)
-  var WATER_SEABED=-4.5;// sea bed in terrain units -> 3 units of water depth over it
-  // smooth bay: 0 outside |x-cx| >= hw, `depth` at the centre, cosine ramp without corners
+  var floorY=null;// Geländehöhe an einer Welt-x/z-Position, in buildScene() angelegt
+  // ---- Wasser: die Landschaftsänderung. Ein Meerestreifen läuft am FERNEN Rand der
+  // 1000x1000-Landschaft entlang (z = -500 .. -167 = genau ein Drittel ihrer Fläche) und schneidet ZWEI
+  // Buchten unterschiedlicher Größe ins Land. Alle Werte sind in Terrain-Einheiten, also exakt
+  // den Koordinaten, die floorY() liefert (das Boden-Mesh liegt selbst auf Welt-y = -1, daher wird
+  // die Wasseroberfläche eine Einheit tiefer gerendert - siehe waterMesh.position.y in buildScene()).
+  var COAST_Z=-167;// gerade Küstenlinie: Meer, wo z < coastZ(x); Land, wo z > coastZ(x)
+  var WATER_LEVEL=-1.5;// Wasseroberfläche in Terrain-Einheiten (gerendert als Welt-y = WATER_LEVEL-1)
+  var WATER_SEABED=-4.5;// Meeresboden in Terrain-Einheiten -> darüber 3 Einheiten Wassertiefe
+  // weiche Bucht: 0 außerhalb von |x-cx| >= hw, `depth` in der Mitte, Kosinus-Übergang ohne Kanten
   const bayBump=(x,cx,hw,depth)=>{
     const dx=Math.abs(x-cx);
     if(dx>=hw) return 0;
     return depth*0.5*(1+Math.cos(Math.PI*dx/hw));
   };
-  // coastline of the current landscape: the straight band edge plus the two bays, both
-  // cut INLAND (towards +z): a LARGE bay in the west (reaches z = -57) and a clearly
-  // SMALLER one in the east (reaches z = -112) - the sizes differ on purpose
+  // Küstenlinie der aktuellen Landschaft: die gerade Streifenkante plus die beiden Buchten, beide
+  // INLAND geschnitten (nach +z): eine GROSSE Bucht im Westen (reicht bis z = -57) und eine deutlich
+  // KLEINERE im Osten (reicht bis z = -112) - die Größen unterscheiden sich absichtlich
   const coastZ=(x)=>
     COAST_Z
-    +bayBump(x,-150,130,110)// large bay: mouth 260 wide, 110 deep
-    +bayBump(x, 170, 85, 55);// small bay: mouth 170 wide, 55 deep
-  // true where the sea plane exists - drives the terrain carve, the flight physics and
-  // the splash message, so shoreline, water mesh and collision always agree
+    +bayBump(x,-150,130,110)// große Bucht: Mündung 260 breit, 110 tief
+    +bayBump(x, 170, 85, 55);// kleine Bucht: Mündung 170 breit, 55 tief
+  // wahr, wo die Wasserfläche existiert - steuert das Aushöhlen des Geländes, die Flugphysik und
+  // die Spritz-Meldung; Ufer, Wasser-Mesh und Kollision stimmen dadurch immer überein
   const isWater=(x,z)=>z<coastZ(x);
-  // ground height FOR THE FLIGHT PHYSICS: on land the terrain exactly as before (never
-  // below 0), inside the sea region the water SURFACE - the drone rests ON the water
-  // instead of sinking to the sea bed. The lifted beach strip still wins because max()
-  // keeps any ground that pokes above the waterline.
+  // Bodenhöhe FÜR DIE FLUGPHYSIK: an Land genau das Gelände wie bisher (nie
+  // unter 0), im Meeresbereich die WASSEROBERFLÄCHE - die Drohne ruht AUF dem Wasser
+  // statt auf den Meeresboden zu sinken. Das angehobene Uferband gewinnt weiterhin, weil max()
+  // jeden Boden behält, der über die Wasserlinie hinausragt.
   const groundY=(x,z)=>{
     const h=floorY(x,z);
     return isWater(x,z)?Math.max(h,WATER_LEVEL):Math.max(h,0);
   };
-  var waterMesh=null;// THREE.Water sea surface, created in buildScene(), animated in renderLoop
-  var waterPrevT=0;// last wave-animation timestamp (ms), 0 = no frame seen yet
-  var waterTouched=false;// the drone is already resting on the sea (one splash msg per dip)
+  var waterMesh=null;// THREE.Water-Meeresoberfläche, in buildScene() erzeugt, in renderLoop() animiert
+  var waterPrevT=0;// letzter Zeitstempel der Wellenanimation (ms), 0 = noch kein Frame gesehen
+  var waterTouched=false;// die Drohne liegt bereits auf dem Meer (nur eine Spritzmeldung pro Tauchgang)
   // Neustart der Szene (neuer Kurs): wird in buildScene() angelegt, weil es die
   // Bau-Funktionen der Szene braucht; die Steuerung ruft es auf (Klick auf die
   // Erfolgsmeldung und Wechsel zwischen Parcours und Training).
   var resetScene=null;
   function buildScene(){
-    // get the target canvas and read its width and height
+    // Ziel-Canvas holen und dessen Breite/Höhe auslesen
     let can=document.getElementById('can');
-    let w = 600;// width
-    let h = 600;// height
+    let w = 600;// Breite (Canvas-Pixel)
+    let h = 600;// Höhe (Canvas-Pixel)
 
     // ==== WELT =================================================================
     // Alles, was die Umgebung ausmacht: Szene, Kamera, Renderer, Himmel, Licht,
     // Wolken, Materialien, Grundgeometrien, Gelände und Wasser.
     // ===========================================================================
-    //■ Scene
+    //■ Szene (Container für alle 3D-Objekte)
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0xccddff);
 
-    //■ Camera
-    //THREE.PerspectiveCamera( field of view (degrees), aspect ratio, nearest visible distance, farthest visible distance );
+    //■ Kamera
+    //THREE.PerspectiveCamera( Sichtfeld (Grad), Seitenverhältnis, nahste Entfernung, fernste Entfernung );
     camera = new THREE.PerspectiveCamera(25, w/h, 1, 10000);
-    camera.position.set(0, 100, 150);// set the camera position
-    //camera.rotation.set(0,8,0);// set the camera rotation to (0,0,0) degrees
-    camera.lookAt(new THREE.Vector3(0, 0, 0));// point the camera at the (0,0,0) coordinate
-    scene.add(camera);// add the camera to the scene
+    camera.position.set(0, 100, 150);// Startposition der Kamera setzen
+    //camera.rotation.set(0,8,0);// Kameradrehung auf (0,0,0) Grad - auskommentiert, die Kamera blickt per lookAt()
+    camera.lookAt(new THREE.Vector3(0, 0, 0));// Kamera auf den Ursprung (0,0,0) ausrichten
+    scene.add(camera);// Kamera zur Szene hinzufügen (Pflicht bei FPV-Kameraführung)
 
-    //■ Renderer
-    renderer = new THREE.WebGLRenderer({canvas:can, antialias: true});// antialiasing enabled
+    //■ Renderer (zeichnet die Szene auf das Canvas)
+    renderer = new THREE.WebGLRenderer({canvas:can, antialias: true});// Kantenglättung (antialiasing) aktiviert
     renderer.setSize(w, h);
-    // enable shadow maps
+    // Schattenkarten aktivieren
     renderer.shadowMap.enabled = true;
-    //renderer.setClearColor(0x000000, 1);// set the background color
+    //renderer.setClearColor(0x000000, 1);// Hintergrundfarbe - auskommentiert, der Himmel kommt von Sky.js
 
-    //■ Sky
+    //■ Himmel (Sky.js: Sonne, Atmosphäre, Wolkenhimmel)
     let sky=new THREE.Sky();
     sky.scale.setScalar(50000);
-    sky.material.uniforms.turbidity.value=1.0;// atmospheric transparency
-    sky.material.uniforms.rayleigh.value=0.06;// blue light scattering (blue sky)
-    sky.material.uniforms.mieCoefficient.value=0.0005;// sunlight scattering - Mie coefficient (white haze)
-    sky.material.uniforms.mieDirectionalG.value=0.8; // sunlight scattering - Mie directional G
-    sky.material.uniforms.sunPosition.value.x= 10000;// sun position
-    sky.material.uniforms.sunPosition.value.y= 30000;// sun position
-    sky.material.uniforms.sunPosition.value.z=-40000;// sun position
+    sky.material.uniforms.turbidity.value=1.0;// Trübung der Atmosphäre (turbidity)
+    sky.material.uniforms.rayleigh.value=0.06;// Blaustreuung des Lichts (blaue Himmel)
+    sky.material.uniforms.mieCoefficient.value=0.0005;// Sonnenstreuung - Mie-Koeffizient (weißer Dunst)
+    sky.material.uniforms.mieDirectionalG.value=0.8; // Sonnenstreuung - Mie-Richtungsfaktor G
+    sky.material.uniforms.sunPosition.value.x= 10000;// Sonnenposition (in den Shader der Himmelkuppel)
+    sky.material.uniforms.sunPosition.value.y= 30000;// Sonnenposition (in den Shader der Himmelkuppel)
+    sky.material.uniforms.sunPosition.value.z=-40000;// Sonnenposition (in den Shader der Himmelkuppel)
     scene.add(sky);
 
-    //■ Cumulus clouds (procedural alpha texture on camera-facing sprites)
-    // Built as a DataTexture instead of a 2D canvas: Safari can upload a lazily
-    // GPU-rasterised canvas as garbage bytes (colour noise), raw pixel data is safe.
+    //■ Kumulus-Wolken (prozedurale Alphatextur auf kamera-zuwendenden Sprites)
+    // Als DataTexture statt über eine 2D-Leinwand gebaut: Safari kann eine erst spät
+    // gerasterte Canvas als Müllbytes (Farbrauschen) hochladen, Rohpixeldaten sind sicher.
     function makeCloudTexture(){
       const size=256;
       const data=new Uint8Array(size*size*4);
-      // lobes in sprite space: v = 0 is the BOTTOM of the cloud, v = 1 the top
+      // Lappen im Sprite-Raum: v = 0 ist der UNTERE Wolkenrand, v = 1 der obere
       const lobes=[[0.50,0.38,0.30],[0.30,0.36,0.20],[0.70,0.36,0.20],
                    [0.40,0.53,0.22],[0.60,0.54,0.19],[0.50,0.65,0.15],
                    [0.22,0.44,0.13],[0.78,0.44,0.13]];
@@ -160,14 +170,14 @@
             const dy=(v-lobes[i][1])/lobes[i][2];
             const d=Math.sqrt(dx*dx+dy*dy);
             if(d<1){
-              // same alpha curve as the old canvas radial gradients:
-              // 0.95 at the core, 0.70 at 55% of the radius, 0 at the rim
+              // gleiche Alphakurve wie die alten radialen Canvas-Verläufe:
+              // 0,95 im Kern, 0,70 bei 55 % des Radius, 0 am Rand
               const t=d<0.55 ? (0.95+(0.70-0.95)*(d/0.55))
                              : (0.70*(1-(d-0.55)/0.45));
-              a=t+a*(1-t);// source-over: the lobes merge into one cloud mass
+              a=t+a*(1-t);// source-over: die Lappen verschmelzen zu einer Wolkenmasse
             }
           }
-          // cumulus have a flat base: fade out below v = 0.336 (gone at v = 0.078)
+          // Kumulus haben eine flache Unterseite: unter v = 0,336 ausblenden (bei v = 0,078 weg)
           if(v<0.336){
             let t=(v-0.078)/0.258;
             if(t<0){t=0;}
@@ -181,8 +191,8 @@
         }
       }
       const tex=new THREE.DataTexture(data,size,size,THREE.RGBAFormat);
-      tex.flipY=false;// data is written bottom-up, so no vertical flip is needed
-      tex.minFilter=THREE.LinearFilter;// smooth edges (DataTexture defaults to Nearest)
+      tex.flipY=false;// Daten stehen von unten nach oben im Speicher, kein vertikaler Flip nötig
+      tex.minFilter=THREE.LinearFilter;// weiche Kanten (DataTexture nutzt sonst Nearest-Filterung)
       tex.magFilter=THREE.LinearFilter;
       tex.generateMipmaps=false;
       tex.wrapS=THREE.ClampToEdgeWrapping;
@@ -191,8 +201,8 @@
       return tex;
     }
     let cloudTex=makeCloudTexture();
-    clouds=new THREE.Group;// global, so renderLoop can drift it (like drone/drone1..4)
-    blinkStart=0;// global clock start for the blinking rear/front lights
+    clouds=new THREE.Group;// global, damit renderLoop die Gruppe driftet (wie drone/drone1..4)
+    blinkStart=0;// globaler Startzeitpunkt für das Blinken von Rück-/Frontlicht
     let cloudData=[[-2600, 750,-5200,1400],[ 1800,1050,-6400,1200],[-900,1500,-7800,1700],
                    [ 3400,1250,-4300,1100],[-4200,1000,-3600,1300],[  700, 700,-3100, 900],
                    [ 4800,1600,-7200,1600],[-2000,1900,-8800,1500],[ 2500, 850, 3800,1200],
@@ -204,138 +214,138 @@
         map:cloudTex, transparent:true, opacity:0.9, depthWrite:false, color:0xffffff
       }));
       sp.position.set(d[0],d[1],d[2]);
-      sp.scale.set(d[3],d[3]*0.5,1);// cumulus are wider than they are tall
+      sp.scale.set(d[3],d[3]*0.5,1);// Kumulus sind breiter als sie hoch sind
       clouds.add(sp);
     }
     scene.add(clouds);
 
-    //■ Light sources------------------------------------------------
-    // ambient light (light applied to every object from every direction) so unlit areas never become pitch black
-    // kept low on purpose: the less fill light, the stronger the light/dark relief of the terrain
+    //■ Lichtquellen ------------------------------------------------
+    // Umgebungslicht (Licht auf jedes Objekt aus jeder Richtung), damit unbeleuchtete Flächen nie schwarz werden
+    // bewusst schwach gehalten: je weniger Fülllicht, desto stärker der Hell-Dunkel-Relief des Geländes
     var AmbientLight=new THREE.AmbientLight(0xffffff,0.10);
-    scene.add( AmbientLight );// add the ambient light to the scene
+    scene.add( AmbientLight );// Umgebungslicht zur Szene hinzufügen
 
-    // spot light straight from above (color, intensity, distance, angle, penumbra[0-1], decay[1,1])
-    // acts as a soft top fill so the drone keeps a shadow directly underneath it
+    // Scheinwerfer direkt von oben (Farbe, Intensität, Reichweite, Winkel, Weichzeichnung[0-1], Abfall[1,1])
+    // wirkt als weiches Oberlicht, damit die Drohne direkt darunter ihren Schatten behält
     const spotLight=new THREE.SpotLight(0xffffff, 1.1, 4000,Math.PI/40, 0.8, 0.8);
     spotLight.position.set(0,3000,0);
     spotLight.target.position.set(0,0,0);
-    spotLight.castShadow=true;// enable shadow casting
-    spotLight.shadow.mapSize.width = 4096;  // make shadows smoother 4096
-    spotLight.shadow.mapSize.height = 4096; // make shadows smoother 8192
-    spotLight.shadow.radius=1;  // blur the shadows
+    spotLight.castShadow=true;// Schattenwurf aktivieren
+    spotLight.shadow.mapSize.width = 4096;  // feinere Schatten: 4096x4096 Schattenkarte
+    spotLight.shadow.mapSize.height = 4096; // feinere Schatten: 8192 (Alternative, hier nicht verwendet)
+    spotLight.shadow.radius=1;  // Schatten weichzeichnen (shadow.radius)
     scene.add(spotLight);
     scene.add(spotLight.target);
 
-    // low raking "sun" from the left side: hits the terrain at a flat angle (~12°), so slopes
-    // facing the light get bright while slopes turned away fall into shadow -> strong relief
+    // flach streifende "Sonne" von links: trifft das Gelände unter flachem Winkel (~12°), daher werden
+    // lichtzugewandte Hänge hell und abgewandte Hänge dunkel -> starker Relief
     const sunLight=new THREE.DirectionalLight(0xfff3e0, 3.2);
     sunLight.position.set(-1500,329,380);
     sunLight.target.position.set(0,0,0);
-    sunLight.castShadow=true;// terrain and drone cast shadows across the ground
+    sunLight.castShadow=true;// Gelände und Drohne werfen Schatten auf den Boden
     sunLight.shadow.mapSize.width = 2048;
     sunLight.shadow.mapSize.height = 2048;
-    sunLight.shadow.camera.left=-750;   // shadow camera covers the whole 1000x1000 floor
+    sunLight.shadow.camera.left=-750;   // Schattenkamera deckt den gesamten 1000x1000-Boden ab
     sunLight.shadow.camera.right=750;
     sunLight.shadow.camera.top=750;
     sunLight.shadow.camera.bottom=-750;
     sunLight.shadow.camera.near=100;
     sunLight.shadow.camera.far=3000;
-    sunLight.shadow.bias=-0.0004;       // avoid shadow acne on the ground
-    sunLight.shadow.normalBias=1.0;     // avoid self-shadowing stripes on gentle slopes
+    sunLight.shadow.bias=-0.0004;       // verhindert Schatten-Artefakte (Acne) auf dem Boden
+    sunLight.shadow.normalBias=1.0;     // verhindert Selbstschatten-Streifen auf sanften Hängen
     sunLight.shadow.radius=1;
     scene.add(sunLight);
     scene.add(sunLight.target);
     
-    // point light                            color    intensity distance decay
-    //light = new THREE.PointLight( 0xffffff, 0.1, 4, 2 );
-    //scene.add( light );
+    // Punktlicht (auskommentiert)                    Farbe    Intensität Reichweite Abfall
+    //light = new THREE.PointLight( 0xffffff, 0.1, 4, 2 );// nicht verwendet
+    //scene.add( light );// nicht verwendet
 
 
-    //■ Materials
-    // transparent
+    //■ Materialien
+    // durchsichtig (weiß, Deckkraft 0,3)
     let mt1=new THREE.MeshLambertMaterial({
       color:0xffffff,side:THREE.FrontSide,transparent:true,opacity:0.3
     });
-    // blue
+    // blau
     let mt2=new THREE.MeshLambertMaterial({
       color:0x0022cc,side:THREE.FrontSide
     });
-    // red
+    // rot
     let mt3=new THREE.MeshBasicMaterial({
       color:0xff3333, 
       side:THREE.FrontSide
     });
-    // landing pad field: textured with landing.png
-    // (the image carries an alpha channel -> transparent areas show the ground beneath)
+    // Landeplatz-Fläche: texturiert mit landing.png
+    // (das Bild hat einen Alphakanal -> transparente Stellen zeigen den Boden darunter)
     let padTexture=new THREE.TextureLoader().load('landing.png');
     let mt4=new THREE.MeshLambertMaterial({
       color:0xffffff,side:THREE.FrontSide,
       map:padTexture,
-      transparent:true,// honour the alpha channel of landing.png
-      alphaTest:0.1,   // fully transparent pixels are discarded, so no sorting artefacts
+      transparent:true,// Alphakanal von landing.png beachten
+      alphaTest:0.1,   // vollständig transparente Pixel werden verworfen -> keine Sortier-Artefakte
     });
-    // blue
+    // blau
     let mt5=new THREE.MeshBasicMaterial({
       color:0x6666ff, 
       side:THREE.FrontSide
     });
-    // floor
-    let floorTexture=new THREE.TextureLoader().load('flag_g.jpg');// JPEG 512x512: 152 KB instead of 2.5 MB PNG
+    // Boden
+    let floorTexture=new THREE.TextureLoader().load('flag_g.jpg');// JPEG 512x512: 152 KB statt 2,5 MB als PNG
     floorTexture.wrapS=THREE.RepeatWrapping;
     floorTexture.wrapT=THREE.RepeatWrapping;
-    // specify how often the texture repeats
+    // angeben, wie oft sich die Textur wiederholt
     floorTexture.repeat.set(8,8);
     let mt6=new THREE.MeshLambertMaterial({
       color:0xffffff,side:THREE.FrontSide,
       map:floorTexture,
     });
-    // white
+    // weiß
     let mt7=new THREE.MeshLambertMaterial({
       color:0xffffff,side:THREE.FrontSide,transparent:false,opacity:1.0
     });
-    // gray -> steel: bluish sheen so the drone stands out from the ground
-    // (Phong instead of Lambert: only Phong has a specular highlight for the metal look)
+    // grau -> Stahl: bläulicher Schimmer, damit die Drohne sich vom Boden abhebt
+    // (Phong statt Lambert: nur Phong kennt den Glanzpunkt für den Metalllook)
     let mt8=new THREE.MeshPhongMaterial({
       color:0x9fb9dd, specular:0xc2d8f7, shininess:48, side:THREE.FrontSide
     });
-    // dark gray -> light gray plastic (matte, only a weak sheen)
+    // dunkelgrau -> hellgrauer Kunststoff (matt, nur schwacher Schimmer)
     let mt9=new THREE.MeshPhongMaterial({
       color:0xd2d5da, specular:0x666666, shininess:10, side:THREE.FrontSide
     });
-    // deck lid: the ladybug drawing on top of the fuselage
-    // (deckel.png carries an alpha channel -> the corners of the image stay open)
+    // Deckel: die Marienkäfer-Zeichnung auf dem Rumpf
+    // (deckel.png hat einen Alphakanal -> die Bildecken bleiben offen)
     let deckelTexture=new THREE.TextureLoader().load('deckel.png');
     let mt10=new THREE.MeshLambertMaterial({
       color:0xffffff, side:THREE.FrontSide,
       map:deckelTexture,
-      transparent:true,// honour the alpha channel of deckel.png
-      alphaTest:0.1,   // fully transparent pixels are discarded -> no sorting artefacts
+      transparent:true,// Alphakanal von deckel.png beachten
+      alphaTest:0.1,   // vollständig transparente Pixel werden verworfen -> keine Sortier-Artefakte
     });
-    // glossy black: landing legs and propeller blades, like the legs and antennae of a ladybug
-    // (Phong: black diffuse + strong tight specular highlight = wet-looking shine)
+    // glänzend schwarz: Landebeine und Propellerblätter, wie Beine und Fühler eines Marienkäfers
+    // (Phong: schwarze Streuung + starker, enger Glanzpunkt = nasser Glanz)
     let mt11=new THREE.MeshPhongMaterial({
       color:0x0a0a0a, specular:0x9a9a9a, shininess:70, side:THREE.FrontSide
     });
 
 
-    // box geometry
+    // Quader-Grundgeometrie (Einheitswürfel 1x1x1, wird skaliert)
     let bg=new THREE.BoxGeometry(1,1,1);
-    // sphere geometry
+    // Kugel-Grundgeometrie (vollständig)
     let sg =new THREE.SphereGeometry(0.5,16,16,0,      Math.PI,  0,Math.PI);
-    // sphere geometry (hemisphere)
+    // Kugel-Grundgeometrie (nur Halbkugel)
     let sg2=new THREE.SphereGeometry(0.5,16,16,Math.PI,Math.PI*2,0,Math.PI);
-    // plane geometry
+    // Flächen-Grundgeometrie (Einheitsquadrat 1x1)
     let pg=new THREE.PlaneGeometry(1,1,1,1);
-    // cylinder geometry
+    // Zylinder-Grundgeometrie (Einheitszylinder)
     let cg=new THREE.CylinderGeometry(1,1,1,32,1,false,0,Math.PI*2);
 
-    // rounded box: every vertex that lies within r of an edge or a corner is pulled onto
-    // the surrounding cylinder/sphere surface of radius r -> slightly rounded edges
+    // abgerundeter Kasten: jeder Vertex, der weniger als r von einer Kante oder Ecke entfernt liegt, wird auf
+    // die umgebende Zylinder-/Kugelfläche Radius r gezogen -> leicht abgerundete Kanten
     function rbox(w,h,d,r){
       const hx=w/2, hy=h/2, hz=d/2;
       const ix=hx-r, iy=hy-r, iz=hz-r;
-      // subdivide finely enough that the rounding strip gets its own vertices
+      // fein genug unterteilen, damit der Rundungsstreifen eigene Vertices bekommt
       const seg=v=>Math.max(2, Math.min(40, Math.ceil(v/(2*r))));
       const g=new THREE.BoxGeometry(w,h,d,seg(w),seg(h),seg(d));
       const p=new THREE.Vector3(), q=new THREE.Vector3(), nv=new THREE.Vector3();
@@ -355,8 +365,8 @@
       return g;
     }
 
-    // rounded cylinder: the profile (radius vs. height) gets an arc of radius r at the
-    // top and bottom rim instead of a sharp 90 degree edge, then it is revolved around Y
+    // abgerundeter Zylinder: das Profil (Radius gegenüber Höhe) bekommt am
+    // oberen und unteren Rand einen Bogen statt einer scharfen 90°-Kante, dann wird es um Y gedreht
     function rcyl(R,h,r,seg){
       r=Math.min(r, R*0.9, h*0.45);
       const pts=[];
@@ -370,76 +380,76 @@
           add(cx+Math.cos(a)*r, cy+Math.sin(a)*r);
         }
       };
-      add(0,-h/2);            // bottom cap (center -> rim)
+      add(0,-h/2);            // Unterdeckel (Mitte -> Kante)
       add(R-r,-h/2);
-      arc(R-r,-h/2+r, -Math.PI/2, 0, 6);   // rounded bottom rim
-      add(R, h/2-r);          // straight side
-      arc(R-r, h/2-r, 0, Math.PI/2, 6);    // rounded top rim
-      add(0, h/2);            // top cap (rim -> center)
+      arc(R-r,-h/2+r, -Math.PI/2, 0, 6);   // abgerundeter Unterrand
+      add(R, h/2-r);          // gerader Zylindermantel
+      arc(R-r, h/2-r, 0, Math.PI/2, 6);    // abgerundeter Oberrand
+      add(0, h/2);            // Oberdeckel (Kante -> Mitte)
       return new THREE.LatheGeometry(pts, seg);
     }
-    //let planeGeometry=new THREE.PlaneGeometry(0.1, 0.1, 1, 1);
-    //let sphereGeometry =new THREE.SphereGeometry(0.05,16,16,0,2*Math.PI);
+    //let planeGeometry=new THREE.PlaneGeometry(0.1, 0.1, 1, 1);// Altbestand, unbenutzt
+    //let sphereGeometry =new THREE.SphereGeometry(0.05,16,16,0,2*Math.PI);// Altbestand, unbenutzt
 
-    // floor (uneven: the height field is displaced once at creation time, flat near pad 1)
+    // Boden (uneben: das Höhengitter wird einmalig beim Erzeugen verformt, rund um Platz 1 flach)
     let fpg=new THREE.PlaneGeometry(1000,1000,160,160);
     let fpos=fpg.attributes.position;
 
-    // deterministic pseudo-random value noise (integer hash + smooth bilinear interpolation).
-    // No texture and nothing is animated: the field is evaluated once per vertex below, so
-    // the irregular terrain costs nothing at run time.
+    // deterministisches pseudo-zufälliges Werterauschen (Ganzzahl-Hash + weiche bilineare Interpolation).
+    // Keine Textur und nichts animiert: das Feld wird unten einmal pro Vertex ausgewertet, daher kostet
+    // das unregelmäßige Gelände zur Laufzeit nichts.
     const hash2=(ix,iy)=>{
       let n=(Math.imul(ix,374761393)^Math.imul(iy,668265263))|0;
       n=Math.imul(n^(n>>>13),1274126177);
-      return ((n^(n>>>16))>>>0)/4294967295;// 0..1
+      return ((n^(n>>>16))>>>0)/4294967295;// Ergebnisbereich 0..1
     };
     const vnoise=(x,y,cell)=>{
       const fx=x/cell, fy=y/cell;
       const ix=Math.floor(fx), iy=Math.floor(fy);
       const sx=fx-ix, sy=fy-iy;
-      const ux=sx*sx*(3-2*sx), uy=sy*sy*(3-2*sy);// smoothstep -> soft seams, no grid lines
+      const ux=sx*sx*(3-2*sx), uy=sy*sy*(3-2*sy);// Smoothstep -> weiche Nähte, keine Gitterlinien
       const a=hash2(ix,iy), b=hash2(ix+1,iy), c=hash2(ix,iy+1), d=hash2(ix+1,iy+1);
-      return (a+(b-a)*ux)*(1-uy)+(c+(d-c)*ux)*uy;// 0..1
+      return (a+(b-a)*ux)*(1-uy)+(c+(d-c)*ux)*uy;// Ergebnisbereich 0..1
     };
 
-    // full height field: three octaves of value noise -> broad swells, medium bumps and bowls
-    // plus fine raggedness, all in irregular shapes (instead of the regular sine stripes before)
+    // volles Höhengitter: drei Oktaven des Werterauschens -> breite Wellen, mittlere Beulen und Mulden
+    // plus feine Unregelmäßigkeiten, alles in unregelmäßigen Formen (statt der geraden Sinusstreifen zuvor)
     const buildTerrain=()=>{
       for(let i=0;i<fpos.count;i++){
         let x=fpos.getX(i), y=fpos.getY(i);
-        let h=(vnoise(x,y,170)-0.5)*1.5           // broad, irregular swells
-             +(vnoise(x+812,y-371,64)-0.5)*0.85   // medium bumps and bowls
-             +(vnoise(x-255,y+693,26)-0.5)*0.3;   // fine raggedness (near the vertex spacing)
-        h=Math.max(-1,Math.min(1,h));// rises capped at +1: ground never comes above y = 0
-        // keep the area around landing pad 1 perfectly flat (r < 30, full at r >= 100)
+        let h=(vnoise(x,y,170)-0.5)*1.5           // breite, unregelmäßige Wellenzüge
+             +(vnoise(x+812,y-371,64)-0.5)*0.85   // mittlere Beulen und Mulden
+             +(vnoise(x-255,y+693,26)-0.5)*0.3;   // feine Unregelmäßigkeiten (in der Größenordnung des Vertex-Abstands)
+        h=Math.max(-1,Math.min(1,h));// Erhöhungen auf +1 begrenzt: der Boden kommt nie über y = 0
+        // die Umgebung von Landeplatz 1 vollkommen flach halten (r < 30, ab r >= 100 voll)
         let r=Math.sqrt(x*x+y*y);
         let fade=Math.min(Math.max((r-30)/70,0),1);
         fade=fade*fade*(3-2*fade);
-        // sinks are deepened x6 -> strong light/dark relief from the raking sun alone
+        // Mulden werden um den Faktor 6 vertieft -> starker Hell-Dunkel-Relief schon durch die streifende Sonne
         let zz=(h>0 ? h : h*6)*fade;
-        // ---- coastline (the plane is rotated -90 deg about x -> world z = -geometry y):
-        // inside the water region the displaced height is replaced by the sea profile.
-        // The beach strip (up to 40 units INLAND of the coast) is lifted to just above the
-        // waterline - otherwise a dry valley could sink below sea level right at the shore
-        // and the water plane would end in mid-air. From the shoreline the ground ramps
-        // smoothly down to the uneven sea bed, so the band AND both bays get a natural
-        // sloping shore instead of a cliff. (Outside -40 the height field stays untouched.)
-        const wz=-y;// world z of this vertex
-        const d=coastZ(x)-wz;// >0: inside the sea region, distance behind the coastline
+        // ---- Küste (die Fläche ist um x um -90° gedreht -> Welt-z = -Geometrie-y):
+        // im Wasserbereich wird die verformte Höhe durch das Meeresprofil ersetzt.
+        // Das Uferband (bis zu 40 Einheiten LANDSEITIG der Küste) wird knapp über die
+        // Wasserlinie angehoben - sonst könnte ein trockenes Tal direkt am Ufer unter den Meeresspiegel sinken
+        // und die Wasserfläche würde in der Luft enden. Ab der Wasserlinie läuft der Boden
+        // weich zum unregelmäßigen Meeresboden ab; Streifen UND beide Buchten bekommen dadurch ein
+        // natürliches, schräges Ufer statt einer Klippe. (Außerhalb von -40 bleibt das Höhengitter unberührt.)
+        const wz=-y;// Welt-z dieses Vertices
+        const d=coastZ(x)-wz;// >0: im Meeresbereich, Abstand hinter der Küstenlinie
         if(d>-40){
-          const base=Math.max(zz,WATER_LEVEL+0.3);// dry shore: at least 0.3 above the water
+          const base=Math.max(zz,WATER_LEVEL+0.3);// trockenes Ufer: mindestens 0,3 über dem Wasser
           if(d<=0){
             zz=base;
           }else{
-            let t=Math.min(d/30,1); t=t*t*(3-2*t);// smoothstep ramp -> soft shoreline
-            zz=base+((WATER_SEABED+h*0.5)-base)*t;// sea bed follows the noise a little
+            let t=Math.min(d/30,1); t=t*t*(3-2*t);// Smoothstep-Rampe -> weicher Uferübergang
+            zz=base+((WATER_SEABED+h*0.5)-base)*t;// Meeresboden folgt dem Rauschen etwas
           }
         }
         fpos.setZ(i, zz);
       }
-      // flatten the ground underneath the 2nd pad (flat within 25, fading out to 55),
-      // the same idea as the flat disc around pad 1 at the origin
-      // (the floor plane is rotated -90 deg about x -> world (x,z) = geometry (x,-y))
+      // Boden unter dem 2. Landeplatz abflachen (innerhalb 25 flach, bis 55 auslaufend),
+      // derselbe Gedanke wie die flache Scheibe um Platz 1 im Ursprung
+      // (die Bodenfläche ist um x um -90° gedreht -> Welt (x,z) = Geometrie (x,-y))
       for(let i=0;i<fpos.count;i++){
         let x=fpos.getX(i), y=fpos.getY(i);
         let dx=x-pad2.x, dy=y-(-pad2.z);
@@ -447,23 +457,23 @@
         if(r2<55){
           let f2=Math.min(Math.max((r2-25)/30,0),1);
           f2=f2*f2*(3-2*f2);
-          fpos.setZ(i, fpos.getZ(i)*f2);// pull the displaced height back to 0
+          fpos.setZ(i, fpos.getZ(i)*f2);// die verformte Höhe wieder auf 0 zurückziehen
         }
       }
       fpg.computeVertexNormals();
-      fpos.needsUpdate=true;// the field is also rebuilt by resetScene()
+      fpos.needsUpdate=true;// das Feld wird auch von resetScene() neu aufgebaut
       fpg.attributes.normal.needsUpdate=true;
     };
 
-    // 2nd landing site: random direction and distance (140-260 units from pad 1) - rolled
-    // again by resetScene(), so every start of a new course puts it somewhere else.
-    // The whole course corridor must be DRY: a strip of +/-75 units around the chord
-    // (the Bezier bows reach at most ~60 units sideways, see courseCurve) is sampled
-    // against the coastline, because pad 2, the route line and the ring posts may never
-    // end up in the sea - the course has to stay visible on land.
+    // 2. Landeplatz: zufällige Richtung und Entfernung (140-260 Einheiten von Platz 1) - wird
+    // von resetScene() neu gewürfelt, sodass jeder neue Kurs woanders endet.
+    // Der gesamte Kurskorridor muss TROCKEN sein: ein Streifen von +/-75 Einheiten um die Sehne
+    // (die Bézier-Bögen streifen maximal ~60 Einheiten seitwärts, siehe courseCurve) wird gegen die
+    // Küstenlinie geprüft, denn Platz 2, die Routenlinie und die Ringpfosten dürfen
+    // nie im Meer landen - der Kurs muss auf dem Land sichtbar bleiben.
     const corridorDry=(x0,z0,x1,z1,margin)=>{
       const dx=x1-x0, dz=z1-z0, len=Math.hypot(dx,dz)||1;
-      const nx=-dz/len, nz=dx/len;// unit vector perpendicular to the chord
+      const nx=-dz/len, nz=dx/len;// Einheitsvektor senkrecht zur Sehne
       for(let i=0;i<=24;i++){
         const t=i/24;
         for(let s=-2;s<=2;s++){
@@ -480,24 +490,24 @@
         const x=Math.cos(pad2Angle)*pad2Dist, z=Math.sin(pad2Angle)*pad2Dist;
         if(corridorDry(0,0,x,z,75)){ pad2.x=x; pad2.z=z; return; }
       }
-      // practically impossible fallback (400 rolls rejected): straight INLAND (+z),
-      // which is always dry - the coastline never reaches further than z = -57
+      // praktisch unmögliche Rückfalllösung (400 Würfel abgelehnt): gerade LANDSEITIG (+z),
+      // was immer trocken ist - die Küstenlinie reicht nie weiter als bis z = -57
       pad2.x=0; pad2.z=230;
     };
     newPad2();
     buildTerrain();
     let m0=new THREE.Mesh(fpg,mt6);
     m0.rotation.set(-Math.PI/2,0,0);
-    m0.castShadow=true;// the terrain itself casts shadows into its own valleys (relief)
+    m0.castShadow=true;// das Gelände wirft selbst Schatten in seine eigenen Mulden (Relief)
     m0.receiveShadow=true;
     m0.position.set(0,-1,0);
     scene.add(m0);
 
-    // terrain height at a world x/z position: the red route line, the ring posts and the
-    // ground collision in renderLoop() are placed/measured with it. Assigned to the GLOBAL
-    // floorY (the closure keeps hold of the terrain grid), because renderLoop needs it.
-    // (the floor plane is rotated -90 deg about x -> world (x,z) = geometry (x,-z);
-    //  PlaneGeometry(1000,1000,160,160) -> 161x161 vertices, spacing 6.25, row index = iy*161+ix)
+    // Geländehöhe an einer Welt-x/z-Position: die rote Routenlinie, die Ringpfosten und die
+    // Bodenkollision in renderLoop() werden damit platziert/messen. Zugewiesen wird der GLOBALE
+    // floorY (die Closure behält das Geländegitter fest), weil renderLoop ihn braucht.
+    // (die Bodenfläche ist um x um -90° gedreht -> Welt (x,z) = Geometrie (x,-z);
+    //  PlaneGeometry(1000,1000,160,160) -> 161x161 Vertices, Abstand 6,25, Zeilenindex = iy*161+ix)
     floorY=(wx,wz)=>{
       const fx=(wx+500)/6.25, fy=(500+wz)/6.25;
       const x0=Math.min(Math.max(Math.floor(fx),0),159), y0=Math.min(Math.max(Math.floor(fy),0),159);
@@ -505,40 +515,40 @@
       const tx=Math.min(Math.max(fx-x0,0),1), ty=Math.min(Math.max(fy-y0,0),1);
       const z=(ix,iy)=>fpos.getZ(iy*161+ix);
       const h=(z(x0,y0)*(1-tx)+z(x1,y0)*tx)*(1-ty)+(z(x0,y1)*(1-tx)+z(x1,y1)*tx)*ty;
-      return -1+h;// the floor mesh sits at y = -1
+      return -1+h;// das Boden-Mesh liegt auf y = -1
     };
 
-    // ---- sea: the water surface of the landscape change. The polygon follows the
-    // coastline (both bays included) out to the far edge of the terrain, so the plane
-    // exists exactly where isWater() says the sea is. ShapeGeometry lives in its own XY
-    // plane -> shapeY = -worldZ; the MESH (not the geometry) is turned flat, because
-    // THREE.Water derives its mirror plane from the mesh's local +Z axis.
+    // ---- Meer: die Wasserfläche der Landschaftsänderung. Das Polygon folgt der
+    // Küstenlinie (beide Buchten enthalten) bis zum fernen Rand der Landschaft; die Fläche existiert
+    // also genau dort, wo isWater() das Meer angibt. ShapeGeometry lebt in ihrer eigenen XY-Ebene
+    // -> shapeY = -worldZ; gedreht wird das MESH (nicht die Geometrie), denn
+    // THREE.Water leitet seine Spiegelebene aus der lokalen +Z-Achse des Meshes ab.
     {
       const shape=new THREE.Shape();
-      const X0=-500, X1=500, NS=126;// terrain spans -500..500, coast sampled every ~8 units
-      shape.moveTo(X0,-coastZ(X0));// start of the coastline, west end
+      const X0=-500, X1=500, NS=126;// Landschaft reicht von -500..500, Küste im Abstand von ~8 Einheiten abgetastet
+      shape.moveTo(X0,-coastZ(X0));// Beginn der Küstenlinie, westliches Ende
       for(let i=1;i<=NS;i++){
         const x=X0+(X1-X0)*i/NS;
-        shape.lineTo(x,-coastZ(x));// walk the coastline (bays included) to the east
+        shape.lineTo(x,-coastZ(x));// die Küstenlinie (Buchten enthalten) nach Osten ablaufen
       }
-      shape.lineTo(X1,500);// world z = -500 -> shapeY = 500: the far edge of the terrain
+      shape.lineTo(X1,500);// Welt-z = -500 -> shapeY = 500: der ferne Rand der Landschaft
       shape.lineTo(X0,500);
       const wgeo=new THREE.ShapeGeometry(shape);
       const waterNormals=new THREE.TextureLoader().load('Water_2_M_Normal.jpg');
-      waterNormals.wrapS=waterNormals.wrapT=THREE.RepeatWrapping;// waves scroll over the sea
+      waterNormals.wrapS=waterNormals.wrapT=THREE.RepeatWrapping;// Wellen wandern über das Meer (Textur-Wiederholung)
       waterMesh=new THREE.Water(wgeo,{
         textureWidth:512,
         textureHeight:512,
         waterNormals:waterNormals,
-        // same direction as the sky's sun (Sky.js above), so highlight and sky match
+        // gleiche Richtung wie die Sonne des Himmels (Sky.js oben), damit Glanz und Himmel zusammenpassen
         sunDirection:new THREE.Vector3(10000,30000,-40000).normalize(),
         sunColor:0xffffff,
-        waterColor:0x1b4a5e,// deep blue-green instead of the grey default
-        distortionScale:3.0,// wave distortion of the reflection (default 20 is too wild)
+        waterColor:0x1b4a5e,// tiefes Blaugrün statt des grauen Standardwerts
+        distortionScale:3.0,// Wellenverzerrung der Spiegelung (Standard 20 wäre zu wild)
         fog:false
       });
-      waterMesh.rotation.x=-Math.PI/2;// local +Z (mirror normal) points up in the world
-      waterMesh.position.y=WATER_LEVEL-1;// terrain units -> world (floor plane sits at -1)
+      waterMesh.rotation.x=-Math.PI/2;// lokale +Z-Achse (Spiegelnormale) zeigt in der Welt nach oben
+      waterMesh.position.y=WATER_LEVEL-1;// Terrain-Einheiten -> Welt (Bodenfläche liegt auf -1)
       waterMesh.name='water';
       scene.add(waterMesh);
     }
@@ -549,40 +559,40 @@
     // ===========================================================================
     m0=new THREE.Mesh(pg,mt4);
     m0.rotation.set(-Math.PI/2,0,0);
-    //m0.castShadow=true;
+    //m0.castShadow=true;// Schattenwurf des Landeplatzes bewusst aus (er liegt flach am Boden)
     m0.receiveShadow=true;
-    m0.scale.set(30,29.3,1);// 50% larger than before, proportions of the 980x957 image kept
+    m0.scale.set(30,29.3,1);// 50 % größer als zuvor, Proportionen des 980x957-Bildes beibehalten
     m0.position.set(0,0,0);
     scene.add(m0);
 
-    // ---- 2nd landing site: same landing.png pad, placed at the random position chosen above
+    // ---- 2. Landeplatz: gleiche landing.png-Platte, an der oben gewürfelten Position platziert
     let pad2Mesh=new THREE.Mesh(pg,mt4);
     pad2Mesh.rotation.set(-Math.PI/2,0,0);
     pad2Mesh.receiveShadow=true;
-    pad2Mesh.scale.set(30,29.3,1);// identical size to pad 1
+    pad2Mesh.scale.set(30,29.3,1);// genau dieselbe Größe wie Platz 1
     pad2Mesh.position.set(pad2.x,0,pad2.z);
     pad2Mesh.name="pad2";
     scene.add(pad2Mesh);
 
-    // ---- course: a piecewise cubic Bezier "snake" from pad 1 (origin) to pad 2. The chord
-    // is split into 3-4 segments; every segment bows out to ONE side (both control points
-    // share the side) and the side alternates from segment to segment -> a serpentine that
-    // crosses the straight line again and again. End tangent of segment k is identical to
-    // the start tangent of segment k+1, so the chain stays perfectly smooth (G1 continuous).
-    // Bow amplitude and side are rolled again by buildRouteLine() with every new course,
-    // so no two starts look the same.
-    let routeCurve=null;// current Bezier path (x/z plane), rebuilt with every course
+    // ---- Kurs: eine stückweise kubische Bézier-Schlange von Platz 1 (Ursprung) zu Platz 2. Die Sehne
+    // wird in 3-4 Abschnitte geteilt; jeder Abschnitt biegt auf EINE Seite aus (beide Hilfspunkte
+    // liegen auf derselben Seite) und die Seite wechselt von Abschnitt zu Abschnitt -> eine Schlange, die
+    // die gerade Linie immer wieder kreuzt. Die Endtangente von Abschnitt k ist identisch mit
+    // der Anfangstangente von Abschnitt k+1, die Kette bleibt also perfekt glatt (G1-stetig).
+    // Bogenamplitude und Seite werden von buildRouteLine() mit jedem neuen Kurs neu gewürfelt,
+    // kein Start gleicht dem anderen.
+    let routeCurve=null;// aktueller Bézier-Pfad (x/z-Ebene), mit jedem Kurs neu gebaut
     const courseCurve=()=>{
       const len=Math.hypot(pad2.x,pad2.z);
-      const ux=pad2.x/len, uz=pad2.z/len;// unit vector along the chord
-      const nx=-uz, nz=ux;// unit vector perpendicular to it
-      const nSeg=(len>190&&Math.random()<0.7)?4:3;// 3 or 4 bows -> snake with 2-3 direction changes
-      const L=len/nSeg;// chord length of one segment
-      const h=L*0.3;// control point handle along the chord (tangent continuity)
+      const ux=pad2.x/len, uz=pad2.z/len;// Einheitsvektor entlang der Sehne
+      const nx=-uz, nz=ux;// Einheitsvektor senkrecht dazu
+      const nSeg=(len>190&&Math.random()<0.7)?4:3;// 3 oder 4 Bögen -> Schlange mit 2-3 Richtungswechseln
+      const L=len/nSeg;// Länge der Sehne eines Abschnitts
+      const h=L*0.3;// Hilfspunkt-Länge entlang der Sehne (Tangentialstetigkeit)
       let side=(Math.random()<0.5)?-1:1;
       const path=new THREE.CurvePath();
       for(let k=0;k<nSeg;k++){
-        const off=side*L*(0.35+Math.random()*0.35);// bow: 0.35..0.7 of a segment, never loops
+        const off=side*L*(0.35+Math.random()*0.35);// Bogen: 0,35..0,7 eines Abschnitts, keine Schlingen
         const x0=ux*L*k, z0=uz*L*k;
         const x1=ux*L*(k+1), z1=uz*L*(k+1);
         path.add(new THREE.CubicBezierCurve3(
@@ -590,21 +600,21 @@
           new THREE.Vector3(x0+ux*h+nx*off,0,z0+uz*h+nz*off),
           new THREE.Vector3(x1-ux*h+nx*off,0,z1-uz*h+nz*off),
           new THREE.Vector3(x1,0,z1)));
-        side=-side;// next bow to the other side -> snake
+        side=-side;// nächster Bogen zur anderen Seite -> Schlange
       }
       routeCurve=path;
     };
-    // build the red route line for the current course: samples the Bezier curve above and
-    // hugs the terrain (height sampled from the floor grid), because the curved route also
-    // crosses valleys where a line at a fixed height would hover in the air or sink.
-    // Called again by resetScene(), the old geometry is disposed so repeated restarts do not
-    // leak GPU memory. (MeshBasicMaterial -> the line stays fully red, whatever the light does)
+    // rote Routenlinie für den aktuellen Kurs bauen: die Bézier-Kurve oben abtasten und
+    // am Gelände entlangführen (Höhe aus dem Bodengitter gelesen), denn die gebogene Route
+    // kreuzt auch Mulden, in denen eine Linie in fester Höhe schweben oder versinken würde.
+    // Wird erneut von resetScene() aufgerufen; die alte Geometrie wird freigegeben, damit
+    // wiederholte Neustarts kein GPU-Speicher verlieren. (MeshBasicMaterial -> die Linie bleibt ganz rot, was auch immer das Licht tut)
     const buildRouteLine=()=>{
       const old=scene.getObjectByName('pathLine');
       if(old){ scene.remove(old); old.geometry.dispose(); }
-      courseCurve();// roll a new Bezier curve for this course
+      courseCurve();// eine neue Bézier-Kurve für diesen Kurs würfeln
       const len=Math.hypot(pad2.x,pad2.z);
-      const nSeg=Math.max(64,Math.round(len/2));// the snake bends much more than the old S
+      const nSeg=Math.max(64,Math.round(len/2));// die Schlange krümmt sich viel stärker als das alte S
       const linePts=[];
       for(let i=0;i<=nSeg;i++){
         const p=routeCurve.getPoint(i/nSeg);
@@ -617,18 +627,18 @@
     };
     buildRouteLine();
 
-    // three colored rings on posts of different heights, standing EXACTLY on the course:
-    // every ring sits at 25% / 50% / 75% of the current Bezier snake (evenly along the arc),
-    // its post rises from the terrain at that point and the ring plane is turned
-    // perpendicular to the course direction, so the drone can fly straight through it.
-    // Ring size: the inner opening is 150% of the drone (rotor span ~28 units) ->
-    // centre radius 22.5 with a 1.5 thick tube = inner diameter 42 = 1.5 x 28.
-    // Post heights are rolled again for every ring and every course; together with the new
-    // curve that changes the whole slalom with each start (resetScene disposes the old
-    // group, no GPU leak). Every ring and post is also entered in the global obstacle list
-    // that renderLoop() checks for collisions.
+    // drei farbige Ringe auf Pfosten unterschiedlicher Höhe, EXAKT auf dem Kurs stehend:
+    // jeder Ring sitzt bei 25 % / 50 % / 75 % der aktuellen Bézier-Schlange (gleichmäßig entlang der Bogenlänge),
+    // sein Pfosten wächst dort aus dem Gelände und die Ringebene wird
+    // senkrecht zur Kursrichtung gedreht, damit die Drohne gerade hindurchfliegen kann.
+    // Ringgröße: die innere Öffnung ist 150 % der Drohne (Rotorspannweite ~28 Einheiten) ->
+    // Mittenradius 22,5 mit 1,5 starkem Rohr = Innendurchmesser 42 = 1,5 x 28.
+    // Pfoshöhen werden für jeden Ring und jeden Kurs neu gewürfelt; zusammen mit der neuen
+    // Kurve ändert das den ganzen Slalom mit jedem Start (resetScene gibt die alte
+    // Gruppe frei, kein GPU-Leck). Jeder Ring und Pfosten wird zusätzlich in die globale Hindernisliste
+    // eingetragen, die renderLoop() auf Kollisionen prüft.
     const ringMats=[
-      // amber, green, pink - all three pop against the light blue sky and the dark ground
+      // bernstein, grün, pink - alle drei heben sich vor hellem Himmel und dunklem Boden ab
       new THREE.MeshStandardMaterial({color:0xfbbf24,roughness:0.35,metalness:0.05,emissive:0xfbbf24,emissiveIntensity:0.25}),
       new THREE.MeshStandardMaterial({color:0x1c6136,roughness:0.35,metalness:0.05,emissive:0x4ade80,emissiveIntensity:0.25}),
       new THREE.MeshStandardMaterial({color:0xd03100,roughness:0.35,metalness:0.05,emissive:0xf472b6,emissiveIntensity:0.25})
@@ -637,29 +647,29 @@
     const buildRings=()=>{
       const old=scene.getObjectByName('ringGroup');
       if(old){ scene.remove(old); old.traverse(o=>{ if(o.geometry) o.geometry.dispose(); }); }
-      obstacles=[];// fresh collision list for the new course (global, read by renderLoop)
-      // training mode: plain flight from pad 1 to pad 2 - no rings, no posts. The empty
-      // obstacle list already switches off renderLoop's collision check and pass counter
-      // (both sit behind `if(obstacles.length)` / iterate the list).
+      obstacles=[];// frische Kollisionsliste für den neuen Kurs (global, von renderLoop gelesen)
+      // Trainingsmodus: einfacher Flug von Platz 1 zu Platz 2 - keine Ringe, keine Pfosten. Die leere
+      // Hindernisliste schaltet schon die Kollisionsprüfung und den Durchflugzähler von renderLoop ab
+      // (beide hängen hinter `if(obstacles.length)` bzw. hinter der Schleife über die Liste).
       if(courseMode==='training'){ updateRingBadge(); return; }
       const g=new THREE.Group(); g.name='ringGroup';
-      const R=22.5, TUBE=1.5;// inner opening 42 = 150% of the ~28 wide drone
+      const R=22.5, TUBE=1.5;// Innenöffnung 42 = 150 % der ~28 breiten Drohne
       const tList=[0.25,0.5,0.75];
       for(let i=0;i<3;i++){
         const p=routeCurve.getPoint(tList[i]);
         const tan=routeCurve.getTangent(tList[i]);
         const fy=floorY(p.x,p.z);
-        const postH=6+Math.random()*10;// 6..16, different for every ring and every course
+        const postH=6+Math.random()*10;// 6..16, für jeden Ring und jeden Kurs anders
         const post=new THREE.Mesh(new THREE.CylinderGeometry(0.8,1.2,postH,10),postMat);
-        post.position.set(p.x, fy+postH/2, p.z);// stands on the terrain
+        post.position.set(p.x, fy+postH/2, p.z);// steht auf dem Gelände
         post.castShadow=true;
         const ring=new THREE.Mesh(new THREE.TorusGeometry(R,TUBE,12,64),ringMats[i]);
-        ring.position.set(p.x, fy+postH+R, p.z);// the post reaches the lower edge of the ring
-        // the torus lies in its XY plane (axis = local z) -> turn that axis onto the course
+        ring.position.set(p.x, fy+postH+R, p.z);// der Pfosten reicht bis zur Unterkante des Rings
+        // der Torus liegt in seiner XY-Ebene (Achse = lokales z) -> diese Achse auf den Kurs drehen
         ring.rotation.y=Math.atan2(tan.x,tan.z);
         ring.castShadow=true;
         g.add(post); g.add(ring);
-        // collision shapes: the ring as its centreline circle, the post as a vertical segment
+        // Kollisionsformen: der Ring als Mittellinienkreis, der Pfosten als vertikales Segment
         obstacles.push({kind:'ring', x:p.x, y:fy+postH+R, z:p.z, R:R, tube:TUBE,
                         ax:tan.x, ay:0, az:tan.z});
         obstacles.push({kind:'post', x:p.x, z:p.z, y0:fy, y1:fy+postH, r:1.2});
@@ -668,18 +678,18 @@
     };
     buildRings();
 
-    // corridor light: a wide, soft, non-shadowing spot over the middle of the course so the
-    // whole stretch between pad 1 and pad 2 is evenly lit
+    // Kurslicht: ein breiter, weicher, schattenloser Scheinwerfer über der Mitte des Kurses, damit
+    // die gesamte Strecke zwischen Platz 1 und Platz 2 gleichmäßig beleuchtet wird
     const pathLight=new THREE.SpotLight(0xffffff, 0.9, 4000, 0.5, 0.5, 0.8);
-    pathLight.name="pathLight";// no shadows on purpose: it is a fill light for the route
+    pathLight.name="pathLight";// bewusst ohne Schatten: es ist eine Füllbeleuchtung für die Route
     scene.add(pathLight);
     scene.add(pathLight.target);
     const aimPathLight=()=>{
-      // aim at the middle of the CURVED course (not the chord) and open the cone wide
-      // enough to reach the farthest point of the S-curve
+      // auf die Mitte des GEBOGENEN Kurses zielen (nicht auf die Sehne) und den Kegel weit
+      // genug öffnen, um den fernsten Punkt der S-Kurve zu erreichen
       const mid=routeCurve.getPoint(0.5);
       let maxR=0;
-      for(let i=0;i<=16;i++){// the snake bows out further than the old single S
+      for(let i=0;i<=16;i++){// die Schlange streift weiter aus als das alte einzelne S
         const p=routeCurve.getPoint(i/16);
         maxR=Math.max(maxR,Math.hypot(p.x,p.z));
       }
@@ -687,26 +697,26 @@
       pathLight.position.set(mid.x, H, mid.z);
       pathLight.target.position.set(mid.x, 0, mid.z);
       pathLight.target.updateMatrixWorld();
-      pathLight.angle=Math.atan((maxR+45)/H);// angle from the farthest course point -> everything lit
+      pathLight.angle=Math.atan((maxR+45)/H);// Winkel aus dem fernsten Kurspunkt -> alles beleuchtet
     };
     aimPathLight();
     
 
-    // drone group
+    // Drohnengruppe (Wurzel aller Drohenteile)
     drone=new THREE.Group;
-    // rotation order: roll (Z) and pitch (X) about the drone's own axes, yaw (Y) about the
-    // world up-axis. With the default 'XYZ' the pitch would be applied LAST, i.e. about the
-    // world x axis: the nose would always tip the same way in space (e.g. tail down when
-    // flying towards the camera, or a visible roll instead of a pitch when flying along x)
-    // instead of dipping into the direction of flight.
+    // Drehreihenfolge: Rollen (Z) und Nicken (X) um die eigenen Achsen der Drohne, Gieren (Y) um die
+    // Welt-Hochachse. Mit der Vorgabe 'XYZ' würde das Nicken ZULETZT angewendet, also um die
+    // Welt-x-Achse: die Nase würde sich im Raum immer gleich einklappen (z.B. Heck runter, wenn
+    // man auf die Kamera zufliegt, oder ein sichtbares Rollen statt des Nickens entlang von x)
+    // anstatt in Flugrichtung einzutauchen.
     drone.rotation.order='YXZ';
     drone.castShadow=true;
     drone.receiveShadow=true;
-    // ladybug fuselage: the body outline is traced from deckel.png instead of being a plain
-    // cylinder. deckelOutline holds 90 radial distances (in image pixels, measured from the
-    // alpha centroid of the 411x431 image, circularly smoothed over ~20 deg so the drawing
-    // strokes do not ripple the contour): index i = angle i*4 deg, 0 deg = image right,
-    // 90 deg = image bottom, 270 deg = image top = the head = the drone's nose (-z).
+    // Marienkäfer-Rumpf: die Körperkontur wird aus deckel.png abgelesen statt aus einem
+    // einfachen Zylinder. deckelOutline hält 90 Radialabstände (in Bildpixeln, gemessen vom
+    // Alpha-Schwerpunkt des 411x431-Bildes, über ~20° kreisförmig geglättet, damit die Striche
+    // die Kontur nicht wellen: Index i = Winkel i*4°, 0° = Bilddes rechts,
+    // 90° = Bildunten, 270° = Bildoben = der Kopf = die Nase der Drohne (-z).
     const deckelOutline=[204.05,204.64,205.23,205.91,206.82,207.59,208.09,208.64,209.18,209.68,
       210.09,210.59,211,211.5,211.82,212.14,212.32,212.55,212.68,212.64,212.55,212.36,212.36,
       212.32,212.36,212.55,212.91,212.91,212.68,212.41,212.09,211.73,211.36,211.05,210.45,
@@ -715,40 +725,40 @@
       213.91,215.32,216.45,217.23,217.68,217.86,217.91,217.73,217.5,217.09,216.64,215.86,215,
       214,212.64,211.14,209.14,206.73,204.64,203,201.77,201.18,200.91,201.41,201.91,202.41,
       202.91,203.32,203.64];
-    // image px -> world units: the longest radius (the head tip, 217.91 px) becomes 4.7,
-    // so the flat top cap matches the old disc radius and the side wall (which the bevel
-    // pushes 0.3 further out) reaches exactly 5.0 at its widest - same size as the old
-    // rounded cylinder (radius 5, height 2).
+    // Bildpixel -> Welteinheiten: der längste Radius (Kopfspitze, 217,91 px) wird zu 4,7,
+    // damit der flache Deckel zum alten Scheibenradius passt und der Mantel (den die Fase
+    // 0,3 weiter nach außen schiebt) genau 5,0 in der Breite erreicht - gleiche Größe wie der alte
+    // abgerundete Zylinder (Radius 5, Höhe 2).
     const dk=4.7/Math.max.apply(null,deckelOutline);
     const deckPts=deckelOutline.map(function(r,i){
       const a=i/deckelOutline.length*Math.PI*2;
-      // image (x right, y down) -> shape (x, -y): after rotateX(-PI/2) the image top
-      // (head) ends up at -z, i.e. the drone's nose
+      // Bild (x rechts, y unten) -> Form (x, -y): nach rotateX(-PI/2) ist die Bildoberseite
+      // (Kopf) bei -z, also der Nase der Drohne zugekehrt
       return new THREE.Vector2(r*Math.cos(a)*dk, -r*Math.sin(a)*dk);
     });
     const deckShape=new THREE.Shape(deckPts);
-    // extruded shell: depth 1.4 + 2 x bevelThickness 0.3 = height 2, bevelSize 0.3 rounds
-    // the rim (top/bottom edges taper inward, the widest ring sits at mid height)
+    // extrudierte Hülle: Tiefe 1,4 + 2 x bevelThickness 0,3 = Höhe 2, bevelSize 0,3 rundet
+    // den Rand ab (obere/untere Kante laufen nach innen ein, der breiteste Ring sitzt auf halber Höhe)
     const bodyGeo=new THREE.ExtrudeGeometry(deckShape,
       {depth:1.4,bevelEnabled:true,bevelThickness:0.3,bevelSize:0.3,bevelSegments:4,steps:1,curveSegments:1});
     bodyGeo.rotateX(-Math.PI/2);
-    bodyGeo.translate(0,-0.7,0);// the bevel adds 0.3 top and bottom -> centre the body on y=0
+    bodyGeo.translate(0,-0.7,0);// die Fase bringt oben und unten 0,3 dazu -> Körper auf y=0 zentrieren
     md0=new THREE.Mesh(bodyGeo,mt8);
     md0.castShadow=true;
-    //md0.receiveShadow=true;
-    md0.position.set(0,4,0);// spans y 3..5 like the old cylinder
+    //md0.receiveShadow=true;// Rumpf nimmt keine Schatten an (bewusst aus)
+    md0.position.set(0,4,0);// reicht über y 3..5 wie der alte Zylinder
     drone.add(md0);
 
-    // smooth shading for the extruded shell: ExtrudeGeometry is non-indexed, so every copy
-    // of a shared corner (wall, bevel, cap rim) carries its own normal. The wall and bevel
-    // copies disagreed -> harsh vertical banding on the flanks. Recompute ONE area-weighted
-    // normal per unique vertex position instead: the flanks shade evenly and the rim gets a
-    // soft, rounded highlight (the caps keep 0,1,0 in their interior).
+    // weiches Shading für die extrudierte Hülle: ExtrudeGeometry ist nicht indexiert, daher hat jede
+    // Kopie einer gemeinsamen Ecke (Mantel, Fase, Deckelrand) ihre eigene Normale. Mantel- und Fasen-
+    // Kopien widersprachen sich -> harte vertikale Streifen an den Flanken. Stattdessen EINE flächengewichtete
+    // Normale je eindeutiger Vertexposition berechnen: die Flanken schatten gleichmäßig, der Rand bekommt
+    // einen weichen, runden Glanz (die Deckelflächen behalten 0,1,0 im Inneren).
     (function(){
       const pa=bodyGeo.attributes.position, na=bodyGeo.attributes.normal;
       const acc={}, A=new THREE.Vector3(), B=new THREE.Vector3(), C=new THREE.Vector3(),
             e1=new THREE.Vector3(), e2=new THREE.Vector3(), fn=new THREE.Vector3();
-      for(let t=0;t<pa.count;t+=3){// accumulate the face normal of every triangle
+      for(let t=0;t<pa.count;t+=3){// Flächennormale jedes Dreiecks aufsummieren
         A.fromBufferAttribute(pa,t); B.fromBufferAttribute(pa,t+1); C.fromBufferAttribute(pa,t+2);
         fn.crossVectors(e1.subVectors(B,A), e2.subVectors(C,A));
         for(let k=0;k<3;k++){
@@ -765,11 +775,11 @@
       na.needsUpdate=true;
     })();
 
-    // deck surface of the fuselage: the same traced outline as a flat lid carrying
-    // deckel.png, laid 0.01 above the body cap (y = 5.0) so the two never z-fight.
-    // ShapeGeometry stores the raw shape coordinates as UVs, so they are rewritten here:
-    // u = image x / 411, v = 1 - image y / 431 (v flipped -> image top = v 1 = nose side),
-    // image px = centroid + shape coord / dk
+    // Deckelfläche des Rumpfes: dieselbe abgetastete Kontur als flacher Deckel mit
+    // deckel.png, 0,01 über dem Rumpfdeckel (y = 5,0) gelegt, damit die beiden nie z-fighten.
+    // ShapeGeometry speichert die Rohkoordinaten als UVs; sie werden hier neu geschrieben:
+    // u = Bild-x / 411, v = 1 - Bild-y / 431 (v gespiegelt -> Bildoben = v 1 = Nasenseite),
+    // Bildpx = Schwerpunkt + Formkoordinate / dk
     const deckGeo=new THREE.ShapeGeometry(deckShape);
     {
       const dp=deckGeo.attributes.position, duv=deckGeo.attributes.uv;
@@ -779,57 +789,57 @@
       duv.needsUpdate=true;
     }
     let md0deck=new THREE.Mesh(deckGeo, mt10);
-    md0deck.rotation.x=-Math.PI/2;// lay it flat, the top of the image points to the nose (-z)
+    md0deck.rotation.x=-Math.PI/2;// flach hinlegen, die Bildoberseite zeigt zur Nase (-z)
     md0deck.position.set(0,5.01,0);
     drone.add(md0deck);
 
-    // create the rods supporting the rotors from box geometry
+    // Trägerstreben der Rotoren aus Quadergeometrie erzeugen
     md1=new THREE.Mesh(bg,mt8);
     md1.castShadow=true;
-    //md1.receiveShadow=true;
+    //md1.receiveShadow=true;// Schattenannahme der Drohnteile bewusst aus
     md1.scale.set(20,1,1);
     md1.position.set(0, 4.5, 0);
     md1.rotation.set(0,Math.PI*0.25,0);
     drone.add(md1);
-    // create the rods supporting the rotors from box geometry
+    // Trägerstreben der Rotoren aus Quadergeometrie erzeugen
     md2=new THREE.Mesh(bg,mt8);
     md2.castShadow=true;
-    //md2.receiveShadow=true;
+    //md2.receiveShadow=true;// Schattenannahme der Drohnteile bewusst aus
     md2.scale.set(20,1,1);
     md2.position.set(0, 4.5, 0);
     md2.rotation.set(0,-Math.PI*0.25,0);
     drone.add(md2);
 
-    // create a small blue mesh marking the front from box geometry
+    // kleines blaues Markierungs-Mesh für die Vorderseite erzeugen
     md3=new THREE.Mesh(bg,mt5);
     md3.position.set(0,4,-5);
     drone.add(md3);
-    // create a small red mesh marking the rear from box geometry
+    // kleines rotes Markierungs-Mesh für die Hinterseite erzeugen
     md4=new THREE.Mesh(bg,mt3);
     md4.position.set(0,4,5);
     drone.add(md4);
 
-    // two antennae at the front of the ladybug head: glossy black tapered rods with a
-    // rounded club tip, leaning forward, up and slightly outward
-    // (base sits inside the head shell so the rod emerges without a gap)
+    // zwei Fühler an der Vorderseite des Marienkäferkopfes: glänzend schwarze konische Stäbe mit
+    // rundem Knauf, nach vorn, oben und leicht nach außen geneigt
+    // (die Basis sitzt in der Kopfhülle, damit der Stab ohne Lücke herausragt)
     [-1,1].forEach(function(side,ix){
       const base=new THREE.Vector3(side*1.0,4.5,-4.4);
       const dir=new THREE.Vector3(side*0.3,0.45,-0.84).normalize();
       const len=2.4;
       const rod=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.14,len,10),mt11);
       rod.name=(side<0?"antennaL":"antennaR");
-      rod.position.copy(base).addScaledVector(dir,len/2);// centre of the rod
+      rod.position.copy(base).addScaledVector(dir,len/2);// Mitte des Stabs
       rod.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),dir);
       rod.castShadow=true;
       drone.add(rod);
       const club=new THREE.Mesh(new THREE.SphereGeometry(0.17,12,10),mt11);
       club.name=(side<0?"antennaLTip":"antennaRTip");
-      club.position.copy(base).addScaledVector(dir,len);// ball at the rod's tip
+      club.position.copy(base).addScaledVector(dir,len);// Kugel an der Stabspitze
       club.castShadow=true;
       drone.add(club);
     });
 
-    // create the landing legs from box geometry (glossy black, like ladybug legs)
+    // Landebeine aus Quadergeometrie erzeugen (glänzend schwarz, wie Marienkäferbeine)
     md5=new THREE.Mesh(bg,mt11);
     md5.castShadow=true;
     md5.receiveShadow=true;
@@ -837,7 +847,7 @@
     md5.position.set(-3,0.25,0);
     md5.rotation.set(0,Math.PI/2,0);
     drone.add(md5);
-    // create the landing legs from box geometry
+    // weiteres Landebein aus Quadergeometrie erzeugen
     md6=new THREE.Mesh(bg,mt11);
     md6.castShadow=true;
     md6.receiveShadow=true;
@@ -845,7 +855,7 @@
     md6.position.set(3,0.25,0);
     md6.rotation.set(0,Math.PI/2,0);
     drone.add(md6);
-    // create the landing legs from box geometry
+    // weiteres Landebein aus Quadergeometrie erzeugen
     md7=new THREE.Mesh(bg,mt11);
     md7.castShadow=true;
     md7.receiveShadow=true;
@@ -853,7 +863,7 @@
     md7.position.set(-3,1.5,0);
     md7.rotation.set(0,0,Math.PI/2);
     drone.add(md7);
-    // create the landing legs from box geometry
+    // weiteres Landebein aus Quadergeometrie erzeugen
     md8=new THREE.Mesh(bg,mt11);
     md8.castShadow=true;
     md8.receiveShadow=true;
@@ -863,7 +873,7 @@
     drone.add(md8);
 
 
-    // create the propeller blades (rotors) from box geometry
+    // Propellerblätter (Rotoren) aus Quadergeometrie erzeugen
     drone1=new THREE.Group;
     drone1.position.set(-7,5,-7);
     md11=new THREE.Mesh(bg,mt11);
@@ -879,7 +889,7 @@
     md12.rotation.set(0,Math.PI*0.0,0);
     drone1.add(md12);
     drone.add(drone1);
-    // create the propeller blades (rotors) from box geometry
+    // Propellerblätter (Rotoren) aus Quadergeometrie erzeugen
     drone2=new THREE.Group;
     drone2.position.set(-7,5,7);
     md21=new THREE.Mesh(bg,mt11);
@@ -895,7 +905,7 @@
     md22.rotation.set(0,Math.PI*0.0,0);
     drone2.add(md22);
     drone.add(drone2);
-    // create the propeller blades (rotors) from box geometry
+    // Propellerblätter (Rotoren) aus Quadergeometrie erzeugen
     drone3=new THREE.Group;
     drone3.position.set(7,5,7);
     md31=new THREE.Mesh(bg,mt11);
@@ -911,7 +921,7 @@
     md32.rotation.set(0,Math.PI*0.0,0);
     drone3.add(md32);
     drone.add(drone3);
-    // create the propeller blades (rotors) from box geometry
+    // Propellerblätter (Rotoren) aus Quadergeometrie erzeugen
     drone4=new THREE.Group;
     drone4.position.set(7,5,-7);
     md41=new THREE.Mesh(bg,mt11);
@@ -930,8 +940,8 @@
 
     scene.add(drone);
 
-    // round the edges of the whole drone slightly: every box part gets its own geometry at
-    // its final size (a rounded box that is scaled would stretch the radius along the length)
+    // Kanten der gesamten Drohne leicht abrunden: jedes Quader-Teil bekommt eigene Geometrie in
+    // Endgröße (ein skaliertest abgerundeter Kasten würde den Radius in Längsrichtung verzerren)
     drone.traverse(function(o){
       if(o.isMesh && o.geometry && o.geometry.type==="BoxGeometry"){
         const sx=o.scale.x, sy=o.scale.y, sz=o.scale.z;
@@ -940,28 +950,28 @@
       }
     });
 
-    // click on the success message: reset the scene and roll a completely new course
-    // (drone back to pad 1, camera back to the starting view, new random pad 2 with new
-    // terrain, new route line, re-aimed corridor light, success message hidden again)
+    // Klick auf die Erfolgsmeldung: Szene zurücksetzen und einen ganz neuen Kurs würfeln
+    // (Drohne zurück auf Platz 1, Kamera zurück auf die Startansicht, neuer zufälliger Platz 2 mit neuem
+    // Gelände, neuer Routenlinie, neu ausgerichtetem Kurslicht, Erfolgsmeldung wieder ausgeblendet)
     resetScene=function(){
       held.clear(); pos.x=0; pos.y=0; pos.z=0;
       pos.vx=0; pos.vy=0; pos.vz=0; pos.turn=0;
       newPad2();
       buildTerrain();
       scene.getObjectByName('pad2').position.set(pad2.x,0,pad2.z);
-      buildRouteLine();// new Bezier snake for the new pad position
-      buildRings();// new ring positions/colors, post heights rolled again + fresh obstacles
+      buildRouteLine();// neue Bézier-Schlange für die neue Platzposition
+      buildRings();// neue Ringpositionen/-farben, Pfoshöhen neu gewürfelt + frische Hindernisse
       aimPathLight();
       successShown=false;
       document.getElementById('landedToast').classList.remove('show');
-      document.getElementById('crashToast').classList.remove('show');// no stale red message
-      // new course -> new rings: the pass counter starts from zero again
+      document.getElementById('crashToast').classList.remove('show');// keine veraltete rote Meldung
+      // neuer Kurs -> neue Ringe: der Durchflugzähler startet wieder bei null
       passedRings=[false,false,false];
       ringPrevSide=[null,null,null];
       ringPassCount=0;
       updateRingBadge();
-      camera.position.set(0,100,150);// standard starting view
-      controls.update();// the camera looks at the drone (= controls.target), i.e. back at pad 1
+      camera.position.set(0,100,150);// Standard-Startansicht
+      controls.update();// die Kamera blickt auf die Drohne (= controls.target), also zurück auf Platz 1
     };
   }
 
@@ -976,47 +986,47 @@
   <!-- ===================================================================== -->
 <script>
   var pos={"x":0, "y":0, "z":0, "vx":0, "vy":0, "vz":0, "turn":0};
-  // flight commands currently held down ('up','dn','tl','tr','mf','mb','ml','mr'), fed by
-  // the keyboard AND the on-screen keycaps. A SET instead of a single value so any
-  // combination can be evaluated in the same frame - one arrow key plus one WASD key
-  // (climb while accelerating, turn while flying), two WASD keys, and so on. Opposite
-  // keys (W+S, left+right) simply cancel out to a net zero. Deliberately global like pos.
+  // aktuell gehaltene Flugbefehle ('up','dn','tl','tr','mf','mb','ml','mr'), gespeist aus
+  // Tastatur UND den Tastenkappen im Panel. Ein SET statt eines Einzelwerts, damit jede
+  // Kombination im selben Frame ausgewertet werden kann - eine Pfeiltaste plus eine WASD-Taste
+  // (steigen beim Beschleunigen, drehen beim Fliegen), zwei WASD-Tasten usw. Gegenläufige
+  // Tasten (W+S, links/rechts) heben sich einfach auf null auf. Bewusst global wie pos.
   var held=new Set();
-  // keyboard key -> flight command, shared by the keydown and the keyup listener
+  // Tastenkürzel -> Flugbefehl, gemeinsam von den keydown- und keyup-Handlern genutzt
   function keyCmd(k){
     return {w:"mf", s:"mb", a:"ml", d:"mr",
             arrowup:"up", arrowdown:"dn", arrowleft:"tl", arrowright:"tr"}[k]||null;
   }
-  // one-shot flag: the success message only fades in once
+  // Einmal-Flag: die Erfolgsmeldung blendet sich nur einmal ein
   var successShown=false;
-  // course mode: 'parcours' (default: three rings + posts + pass counter) or 'training'
-  // (plain flight from pad 1 to pad 2, no rings and no posts). Switched by the button pair
-  // in the light-hint row of the control panel; a switch always restarts the scene with a
-  // brand new course (same path as a click on the success message).
+  // Kursmodus: 'parcours' (Standard: drei Ringe + Pfosten + Durchflugzähler) oder 'training'
+  // (einfacher Flug von Platz 1 zu Platz 2, keine Ringe, keine Pfosten). Umschaltbar über das Knopp-Paar
+  // in der Hinweiszeile des Panels; ein Wechsel startet die Szene immer mit einem
+  // ganz neuen Kurs neu (gleicher Weg wie ein Klick auf die Erfolgsmeldung).
   var courseMode='parcours';
-  // camera mode: false = overview (orbit control), true = first person view glued to the nose
+  // Kameramodus: false = Überblick (Orbit-Steuerung), true = Ego-Sicht an der Nase klebend
   var fpv=false;
-  // FPV camera head tilt in degrees: negative = look up, positive = look down (-30..90),
-  // driven by the white angle wheel between the arrow-key and WASD pads
+  // FPV-Kameraneigung in Grad: negativ = nach oben schauen, positiv = nach unten schauen (-30..90),
+  // gesteuert über das weiße Winkelrad zwischen den Pfeil- und WASD-Tastenfeldern
   var fpvTilt=0;
-  var fpvTiltQ=new THREE.Quaternion();// scratch quaternion, reused every frame (no per-frame allocation)
+  var fpvTiltQ=new THREE.Quaternion();// Arbeits-Quaternion, jeden Frame wiederverwendet (keine Allokation pro Frame)
   var fpvAxisX=new THREE.Vector3(1,0,0);
-  // FPV camera alignment: 'starr' = rigid on the drone (full pitch/roll goes into the picture),
-  // 'gimbal' = yaw follows, pitch/roll damped with inertia (like a 2-axis gimbal),
-  // 'welt' = orientation locked to the world coordinates (only yaw follows, horizon always level)
+  // FPV-Kameraausrichtung: 'starr' = starr auf der Drohne (volles Nicken/Rollen geht ins Bild),
+  // 'gimbal' = Gieren folgt, Nicken/Rollen mit Trägheit gedämpft (wie ein 2-Achsen-Gimbal),
+  // 'welt' = Ausrichtung an den Weltkoordinaten fest (nur Gieren folgt, Horizont immer waagerecht)
   var fpvAlign='starr';
-  var fpvAlignQ=new THREE.Quaternion(); // smoothed gimbal orientation, reused every frame
-  var fpvTargetQ=new THREE.Quaternion();// scratch: desired orientation of the current frame
-  var fpvLevelE=new THREE.Euler(0,0,0,'YXZ');// scratch: yaw-only (world aligned) orientation
-  var obstacles=[];// rings + posts of the current course, checked every frame
-  var lastCollision='';// '' | 'ring' | 'post' - kind of the most recent impact
-  var collisionCount=0;// how many impacts happened since the page load
-  var droneColR=-1;// collision sphere of the drone, measured once from its bounding box
-  var droneColCY=4;// centre of that sphere above the drone group origin
-  var crashAt=-1e9, crashTimer=null;// -1e9: a collision right after page load may message
-  // short red collision message: auto-hides after 1.6 s AND can be dismissed with a click
-  // (the listener is installed in setupControls()), so the pilot simply continues the flight. Cooldown
-  // so a drone pressed against an obstacle does not spam it every frame.
+  var fpvAlignQ=new THREE.Quaternion(); // geglättete Gimbal-Ausrichtung, jeden Frame wiederverwendet
+  var fpvTargetQ=new THREE.Quaternion();// Arbeitswert: gewünschte Ausrichtung des aktuellen Frames
+  var fpvLevelE=new THREE.Euler(0,0,0,'YXZ');// Arbeitswert: nur-Gier-Ausrichtung (weltfest)
+  var obstacles=[];// Ringe + Pfosten des aktuellen Kurses, jeden Frame geprüft
+  var lastCollision='';// '' | 'ring' | 'post' - Art des letzten Aufpralls
+  var collisionCount=0;// wie eschadlos es seit dem Laden der Seite zuging? (Anzahl der Aufpralle)
+  var droneColR=-1;// Kollisionskugel der Drohne, einmalig aus dem Begrenzungsbox gemessen
+  var droneColCY=4;// Mitte dieser Kugel über dem Ursprung der Drohnengruppe
+  var crashAt=-1e9, crashTimer=null;// -1e9: ein Aufprall direkt nach dem Laden darf eine Meldung auslösen
+  // kurze rote Kollisionsmeldung: blendet sich nach 1,6 s selbst aus UND ist per Klick
+  // schließbar (Handler in setupControls()), so der Pilot einfach weiterfliegt. Sperre, damit
+  // eine an ein Hindernis gedrückte Drohne sie nicht jeden Frame spammt.
   function showCrash(text){
     const now=performance.now();
     if(now-crashAt<1200) return;
@@ -1028,18 +1038,18 @@
     clearTimeout(crashTimer);
     crashTimer=setTimeout(function(){ el.classList.remove('show'); },1600);
   }
-  // ---- ring pass counter (read by renderLoop): which of the 3 rings of the current course
-  // has the drone already flown THROUGH? ringPrevSide[i] holds the signed distance of the
-  // drone centre from ring plane i of the previous frame -> a sign change = plane crossed,
-  // and if that crossing happened inside the opening (not somewhere outside the ring) the
-  // ring counts. resetScene() resets everything for the new course.
+  // ---- Ring-Durchflugzähler (von renderLoop gelesen): welcher der 3 Ringe des aktuellen Kurses
+  // wurde schon DURCHFLOGEN? ringPrevSide[i] hält den signierten Abstand der
+  // Drohnenmitte von Ringebene i im Vorframe -> Vorzeichenwechsel = Ebene gekreuzt,
+  // und wenn die Kreuzung in der Öffnung stattfand (nicht irgendwo außerhalb des Rings), zählt
+  // der Ring. resetScene() setzt alles für den neuen Kurs zurück.
   var passedRings=[false,false,false];
   var ringPrevSide=[null,null,null];
   var ringPassCount=0;
   function updateRingBadge(){
     const el=document.getElementById('ringBadge');
     if(!el) return;
-    // training mode has no rings at all -> the counter badge stays hidden
+    // Trainingsmodus hat überhaupt keine Ringe -> das Zähler-Badge bleibt ausgeblendet
     el.style.display=(courseMode==='training')?'none':'';
     if(ringPassCount>=3){
       el.textContent='3 von 3 Ringen - jetzt landen!';
@@ -1049,33 +1059,33 @@
       el.classList.remove('done');
     }
   }
-  // Distance from a point to the centreline circle of a ring (no contact threshold). Same
-  // formula as the ring branch of obstacleContact below; the escape loop uses it to STEER to
-  // an exact clearance, not just to "somewhere outside".
+  // Abstand eines Punkts zum Mittellinienkreis eines Rings (ohne Kontaktschwelle). Derselbe
+  // Formel wie der Ring-Zweig in obstacleContact unten; die Ausweichschleife nutzt sie, um auf einen
+  // exakten Freiraum zu steuern, nicht nur zu "irgendwo außerhalb".
   function ringGap(o, sx, sy, sz){
     const dx=sx-o.x, dy=sy-o.y, dz=sz-o.z;
-    const a=dx*o.ax+dy*o.ay+dz*o.az;// component along the ring axis
-    const rx=dx-o.ax*a, ry=dy-o.ay*a, rz=dz-o.az*a;// component in the ring plane
-    const rl=Math.sqrt(rx*rx+ry*ry+rz*rz);// distance from the ring axis
+    const a=dx*o.ax+dy*o.ay+dz*o.az;// Anteil entlang der Ringachse
+    const rx=dx-o.ax*a, ry=dy-o.ay*a, rz=dz-o.az*a;// Anteil in der Ringebene
+    const rl=Math.sqrt(rx*rx+ry*ry+rz*rz);// Abstand von der Ringachse
     return Math.sqrt((rl-o.R)*(rl-o.R)+a*a);
   }
-  // Contact test of the drone sphere (centre sx/sy/sz) against ONE obstacle. Returns null
-  // when there is enough clearance, otherwise a small info object holding the measured gap
-  // and the geometry needed to push the drone out. Shared by the per-frame check in
-  // renderLoop and by the escape loop that frees a drone which is already in contact.
+  // Kontaktprüfung der Drohnenkugel (Mitte sx/sy/sz) an EINEM Hindernis. Liefert null
+  // bei ausreichendem Freiraum, sonst ein kleines Info-Objekt mit dem gemessenen Abstand
+  // und der Geometrie, die zum Herausdrücken nötig ist. Genutzt von der Frame-Prüfung in
+  // renderLoop und von der Ausweichschleife, die eine bereits in Kontakt geratene Drohne befreit.
   function obstacleContact(o, sx, sy, sz){
     if(o.kind==='ring'){
-      // distance from the drone centre to the torus centreline circle
+      // Abstand der Drohnenmitte vom Mittellinienkreis des Torus
       const dx=sx-o.x, dy=sy-o.y, dz=sz-o.z;
-      const a=dx*o.ax+dy*o.ay+dz*o.az;// component along the ring axis
-      const rx=dx-o.ax*a, ry=dy-o.ay*a, rz=dz-o.az*a;// component in the ring plane
-      const rl=Math.sqrt(rx*rx+ry*ry+rz*rz);// distance from the ring axis
+      const a=dx*o.ax+dy*o.ay+dz*o.az;// Anteil entlang der Ringachse
+      const rx=dx-o.ax*a, ry=dy-o.ay*a, rz=dz-o.az*a;// Anteil in der Ringebene
+      const rl=Math.sqrt(rx*rx+ry*ry+rz*rz);// Abstand von der Ringachse
       const d=Math.sqrt((rl-o.R)*(rl-o.R)+a*a);
       const need=o.tube+droneColR;
       if(d<need) return {kind:'ring', o:o, d:d, need:need, dx:dx, dy:dy, dz:dz,
                          rx:rx, ry:ry, rz:rz, rl:rl};
     }else{
-      // distance from the drone centre to the vertical post segment
+      // Abstand der Drohnenmitte vom vertikalen Pfosten-Segment
       const cy=Math.max(o.y0,Math.min(o.y1,sy));
       const dx=sx-o.x, dy=sy-cy, dz=sz-o.z;
       const rr=o.r+droneColR;
@@ -1086,64 +1096,64 @@
   }
 
   function setupControls(){
-    // create the orbit controls (dragging with the left/right mouse button, using the wheel, etc. moves the camera)
+    // Orbit-Steuerung erzeugen (Ziehen mit linker/rechter Maustaste, Rad usw. bewegt die Kamera)
     controls = new THREE.OrbitControls(camera, renderer.domElement);
-    //controls.target.set(0,7,0);
+    //controls.target.set(0,7,0);// Alternative: Ziel leicht über dem Boden - nicht verwendet
     controls.target=drone.position;
     controls.update();
     controls.enablePan=false;
-    // zoom (wheel / pinch) and orbit (drag / one finger) are ENABLED: the default view is
-    // too close to show the sea at the far edge, so the pilot must be able to pull back
-    // and circle around the drone to see the coastline with its two bays. minDistance
-    // keeps the camera outside the rotor span (28 units) instead of inside the model.
+    // Zoomen (Rad / Pinch) und Umlenken (Ziehen / ein Finger) sind AKTIVIERT: die Standardansicht ist
+    // zu nah, um das Meer am fernen Rand zu zeigen; der Pilot muss daher zurückzoomen
+    // und um die Drohne kreisen können, um die Küste mit ihren beiden Buchten zu sehen. minDistance
+    // hält die Kamera außerhalb der Rotorspannweite (28 Einheiten) statt im Modell.
     controls.enableZoom=true;
     controls.enableRotate=true;
     controls.minDistance=20;
 
-    // flight keys: the keystroke is swallowed (preventDefault) so the browser cannot
-    // hand it to its find-as-you-type/search bar or scroll the page with the arrows.
-    // Modifier shortcuts (Ctrl/Cmd/Alt, e.g. Ctrl+F) are deliberately left alone.
-    // Every key adds / removes ITS OWN command in `held`, so any combination works at
-    // the same time (one arrow key + one WASD key, two WASD keys, ...) and releasing
-    // one key never cancels another one that is still held down.
+    // Flugtasten: der Tastendruck wird geschluckt (preventDefault), damit der Browser ihn
+    // nicht seiner Suchleiste übergibt oder mit den Pfeilen die Seite scrollt.
+    // Tastenkombinationen mit Modifikatoren (Ctrl/Cmd/Alt, z.B. Ctrl+F) bleiben bewusst unangetastet.
+    // Jede Taste fügt ENTWEDER ihren eigenen Befehl in `held` ein oder entfernt ihn, daher funktioniert
+    // jede Kombination gleichzeitig (eine Pfeiltaste + eine WASD-Taste, zwei WASD-Tasten, ...) und
+    // das Loslassen einer Taste hebt nie eine noch gehaltene auf.
     const flightKeys=["w","s","a","d","arrowup","arrowdown","arrowleft","arrowright"];
     document.addEventListener("keydown", e => {
-      const k=(e.key||"").toLowerCase();// also catches Shift+W / CapsLock -> "W"
+      const k=(e.key||"").toLowerCase();// fasst auch Shift+W / Großschreib-Taste -> "W"
       if(flightKeys.includes(k) && !e.ctrlKey && !e.metaKey && !e.altKey){
         e.preventDefault();
         e.stopPropagation();
         const c=keyCmd(k);
-        if(c) held.add(c);// idempotent: the keyboard auto-repeat fires keydown repeatedly
+        if(c) held.add(c);// idempotent: die Tastatur-Wiederholung löst keydown mehrfach aus
       }
     });
     document.addEventListener("keyup", e => {
       const c=keyCmd((e.key||"").toLowerCase());
-      if(c) held.delete(c);// only THIS key's command is released, others stay active
-      // deliberately NOT gated on modifiers: a release must always get through
+      if(c) held.delete(c);// nur der Befehl DIESER Taste wird gelöst, andere bleiben aktiv
+      // bewusst NICHT an Modifikatoren gekoppelt: ein Loslassen muss immer ankommen
     });
-    // a lost window (Alt+Tab, tab switch) can swallow keyup events -> clear the set so
-    // no command stays stuck on forever
+    // ein verlorenes Fenster (Alt+Tab, Tab-Wechsel) kann keyup-Events verschlucken -> das Set leeren,
+    // damit kein Befehl für immer kleben bleibt
     window.addEventListener("blur", function(){ held.clear(); });
     document.addEventListener("visibilitychange", function(){ if(document.hidden) held.clear(); });
 
     document.getElementById('landedToast').addEventListener('click',resetScene);
-    // click on the collision message: hide it right away -> the pilot continues the flight
-    // (the auto-hide timer of showCrash is cancelled so it cannot fire later)
+    // Klick auf die Kollisionsmeldung: sofort ausblenden -> der Pilot setzt den Flug fort
+    // (der Selbstausblende-Timer von showCrash wird abgebrochen, damit er nicht später feuert)
     document.getElementById('crashToast').addEventListener('click',function(){
       this.classList.remove('show');
       clearTimeout(crashTimer);
     });
-    updateRingBadge();// paint the counter text once at start-up
+    updateRingBadge();// Zählertext einmalig beim Start zeichnen
 
-    // three-way FPV camera alignment switch: starr (rigid on the drone) | Gimbal (damped) |
-    // Welt (world aligned). The row is dimmed outside the FPV view.
+    // dreistufiger FPV-Ausrichtungsschalter: starr (starr auf der Drohne) | Gimbal (gedämpft) |
+    // Welt (weltfest). Die Zeile ist außerhalb der FPV-Sicht abgedunkelt.
     const alignRow=document.getElementById('alignRow');
-    // entering the gimbal mode: start from the CURRENT camera orientation (tilt removed),
-    // so switching modes never causes a jump - the view then glides to the target
+    // Betreten des Gimbal-Modus: bei der AKTUELLEN Kameraausrichtung ansetzen (Neigung entfernt),
+    // ein Moduswechsel springt nie - die Ansicht gleitet danach zum Ziel
     const snapGimbal=function(){
       fpvAlignQ.copy(camera.quaternion);
       if(fpvTilt!==0){
-        // undo the local head tilt, it is re-applied after the alignment every frame
+        // die lokale Kopfneigung herausrechnen, sie wird nach der Ausrichtung jeden Frame neu gesetzt
         fpvAlignQ.multiply(fpvTiltQ.setFromAxisAngle(fpvAxisX, fpvTilt*Math.PI/180));
       }
     };
@@ -1162,10 +1172,10 @@
       if(b) setAlign(b.getAttribute('data-align'));
     });
 
-    // camera switch in the control panel: overview <-> first person view.
-    // Entering FPV stores the world-space offset of the overview camera relative to the
-    // drone, leaving FPV restores exactly that offset (same distance and direction, just
-    // wherever the drone is now), so the view is never lost after a long FPV flight.
+    // Sichtschalter im Bedienpanel: Überblick <-> Ego-Sicht.
+    // Beim Betreten der FPV wird der weltbezogene Versatz der Überblickskamera relativ zur
+    // Drohne gespeister, beim Verlassen wird genau dieser Versatz wiederhergestellt (gleicher Abstand und Richtung,
+    // nur wo immer die Drohne jetzt ist) - die Ansicht geht nach langem FPV-Flug nie verloren.
     const camBackOffset=new THREE.Vector3();
     const viewToggle=document.getElementById('viewToggle');
     const setFpv=function(on){
@@ -1173,23 +1183,23 @@
       if(on){
         camBackOffset.copy(camera.position).sub(drone.position);
         fpv=true;
-        if(fpvAlign==='gimbal') snapGimbal();// continue smoothly from the current view
+        if(fpvAlign==='gimbal') snapGimbal();// weiterhin fließend aus der aktuellen Ansicht
       }else{
         fpv=false;
         camera.position.copy(drone.position).add(camBackOffset);
-        controls.update();// orbit control takes over again: look at the drone
+        controls.update();// Orbit-Steuerung übernimmt wieder: Blick auf die Drohne
       }
       viewToggle.classList.toggle('is-on',fpv);
       viewToggle.setAttribute('aria-pressed',fpv?'true':'false');
       document.getElementById('viewLabel').textContent=fpv?'Sicht: FPV (Nase)':'Sicht: Überblick';
-      alignRow.classList.toggle('is-dim',!fpv);// alignment only matters in the FPV view
+      alignRow.classList.toggle('is-dim',!fpv);// Ausrichtung zählt nur in der FPV-Sicht
     };
     viewToggle.addEventListener('click',function(){ setFpv(!fpv); });
 
-    // course mode switch: parcours (three rings + posts + pass counter) <-> training
-    // (plain flight from pad 1 to pad 2, no rings and no posts). Switching restarts the
-    // scene: drone back to pad 1, camera back to the starting view, brand new course -
-    // exactly the same reset as a click on the success message.
+    // Kursmodus-Schalter: parcours (drei Ringe + Pfosten + Durchflugzähler) <-> training
+    // (einfacher Flug von Platz 1 zu Platz 2, keine Ringe, keine Pfosten). Ein Wechsel startet die
+    // Szene neu: Drohne zurück auf Platz 1, Kamera zurück auf die Startansicht, ganz neuer Kurs -
+    // exakt derselbe Neustart wie ein Klick auf die Erfolgsmeldung.
     const modeSw=document.getElementById('modeSw');
     const setCourseMode=function(mode){
       if(mode===courseMode) return;
@@ -1199,33 +1209,33 @@
         b.classList.toggle('is-on',on);
         b.setAttribute('aria-pressed',on?'true':'false');
       });
-      resetScene();// restart with a fresh course; buildRings() honours courseMode
+      resetScene();// Neustart mit frischem Kurs; buildRings() beachtet courseMode
     };
     modeSw.addEventListener('click',function(e){
       const b=e.target.closest?e.target.closest('.mode-bt'):null;
       if(b) setCourseMode(b.getAttribute('data-mode'));
     });
 
-    // white thumbwheel for the FPV camera head: -30° (look up) .. +90° (straight down at the
-    // landing pad). The wheel only protrudes from a narrow rectangular slot; it is driven by
-    // dragging along the slot, by the mouse wheel or by the arrow keys. The arrow keys are
-    // swallowed here (stopPropagation) while the wheel is focused, so they tilt the camera
-    // instead of steering the drone.
+    // weißes Rollrad für den FPV-Kamerakopf: -30° (nach oben) .. +90° (gerade nach unten auf den
+    // Landeplatz). Das Rad ragt nur aus einem schmalen rechteckigen Schlitz heraus; es lässt sich
+    // durch Ziehen entlang des Schlitzes, über das Mausrad oder über die Pfeiltasten bewegen. Die Pfeiltasten werden
+    // hier geschluckt (stopPropagation), solange das Rad fokussiert ist, damit sie die Kamera neigen
+    // anstatt die Drohne zu steuern.
     const TILT_MIN=-30, TILT_MAX=90, TILT_SPAN=TILT_MAX-TILT_MIN;
-    const SCALE_TRAVEL=150;// px the marker travels on the ruler (scale height 156 - 2 x 3)
+    const SCALE_TRAVEL=150;// px, die der Marker auf dem Maßstab läuft (Skalenhöhe 156 - 2 x 3)
     const knob=document.getElementById('tiltKnob');
     const tiltNeedle=document.getElementById('tiltNeedle');
     const setTilt=function(v){
       fpvTilt=Math.max(TILT_MIN,Math.min(TILT_MAX,Math.round(v)));
-      // marker slides along the ruler (top = -30°, bottom = +90°) and the knurling of the
-      // wheel crawls with it, so the ribs visibly run through the slot
+      // der Marker gleitet auf dem Maßstab (oben = -30°, unten = +90°) und die Rändelung des
+      // Rads wandert mit, sodass die Rippen sichtbar durch den Schlitz laufen
       tiltNeedle.style.transform='translateY('+((fpvTilt-TILT_MIN)/TILT_SPAN*SCALE_TRAVEL).toFixed(1)+'px)';
       knob.style.setProperty('--spinY',(fpvTilt*1.1).toFixed(1)+'px');
       knob.setAttribute('aria-valuenow',String(fpvTilt));
       knob.setAttribute('aria-valuetext',fpvTilt+' Grad');
     };
-    // drag along the slot: finger down = look further down, finger up = look up
-    // (0.8° per pixel -> the full -30..90 range spans the 150 px long wheel)
+    // am Schlitz ziehen: Finger nach unten = weiter nach unten schauen, Finger nach oben = nach oben schauen
+    // (0,8° pro Pixel -> der volle Bereich -30..90° spannt das 150 px lange Rad)
     let dragY=null;
     knob.addEventListener('pointerdown',function(e){
       dragY=e.clientY;
@@ -1242,48 +1252,48 @@
     knob.addEventListener('pointerup',endDrag);
     knob.addEventListener('pointercancel',endDrag);
     knob.addEventListener('wheel',function(e){
-      e.preventDefault();// scrolling the knob must not scroll the page
-      setTilt(fpvTilt + Math.sign(e.deltaY)*3);// wheel down = look further down
+      e.preventDefault();// Drehen am Rad darf die Seite nicht scrollen
+      setTilt(fpvTilt + Math.sign(e.deltaY)*3);// Rad nach unten = weiter nach unten schauen
     },{passive:false});
     knob.addEventListener('keydown',function(e){
       let step=0;
-      if(e.key==='ArrowUp') step=-3;        // look further up
-      else if(e.key==='ArrowRight') step=6; // dial clockwise = down
-      else if(e.key==='ArrowDown') step=3;  // look further down
+      if(e.key==='ArrowUp') step=-3;        // weiter nach oben schauen
+      else if(e.key==='ArrowRight') step=6; // im Uhrzeigersinn drehen = nach unten
+      else if(e.key==='ArrowDown') step=3;  // weiter nach unten schauen
       else if(e.key==='ArrowLeft') step=-6;
       else if(e.key==='Home'){ setTilt(0); e.preventDefault(); e.stopPropagation(); return; }
       if(step!==0){
         setTilt(fpvTilt+step);
         e.preventDefault();
-        e.stopPropagation();// do not let the document flight keys fire at the same time
+        e.stopPropagation();// nicht zusätzlich die dokumentweiten Flugtasten auslösen
       }
     });
-    setTilt(fpvTilt);// paint the ruler marker and the knurling offset once at start-up
+    setTilt(fpvTilt);// Maßstabmarker und Rändelversatz einmalig beim Start zeichnen
 
   }
 
   function renderLoop () {
-    if(!fpv) controls.update();// in FPV the camera is placed below -> the orbit control must not fight it
-    // rotate the propeller blades (rotors)
+    if(!fpv) controls.update();// in der FPV wird die Kamera gesetzt -> die Orbit-Steuerung darf nicht dagegenarbeiten
+    // Propellerblätter (Rotoren) drehen
     drone1.rotation.y+=Math.PI/8;
     drone2.rotation.y+=Math.PI/8;
     drone3.rotation.y+=Math.PI/8;
     drone4.rotation.y+=Math.PI/8;
 
-    // slow cloud drift (wraps while still far outside the camera view)
+    // langsame Wolken-Drift (springt um, noch weit außerhalb des Bilds)
     for(let i=0;i<clouds.children.length;i++){
       let cl=clouds.children[i];
       cl.position.x+=1.5;
       if(cl.position.x>9000){cl.position.x=-9000;}
     }
 
-    // blink the rear (red) and front (blue) marker boxes every 0.5 seconds
+    // hintere (rote) und vordere (blaue) Markierung alle 0,5 s blinken lassen
     let blinkOn=Math.floor((performance.now()-blinkStart)/500)%2===0;
     md3.visible=blinkOn;
     md4.visible=blinkOn;
 
-    // wave animation: the normal map drifts over the sea surface, driven by the REAL
-    // elapsed time (capped so a background tab cannot jump the waves ahead on focus)
+    // Wellenanimation: die Normalen-Textur wandert über die Meeresoberfläche, angetrieben von der ECHTEN
+    // verstrichenen Zeit (gedeckelt, damit ein Hintergrund-Tab die Wellen beim Aktivieren nicht vorspringen lässt)
     if(waterMesh){
       const nowT=performance.now();
       if(waterPrevT>0){
@@ -1297,9 +1307,9 @@
     pos.vx *= 0.95;
     pos.vy *= 0.95;
     pos.vz *= 0.95;
-    // every command that is currently held down acts in the SAME frame - independent ifs
-    // instead of an else-if chain, so e.g. an arrow key and a WASD key fly together
-    // (climb while accelerating, turn while moving). Opposite keys cancel out to net 0.
+    // jeder aktuell gehaltene Befehl wirkt im SELBEN Frame - unabhängige if-Blöcke
+    // statt einer else-if-Kette, damit z.B. eine Pfeiltaste und eine WASD-Taste zusammen fliegen
+    // (steigen beim Beschleunigen, drehen beim Fahren). Gegenläufige Tasten ergeben netto 0.
     if(held.has("up")){
       pos.vy+=0.1;
       if(pos.vy>limit){pos.vy=limit;}
@@ -1332,42 +1342,42 @@
     }
 
     pos.y += pos.vy;
-    // ground: the drone may neither sink below the floor nor INTO the terrain - hills rise
-    // above y=0, so the old flat y=0 test becomes a real terrain test (pads and the start
-    // disc stay at 0 because of the max). Bounce behaviour is unchanged. Over the sea
-    // groundY() reports the WATER SURFACE, so the drone lands on the water, not on the bed.
+    // Boden: die Drohne darf weder unter den Boden noch INS Gelände sinken - Hügel ragen
+    // über y=0 hinaus, daher wird der alte flache y=0-Test ein echter Geländetest (Plätze und Start-
+    // scheibe bleiben wegen max auf 0). Das Abprallverhalten bleibt unverändert. Über dem Meer
+    // meldet groundY() die WASSEROBERFLÄCHE, die Drohne landet also auf dem Wasser, nicht auf dem Grund.
     const gy=groundY(pos.x,pos.z);
     if(pos.y<gy){
       pos.y -=pos.vy;
       pos.vy=-pos.vy*0.5;
-      if(pos.y<gy) pos.y=gy;// safety net for large steps
+      if(pos.y<gy) pos.y=gy;// Sicherheitsnetz für große Schritte
     }
-    // splash: one short red message when the drone touches down on the sea - exactly like
-    // a ring impact (same showCrash, same click-to-dismiss). waterTouched limits it to one
-    // message per dip, so floating on the waves does not re-trigger it every frame; the
-    // beach strip never counts because the drone then rests ABOVE the waterline.
+    // Spritz: eine kurze rote Meldung, wenn die Drohne das Meer berührt - genau wie
+    // ein Ringaufprall (gleiche showCrash, gleicher Klick-zum-Schließen). waterTouched begrenzt es auf
+    // eine Meldung pro Tauchgang, Treiben auf den Wellen löst sie also nicht jedes Mal aus; das
+    // Uferband zählt nie, weil die Drohne dort ÜBER der Wasserlinie ruht.
     if(isWater(pos.x,pos.z)&&pos.y<=WATER_LEVEL+0.05){
       if(!waterTouched){ waterTouched=true; showCrash('Drohne gewassert!'); }
     }else{
       waterTouched=false;
     }
-    const preX=pos.x, preY=pos.y, preZ=pos.z;// start of this movement step (for the bounce-back)
+    const preX=pos.x, preY=pos.y, preZ=pos.z;// Start dieses Bewegungsschritts (für das Zurückspringen)
     pos.x += Math.cos(-pos.turn-Math.PI/2)*pos.vz;
     pos.z += Math.sin(-pos.turn-Math.PI/2)*pos.vz;
     pos.x += Math.cos(-pos.turn)*pos.vx;
     pos.z += Math.sin(-pos.turn)*pos.vx;
 
-    // ---- collision analysis: rings and posts of the current course. The drone is modelled
-    // as a sphere around its centre (radius = half the rotor span, measured once from the
-    // bounding box). A ring is its centreline circle, a post a vertical line segment.
-    // On impact the drone is put back to the start of this movement step, its speed is
-    // zeroed, a short red message appears (see showCrash) and an escape loop nudges the
-    // drone CLEAR of every contact it is still in - without that nudge the start-of-step
-    // position can still lie inside a contact shell (the low rim of a ring reaches through
-    // the terrain when the post is short), the message would reappear on the very next
-    // frame and the drone could never steer away (it was pinned). Flying exactly through
-    // the middle of a ring stays collision-free: the opening (radius 21) is wider than the
-    // drone sphere, so only the rim tube and the post below are dangerous.
+    // ---- Kollisionsanalyse: Ringe und Pfosten des aktuellen Kurses. Die Drohne wird als
+    // Kugel um ihre Mitte modelliert (Radius = halbe Rotorspannweite, einmalig aus der
+    // Begrenzungsbox gemessen). Ein Ring ist sein Mittellinienkreis, ein Pfosten ein vertikales Segment.
+    // Bei einem Treffer wird die Drohne auf den Beginn dieses Bewegungsschritts zurückgesetzt, die
+    // Geschwindigkeit auf null gesetzt, eine kurze rote Meldung erscheint (siehe showCrash) und eine Ausweichschleife schiebt
+    // die Drohne aus jedem noch bestehenden Kontakt HERAUS - ohne diesen Schub liegt die
+    // Position des Schrittstarts noch in einer Kontakthülle (der tiefe Rand eines Rings reicht bei
+    // kurzem Pfosten durch das Gelände), die Meldung würde schon im nächsten
+    // Frame wieder erscheinen und die Drohne könnte nie wegsteuern (sie war festgeklemmt). Genau
+    // durch die Mitte eines Rings bleibt kollisionsfrei: die Öffnung (Radius 21) ist breiter als die
+    // Drohnenkugel, gefährlich sind nur das Randrohr und der Pfosten darunter.
     if(obstacles.length){
       if(droneColR<0){
         const b=new THREE.Box3().setFromObject(drone);
@@ -1375,38 +1385,38 @@
         droneColCY=0.5*(b.min.y+b.max.y)-drone.position.y;
       }
       const sx=pos.x, sy=pos.y+droneColCY, sz=pos.z;
-      let hitKind='';//'ring' | 'post' - the first contact of this frame (it drives the message)
+      let hitKind='';//'ring' | 'post' - erster Kontakt dieses Frames (er steuert die Meldung)
       for(let i=0;i<obstacles.length&&!hitKind;i++){
         const c=obstacleContact(obstacles[i], sx, sy, sz);
         if(c) hitKind=c.kind;
       }
       if(hitKind){
-        pos.x=preX; pos.y=preY; pos.z=preZ;// back to the safe position of this frame's start
-        pos.vx=0; pos.vy=0; pos.vz=0;// stop dead, the pilot has to steer around the obstacle
-        // Escape: nudge the drone CLEAR of every contact it is still in. Without the nudge
-        // the start-of-step position can lie inside a contact shell (the low rim of a ring
-        // reaches down THROUGH the terrain when the post is short), the message would
-        // reappear on the very next frame and every movement step would be reverted again -
-        // the drone was pinned and could not be steered away. Each round pushes out of ONE
-        // contact (surface normal to contact distance + ESC) and then re-checks, so chained
-        // contacts (ring shell <-> the post below it) are cleared within the same frame
-        // while collisionCount still advances only once. When the normal would drive the
-        // drone INTO the terrain it slides out sideways instead - the terrain would
-        // otherwise clamp it straight back into the shell on the next frame.
-        const ESC=1.0;// extra clearance (world units) beyond the contact distance
+        pos.x=preX; pos.y=preY; pos.z=preZ;// zurück auf die sichere Position des Frame-Beginns
+        pos.vx=0; pos.vy=0; pos.vz=0;// sofort anhalten, der Pilot muss um das Hindernis herumsteuern
+        // Ausweichen: die Drohne aus jedem noch bestehenden Kontakt HERAUS schieben. Ohne den Schub
+        // kann die Position des Schrittstarts in einer Kontakthülle liegen (der tiefe Rand eines Rings
+        // reicht bei kurzem Pfosten DURCH das Gelände), die Meldung würde
+        // schon im nächsten Frame wieder erscheinen und jeder Bewegungsschritt würde erneut zurückgenommen -
+        // die Drohne war festgeklemmt und nicht mehr steuerbar. Jede Runde drückt aus EINEM
+        // Kontakt heraus (Flächennormale bis Kontaktabstand + ESC) und prüft erneut; gekettete
+        // Kontakte (Ringhülle <-> der Pfosten darunter) sind so im selben Frame beseitigt,
+        // collisionCount zählt dabei nur einmal. Würde die Normale die
+        // Drohne INS Gelände drücken, gleitet sie seitlich heraus - sonst würde
+        // das Gelände sie im nächsten Frame direkt wieder in die Hülle pressen.
+        const ESC=1.0;// zusätzlicher Freiraum (Welteinheiten) über den Kontaktabstand hinaus
         for(let round=0;round<6;round++){
           const gy=groundY(pos.x,pos.z);
-          if(pos.y<gy) pos.y=gy;// never leave the escape below the terrain
-          let c=null;// first contact at the current escape position
+          if(pos.y<gy) pos.y=gy;// die Ausweichbewegung nie unter das Gelände lassen
+          let c=null;// erster Kontakt an der aktuellen Ausweichposition
           for(let i=0;i<obstacles.length&&!c;i++){
             c=obstacleContact(obstacles[i], pos.x, pos.y+droneColCY, pos.z);
           }
-          if(!c) break;// free - escape finished
+          if(!c) break;// frei - Ausweichen abgeschlossen
           const o=c.o, need=c.need+ESC;
           if(c.kind==='ring'){
-            // unit escape direction: from the nearest point of the centreline circle
-            // through the drone centre; if the drone sits exactly ON the circle that
-            // vector vanishes -> use the in-plane radial direction (leaves the tube too)
+            // Einheits-Ausweichrichtung: vom nächsten Punkt des Mittellinienkreises
+            // durch die Drohnenmitte; sitzt die Drohne genau AUF dem Kreis, ist dieser
+            // Vektor verschwunden -> die radiale Richtung in der Ebene verwenden (verlässt das Rohr ebenfalls)
             let ux=c.dx, uy=c.dy, uz=c.dz, dl=c.d;
             if(c.rl>1e-6){
               ux-=o.R*c.rx/c.rl; uy-=o.R*c.ry/c.rl; uz-=o.R*c.rz/c.rl;
@@ -1419,33 +1429,33 @@
               tx+=ux*k; ty+=uy*k; tz+=uz*k;
             }
             if(ty<groundY(tx,tz)){
-              // normal push would end underground (drone under a low rim): slide out
-              // sideways instead - away from the post column, or ALONG THE RING AXIS when
-              // the drone sits exactly on the column (the gap grows linearly there, while
-              // sideways across the axis it only grows quadratically). y is kept or lifted
-              // onto rising terrain, so the terrain cannot clamp it back into the shell.
+              // der Normalschub würde unterirdisch enden (Drohne unter einem tiefen Rand): stattdessen
+              // seitlich heraus - weg von der Pfostensäule oder ENTLANG DER RINGACHSE, wenn
+              // die Drohne genau auf der Säule sitzt (der Abstand wächst dort linear, während
+              // er seitlich quer zur Achse nur quadratisch wächst). y bleibt erhalten oder wird
+              // auf steigendes Gelände angehoben, damit das Gelände sie nicht zurück in die Hülle presst.
               let hx=pos.x-o.x, hz=pos.z-o.z;
               const hl=Math.hypot(hx,hz);
               if(hl>1e-6){hx/=hl; hz/=hl;}
-              else {hx=o.ax; hz=o.az;}// along the axis (horizontal, unit length)
+              else {hx=o.ax; hz=o.az;}// entlang der Achse (waagerecht, Einheitslänge)
               let found=false;
               for(let t=0.5;t<=40;t+=0.5){
                 const qx=pos.x+hx*t, qz=pos.z+hz*t;
                 const cyy=Math.max(pos.y, groundY(qx,qz))+droneColCY;
                 if(ringGap(o,qx,cyy,qz)>=need){tx=qx; tz=qz; ty=cyy; found=true; break;}
               }
-              if(!found){tx=pos.x; ty=pos.y+droneColCY; tz=pos.z;}// keep, retry next round
+              if(!found){tx=pos.x; ty=pos.y+droneColCY; tz=pos.z;}// behalten, nächste Runde erneut versuchen
             }
             pos.x=tx; pos.y=ty-droneColCY; pos.z=tz;
           }else{
-            // post: the escape direction is horizontal or upward and can never end
-            // underground, so the plain normal push is always safe here
+            // Pfosten: die Ausweichrichtung ist waagerecht oder nach oben und kann nie
+            // unterirdisch enden, daher ist der einfache Normalschub hier immer sicher
             const dl=Math.sqrt(c.dx*c.dx+c.dy*c.dy+c.dz*c.dz);
             if(dl>1e-6){
               const k=(need-c.d)/dl;
               pos.x+=c.dx*k; pos.y+=c.dy*k; pos.z+=c.dz*k;
             }else{
-              pos.x+=need;// degenerate: exactly on the post axis -> push sideways out
+              pos.x+=need;// Sonderfall: genau auf der Pfostenachse -> seitlich hinausdrücken
             }
           }
         }
@@ -1454,23 +1464,23 @@
         showCrash(hitKind==='ring'?'Kollision mit dem Ring!':'Kollision mit dem Pfosten!');
       }
 
-      // ---- ring pass counter: signed distance of the drone centre from every ring plane.
-      // When the sign CHANGES the plane was crossed; the in-plane distance at that moment
-      // tells whether it happened inside the opening (counted) or outside the ring
-      // (ignored, e.g. flying past/above the ring). Every ring counts at most once.
-      // A frame that just ended in a collision is skipped - the drone was bounced back.
+      // ---- Ring-Durchflugzähler: signierter Abstand der Drohnenmitte von jeder Ringebene.
+      // Bei VorzeichenWECHSEL wurde die Ebene gekreuzt; der Abstand in der Ebene verrät
+      // ob das in der Öffnung (gezählt) oder außerhalb des Rings
+      // geschah (ignoriert, z.B. Vorbeiflug über dem Ring). Jeder Ring zählt höchstens einmal.
+      // Ein Frame mit gerade stattgefundenem Aufprall wird übersprungen - die Drohne wurde zurückgeschleudert.
       const cx=pos.x, cy2=pos.y+droneColCY, cz=pos.z;
       let ringIdx=0;
       for(let i=0;i<obstacles.length;i++){
         const o=obstacles[i];
         if(o.kind!=='ring') continue;
         const dx=cx-o.x, dy=cy2-o.y, dz=cz-o.z;
-        const a=dx*o.ax+dy*o.ay+dz*o.az;// signed distance from the ring plane
+        const a=dx*o.ax+dy*o.ay+dz*o.az;// signierter Abstand von der Ringebene
         const s=(a>=0)?1:-1;
         if(!hitKind && ringPrevSide[ringIdx]!==null && ringPrevSide[ringIdx]!==s && !passedRings[ringIdx]){
-          const rx=dx-o.ax*a, ry=dy-o.ay*a, rz=dz-o.az*a;// component in the ring plane
+          const rx=dx-o.ax*a, ry=dy-o.ay*a, rz=dz-o.az*a;// Anteil in der Ringebene
           const rl=Math.sqrt(rx*rx+ry*ry+rz*rz);
-          if(rl<o.R-o.tube){// crossed inside the opening -> a real pass through the ring
+          if(rl<o.R-o.tube){// in der Öffnung gekreuzt -> echter Durchflug durch den Ring
             passedRings[ringIdx]=true;
             ringPassCount++;
             updateRingBadge();
@@ -1484,40 +1494,40 @@
     drone.position.set(pos.x,pos.y,pos.z);
     drone.rotation.set(-pos.vz*Math.PI/8, pos.turn, -pos.vx*Math.PI/8);
 
-    // first person view: the camera sits on the nose of the drone. How its orientation is
-    // derived depends on the alignment switch:
-    //   starr  - rigid on the drone: every pitch/roll of the drone goes into the picture
-    //   Gimbal - yaw follows the drone, pitch/roll are damped with inertia (slerp towards a
-    //            level orientation, 18% of the drone's pitch/roll stays as residual coupling)
-    //   Welt   - orientation locked to the world coordinates: only the yaw follows, the
-    //            horizon always stays level
-    // The tilt wheel is a LOCAL head tilt and is applied after the alignment in every mode.
-    // Offset: just above deck height (deck top 5.01) and 0.35 PAST the nose rim (z ~ -4.7),
-    // otherwise the own deck would fill the view as soon as the head tilts down. In front of
-    // the nose a downward tilt sees the ground (and the landing pad) without obstruction.
+    // Ego-Sicht: die Kamera sitzt auf der Nase der Drohne. Wie sich ihre Ausrichtung
+    // ableitet, hängt vom Ausrichtungsschalter ab:
+    //   starr   - starr auf der Drohne: jedes Nicken/Rollen der Drohne geht ins Bild
+    //   Gimbal  - Gieren folgt der Drohne, Nicken/Rollen sind mit Trägheit gedämpft (Slerp auf eine
+    //            waagerechte Ausrichtung, 18 % der Drohnen-Neigung bleibt als Restkopplung)
+    //   Welt    - Ausrichtung an den Weltkoordinaten fest: nur das Gieren folgt, der
+    //            Horizont bleibt immer waagerecht
+    // Das Neigerad ist eine LOKALE Kopfneigung und wird in jedem Modus nach der Ausrichtung angewendet.
+    // Versatz: knapp über Deckhöhe (Deckeloberkante 5,01) und 0,35 VOR der Nasenkante (z ~ -4,7),
+    // sonst füllt das eigene Deck das Bild, sobald der Kopf nach unten nickt. Direkt vor
+    // der Nase sieht der Blick nach unten den Boden (und den Landeplatz) ungestört.
     if(fpv){
       camera.position.set(0,5.5,-5.35).applyQuaternion(drone.quaternion).add(drone.position);
       if(fpvAlign==='welt'){
-        // world aligned: yaw only (the drone's yaw is exactly pos.turn), pitch/roll = 0
+        // weltfest: nur Gieren (das Gieren der Drohne ist genau pos.turn), Nicken/Rollen = 0
         camera.quaternion.setFromEuler(fpvLevelE.set(0,pos.turn,0,'YXZ'));
       }else if(fpvAlign==='gimbal'){
-        // desired orientation: level horizon, 18% of the drone's pitch/roll coupled back in
+        // gewünschte Ausrichtung: waagerechter Horizont, 18 % der Drohnen-Neigung eingekoppelt
         fpvTargetQ.setFromEuler(fpvLevelE.set(0,pos.turn,0,'YXZ')).slerp(drone.quaternion,0.18);
-        // exponential smoothing = gimbal inertia (~0.15 s time constant at 60 fps)
+        // exponentielles Glätten = Gimbal-Trägheit (~0,15 s Zeitkonstante bei 60 fps)
         fpvAlignQ.slerp(fpvTargetQ,0.14);
         camera.quaternion.copy(fpvAlignQ);
       }else{
-        // rigid on the drone: full orientation, exactly as before
+        // starr auf der Drohne: vollständige Ausrichtung, genau wie zuvor
         camera.quaternion.copy(drone.quaternion);
       }
       if(fpvTilt!==0){
-        // tilt the camera head locally: a POSITIVE X rotation raises the view, so a
-        // downward tilt is applied as a negative rotation about the local X axis
+        // Kamerakopf lokal neigen: eine POSITIVE X-Drehung hebt den Blick, daher wird
+        // eine Absichtsneigung als negative Drehung um die lokale X-Achse angewendet
         camera.quaternion.multiply(fpvTiltQ.setFromAxisAngle(fpvAxisX, -fpvTilt*Math.PI/180));
       }
     }
 
-    // success message: fade in the first time the drone touches down near the 2nd landing site
+    // Erfolgsmeldung: beim ersten Aufsetzen nahe dem 2. Landeplatz einblenden
     if(!successShown && pos.y<0.6 && Math.hypot(pos.x-pad2.x, pos.z-pad2.z)<14){
       successShown=true;
       document.getElementById("landedToast").classList.add("show");
@@ -1533,29 +1543,29 @@
   function main(){
     buildScene();// Teil 1: Aufbau der 3D-Szene
     setupControls();// Teil 2: Steuerung
-    blinkStart=performance.now();// start the light-blink clock when the demo starts
+    blinkStart=performance.now();// Uhr für das Lichtblinken beim Start der Demo starten
     setInterval(renderLoop,33);
   }
   window.addEventListener('DOMContentLoaded', main, false);
 
   window.addEventListener('load',function(){
-    // on-screen keycaps: pressing adds the cap's command to `held`, releasing removes
-    // ONLY that command - two caps can be held at the same time (multi-touch on the
-    // arrow and WASD pads) and letting go of one never cancels the other. Touch events
-    // stay bound to the element where the touch started, so touchend/touchcancel per
-    // element is exact. A mouse is a single pointer: the window-level mouseup releases
-    // the cap last pressed with the mouse, which also catches a release OUTSIDE the
-    // button (mouse down on the cap, drag away, let go). Command name == element id.
-    let mouseCap=null;// command the mouse is currently holding down
+    // Tastenkappen im Panel: Drücken fügt den Befehl der Kappe in `held` ein, Loslassen entfernt
+    // NUR diesen Befehl - zwei Kappen können gleichzeitig gehalten werden (Multi-Touch auf den
+    // Pfeil- und WASD-Feldern), Loslassen einer hebt nie die andere auf. Touch-Events
+    // bleiben an dem Element, auf dem der Touch begann, daher sind touchend/touchcancel pro
+    // Element exakt. Eine Maus ist ein einzelner Zeiger: das window-weite mouseup löst
+    // die zuletzt mit der Maus gedrückte Kappe - das fängt auch ein Loslassen AUßerHALB des
+    // Knopfs ab (Maus auf Kappe, wegziehen, loslassen). Befehlsname == Element-ID.
+    let mouseCap=null;// Befehl, den die Maus aktuell gedrückt hält
     ["up","dn","tl","tr","mf","mb","ml","mr"].forEach(function(id){
       const el=document.getElementById(id);
       if(!el) return;
       el.addEventListener("mousedown",function(e){
-        e.preventDefault();// no text selection / drag of the keycap
+        e.preventDefault();// keine Textauswahl / kein Ziehen der Kappe
         mouseCap=id; held.add(id);
       });
       el.addEventListener("touchstart",function(e){
-        e.preventDefault();// also suppresses the emulated mouse events of a touch
+        e.preventDefault();// unterdrückt auch die von einem Touch nachgebildeten Maus-Events
         held.add(id);
       });
       el.addEventListener("touchend",function(){ held.delete(id); });
@@ -1571,8 +1581,11 @@
 </head>
 <body>
   <header>
-<!-- 728x90, already created 11/07/24 -->
 <!--
+Werbeblock der Ursprungsseite (728x90, angelegt am 11.07.24) - auskommentiert, wird nicht geladen
+-->
+<!--
+Werbeblock der Ursprungsseite (Abschnitte unten auskommentiert, damit nichts geladen wird):
 <ins class="adsbygoogle"
      style="display:block"
      data-ad-client="ca-pub-6334792568243351"
@@ -1588,10 +1601,14 @@
   <main>
 
 
-    <!-- justify-content:center keeps the whole block (canvas + control panel) centred horizontally -->
+    <!--
+justify-content:center hält den gesamten Block (Canvas + Bedienpanel) horizontal mittig
+-->
     <!-- Gesamtaufbau: Canvas und Bedienpanel nebeneinander, auf kleinen Schirmen untereinander -->
     <section class="stage-row">
-      <!-- wrapper makes the toast position relative to the canvas -->
+      <!--
+Wrapper: macht die Meldungen relativ zur Canvas-Fläche positionierbar
+-->
       <!-- 3D-Ansicht: Canvas mit den überlagerten Meldungen (Landung, Kollision, Ringzähler) -->
       <div class="canvas-box">
       <canvas id="can" class="scene-canvas"></canvas>
@@ -1600,24 +1617,32 @@
         <div class="t-sub">Erfolgreich im Ziel gelandet</div>
         <div class="t-hint">Klick: neuer Kurs</div>
       </div>
-      <!-- collision message (ring / post): auto-hides after 1.6 s or on click -->
+      <!--
+Kollisionsmeldung (Ring / Pfosten): blendet sich nach 1,6 s oder per Klick aus
+-->
       <div class="crash-toast" id="crashToast" role="status">
         <span id="crashTitle">Kollision!</span>
       </div>
-      <!-- ring pass counter, always visible at the top of the canvas -->
+      <!--
+Ringzähler: dauerhaft oben auf dem Canvas sichtbar
+-->
       <div class="ring-badge" id="ringBadge" role="status">Ringe: 0 von 3</div>
       </div>
       <!-- ===== Bereich: Steuerungspanel ===== -->
       <div class="ctrl-panel">
         <div class="ctrl-title">Steuerung</div>
-        <!-- camera switch: overview (default) <-> first person view from the drone's nose -->
+        <!--
+Sicht-Umschalter: Überblick (Standard) <-> Ego-Sicht von der Nase der Drohne
+-->
         <div class="view-row">
           <button type="button" class="cbt view-bt" id="viewToggle" aria-pressed="false" aria-label="Kamera umbeschalten">
             <span class="cam-dot"></span><span id="viewLabel">Sicht: Überblick</span>
           </button>
         </div>
-        <!-- three-way FPV camera alignment: starr (rigid) | Gimbal (damped) | Welt (world
-             aligned). Dimmed while the overview is active, it only affects the FPV view. -->
+        <!--
+FPV-Kameraausrichtung, dreistufig: starr (starr auf der Drohne) | Gimbal (gedämpft) | Welt
+             (weltfest). Außerhalb der FPV-Sicht abgedunkelt, denn sie wirkt nur in der FPV-Sicht.
+-->
         <div class="align-row is-dim" id="alignRow" role="group" aria-label="FPV-Kameraausrichtung">
           <button type="button" class="cbt align-bt is-on" data-align="starr" aria-pressed="true">starr</button>
           <button type="button" class="cbt align-bt" data-align="gimbal" aria-pressed="false">Gimbal</button>
@@ -1654,8 +1679,8 @@
             </td>
           </tr>
         </table>
-        <!-- white thumbwheel in a narrow rectangular slot between the arrow keys and the
-             WASD keys: label above the wheel, ruler scale at its right side -->
+        <!-- weißes Rollrad in einem schmalen rechteckigen Schlitz zwischen den Pfeiltasten und den
+             WASD-Tasten: Beschriftung über dem Rad, Maßstab rechts daneben -->
         <div class="pitch">
           <div class="pitch-label">Kamerawinkel</div>
           <div class="pitch-body">

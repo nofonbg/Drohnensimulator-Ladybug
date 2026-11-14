@@ -25,15 +25,15 @@
     background:linear-gradient(180deg,#7db8fd,#4b8ef7);
   }
 
-  /* three-way FPV camera alignment switch, sits between the view switch and the key pads:
-     starr (rigid on the drone) | Gimbal (damped) | Welt (world aligned) */
+  /* dreistufiger FPV-Ausrichtungsschalter, sitzt zwischen dem Sichtschalter und den
+     Tastenfeldern: starr (starr auf der Drohne) | Gimbal (gedämpft) | Welt (weltfest) */
   .align-row{
     display:flex;
     justify-content:center;
     gap:6px;
   }
 
-  /* outside the FPV view the alignment switch is meaningless -> dimmed */
+  /* außerhalb der FPV-Sicht ist der Ausrichtungsschalter wirkungslos -> abgedunkelt */
   .align-row.is-dim{opacity:0.45;filter:saturate(0.55);}
 
   .canvas-box{position:relative;}
@@ -82,9 +82,9 @@
     transform:translateY(-1px);
   }
 
-  /* collision message: red variant of the success toast, sits ABOVE it (top 30% vs 46%).
-     It auto-hides after 1.6 s, but can ALSO be dismissed with a click -> the flight
-     continues; while shown it is clickable, while hidden it blocks nothing. */
+  /* Kollisionsmeldung: rote Variante der Erfolgs-Toast-Meldung, sitzt DARÜBER (top 30 % gegenüber 46 %).
+     Sie blendet sich nach 1,6 s selbst aus, lässt sich aber auch per Klick schließen -> der Flug
+     geht weiter; sichtbar ist sie klickbar, ausgeblendet blockiert sie nichts. */
   .crash-toast{
     position:absolute;
     left:50%; top:30%;
@@ -122,7 +122,7 @@
 
   .ctrl-pads{display:flex;justify-content:space-between;align-items:flex-start;}
 
-  /* modern control panel (right of the canvas) */
+  /* modernes Bedienpanel (rechts vom Canvas) */
   .ctrl-panel{
     flex:0 0 560px;
     max-width:100%;
@@ -207,7 +207,7 @@
     color:#94a3b8;
   }
 
-  /* both keycap rows share one 4-column grid so the keys line up vertically */
+  /* beide Tastenkappen-Zeilen teilen ein 4-Spalten-Raster, damit die Tasten übereinander stehen */
   .keys{
     display:grid;
     grid-template-columns:repeat(4,auto);
@@ -217,8 +217,8 @@
     align-items:center;
   }
 
-  /* success message: fades in when the drone lands on the 2nd landing site
-     (same look as .ctrl-panel: dark gradient, 18px corners, same shadow) */
+  /* Erfolgsmeldung: blendet sich ein, wenn die Drohne auf dem 2. Landeplatz landet
+     (gleiche Optik wie .ctrl-panel: dunkler Verlauf, 18 px Ecken, gleicher Schatten) */
   .landed-toast{
     position:absolute;
     left:50%; top:46%;
@@ -251,7 +251,7 @@
     visibility:visible;
     transform:translate(-50%,-50%) scale(1);
     transition:opacity .7s ease, transform .7s ease, visibility 0s;
-    pointer-events:auto;/* only clickable once the goal is reached -> restarts the scene */
+    pointer-events:auto;/* erst nach Erreichen des Ziels klickbar -> startet die Szene neu */
     cursor:pointer;
   }
 
@@ -278,20 +278,20 @@
     background:linear-gradient(180deg,#7db8fd,#4b8ef7);
   }
 
-  /* course mode switch: parcours (three rings + posts + pass counter) <-> training
-     (plain flight from pad 1 to pad 2, no rings and no posts). Sits in the light-hint
-     row between the two light captions, where the "blinken" caption used to be. */
+  /* Kursmodus-Schalter: parcours (drei Ringe + Pfosten + Durchflugzähler) <-> training
+     (einfacher Flug von Platz 1 zu Platz 2, ohne Ringe und Pfosten). Er sitzt in der
+     Hinweiszeile zwischen den beiden Lichtbeschriftungen, wo früher „blinken" stand. */
   .mode-sw{display:inline-flex;gap:6px;}
 
   .pad{border-collapse:collapse;}
 
   .pad td{padding:3px;}
 
-  /* FPV camera angle wheel: a white thumbwheel that only protrudes partially from a
-     narrow rectangular slot in the control desk (seen from above), with fine knurling
-     (Kerben) on its surface. A ruler scale sits to its right. Between it stay the
-     arrow-key pad and the WASD pad. Drag along the slot, roll the mouse wheel over it
-     or use the arrow keys. */
+  /* FPV-Kamerawinkel-Rad: ein weißes Rollrad, das nur teilweise aus einem schmalen
+     rechteckigen Schlitz der Bedientafel (von oben gesehen) herausragt, mit feiner
+     Rändelung (Kerben) auf der Oberfläche. Rechts daneben liegt ein Maßstab.
+     Zwischen beiden bleiben das Pfeiltastenfeld und das WASD-Feld stehen.
+     Ziehen Sie am Schlitz, rollen Sie das Mausrad darüber oder nutzen Sie die Pfeiltasten. */
   .pitch{
     display:flex;
     flex-direction:column;
@@ -309,10 +309,10 @@
     color:#cbd5e1;
     white-space:nowrap;
     margin-bottom:7px;
-    margin-right:24px;/* centre the label over the wheel, not over wheel + scale */
+    margin-right:24px;/* Beschriftung über dem Rad zentrieren, nicht über Rad + Maßstab */
   }
 
-  /* current-angle marker sliding along the scale */
+  /* Marker für den aktuellen Winkel, gleitet auf dem Maßstab */
   .pitch-needle{
     position:absolute;
     left:-3px;
@@ -327,8 +327,8 @@
     z-index:2;
   }
 
-  /* ruler scale right of the wheel, drawn like the ASCII pattern  |- | |- | |-  :
-     vertical axis, long tick every 20 px, short tick in between */
+  /* Maßstab rechts vom Rad, gezeichnet wie das ASCII-Muster  |- | |- | |-  :
+     senkrechte Achse, langer Strich alle 20 px, dazwischen kurze Striche */
   .pitch-scale{
     position:relative;
     width:17px;
@@ -340,15 +340,15 @@
     position:absolute;
     inset:0;
     background-image:
-      repeating-linear-gradient(180deg,#cbd5e1 0 2px,transparent 2px 20px),/* long ticks */
-      repeating-linear-gradient(180deg,#64748b 0 2px,transparent 2px 20px),/* short ticks */
-      linear-gradient(#475569,#475569);                                   /* axis | */
+      repeating-linear-gradient(180deg,#cbd5e1 0 2px,transparent 2px 20px),/* lange Striche */
+      repeating-linear-gradient(180deg,#64748b 0 2px,transparent 2px 20px),/* kurze Striche */
+      linear-gradient(#475569,#475569);                                   /* Achse | */
     background-size:14px 100%,7px 100%,2px 100%;
     background-position:0 0,0 10px,0 0;
     background-repeat:no-repeat;
   }
 
-  /* the narrow rectangular slot cut into the desk */
+  /* der schmale rechteckige Schlitz in der Tafel */
   .pitch-stage{
     position:relative;
     width:46px;
@@ -361,9 +361,9 @@
                0 1px 0 rgba(255,255,255,0.07);
   }
 
-  /* the thumbwheel: only its rounded top surface rises out of the slot. The knurling
-     (fine parallel Kerben) is moved by the JS (background-position via --spinY), so the
-     ribs crawl along the slot whenever the camera angle changes */
+  /* Das Rollrad: nur seine gerundete Oberfläche ragt aus dem Schlitz. Die Rändelung
+     (feine parallele Kerben) wird vom JavaScript verschoben (background-position über
+     --spinY), sodass die Rippen beim Ändern des Kamerawinkels durch den Schlitz wandern. */
   .pitch-wheel{
     position:absolute;
     left:6px;
@@ -377,13 +377,13 @@
     -webkit-user-select:none;
     -webkit-touch-callout:none;
     background-image:
-      /* fine parallel knurling (Kerben) across the wheel - the layer that moves */
+      /* feine parallele Rändelung (Kerben) über das Rad - die Ebene, die sich bewegt */
       repeating-linear-gradient(180deg,
         rgba(11,18,32,0) 0 3px, rgba(11,18,32,0.34) 3px 4.4px),
-      /* the rounded ends of the wheel sink into shadow at the slot edges */
+      /* die gerundeten Radenden senken sich an den Schlitzkanten in den Schatten */
       linear-gradient(180deg,rgba(11,18,32,0.42) 0,rgba(11,18,32,0) 15%,
                              rgba(11,18,32,0) 84%,rgba(11,18,32,0.55) 100%),
-      /* white body, light from the left like on the reference photo */
+      /* weißer Körper, Licht von links wie auf dem Referenzfoto */
       linear-gradient(90deg,#ffffff 0%,#eef1f5 42%,#d3d9e0 78%,#b7bfca 100%);
     background-position:0 var(--spinY,0px),0 0,0 0;
     background-repeat:repeat,no-repeat,no-repeat;
@@ -400,9 +400,9 @@
     outline-offset:3px;
   }
 
-  /* ring pass counter: small pill at the top centre of the canvas, always visible.
-     Counts how many of the three rings were flown through; at 3/3 it turns green and
-     shows the landing hint. pointer-events:none -> it never blocks anything. */
+  /* Ring-Durchflugzähler: kleine Pille oben mittig auf dem Canvas, immer sichtbar.
+     Zählt, wie viele der drei Ringe durchflogen wurden; bei 3/3 wird sie grün und
+     zeigt den Landehinweis. pointer-events:none -> sie blockiert nie etwas. */
   .ring-badge{
     position:absolute;
     left:50%; top:16px;
@@ -461,7 +461,7 @@
     gap:9px;
   }
 
-  /* status lamp inside the switch: gray = overview, glowing blue = FPV */
+  /* Statuslampe im Schalter: grau = Überblick, leuchtend blau = FPV */
   .view-bt .cam-dot{
     width:0.7em;
     height:0.7em;
@@ -487,7 +487,7 @@
     background:linear-gradient(180deg,#7db8fd,#4b8ef7);
   }
 
-  /* camera-mode switch (overview <-> first person view), full width under the title */
+  /* Kameramodus-Schalter (Überblick <-> Ego-Sicht), volle Breite unter der Überschrift */
   .view-row{display:flex;justify-content:center;}
 
   code{font-weight:bold;font-size:0.9em;color:#333;}

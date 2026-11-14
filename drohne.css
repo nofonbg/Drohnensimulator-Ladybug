@@ -4,10 +4,13 @@
    Lizenziert unter CC BY-NC-SA 4.0 (c) 2026 Norbert Forster
    ===================================================================== */
 
-  /* Basis-Button des FPV-Ausrichtungsschalters (starr/Gimbal/Welt). Die Schriftgröße
-     steht bewusst NICHT hier, sondern in der eigenen Regel .align-row .align-bt weiter
-     unten: die alphabetische Ordnung dieser Datei zwingt .align-bt VOR .cbt, und bei
-     gleicher Spezifität gewinnt die spätere Regel - .cbt setzt dort font-size:1.4em. */
+  /* Basis-Button des FPV-Ausrichtungsschalters (starr/Gimbal/Welt). Maße und Schrift
+     greifen hier NICHT: die alphabetische Ordnung dieser Datei zwingt .align-bt VOR
+     .cbt, und bei gleicher Spezifität gewinnt die spätere Regel - .cbt setzt
+     width/height:3em, padding:0, border-radius:14px und font-size:1.4em und
+     überschreibt damit width:auto, height:2em, padding:0 0.9em und border-radius:999px,
+     die hier stehen. Überleben nur letter-spacing und gap (font-weight steht identisch
+     auch bei .cbt). Maße und Schrift übernimmt die eigene Regel .align-row .align-bt. */
   .align-bt{
     width:auto;
     height:2em;
@@ -36,14 +39,23 @@
     gap:6px;
   }
 
-  /* Eigene Schriftregel für die drei Ausrichtungs-Buttons starr/Gimbal/Welt - sie hängt
-     bewusst NICHT an .cbt: font-size:0.9em gilt nur für diese drei, während .cbt mit
-     1.4em die übrigen Kacheln vergrößert. Der zusammengesetzte Selektor
-     .align-row .align-bt hat die höhere Spezifität (0,2,0 gegenüber 0,1,0) und gewinnt
-     deshalb ungeachtet der alphabetischen Reihenfolge; die reine Klasse .align-bt
-     verliert gegen .cbt, weil "a" vor "c" sortiert wird - hier steht die Regel also
-     an der Stelle, an der die Sortierung sie zwingt, mit doppelter Spezifität. */
-  .align-row .align-bt{font-size:0.9em;}
+  /* Eigene Maß- und Schriftregel für die drei Ausrichtungs-Buttons starr/Gimbal/Welt -
+     sie hängt bewusst NICHT an .cbt und gilt nur für diese drei:
+     * font-size:0.9em - .cbt vergrößert mit 1.4em allein die übrigen Kacheln.
+     * width:auto + padding:0 0.9em - die Blase folgt ihrem Text. Bei der festen
+       width:3em von .cbt (43,2px) ragte "Gimbal" (53,1px) 5px pro Seite über die
+       Blase hinaus; in der AKTIVEN Blase ist die Schrift dunkel (#0f172a), der
+       Überstand lag auf dem dunklen Panel und wirkte so abgeschnitten.
+     Der zusammengesetzte Selektor .align-row .align-bt hat die höhere Spezifität
+     (0,2,0 gegenüber 0,1,0) und gewinnt deshalb ungeachtet der alphabetischen
+     Reihenfolge; die reine Klasse .align-bt verliert gegen .cbt, weil "a" vor "c"
+     sortiert wird. Der Verdacht .cbt.align-bt.is-on trifft nicht zu: diese Regel
+     setzt nur Farben (background, border-color, color), keine Maße. */
+  .align-row .align-bt{
+    width:auto;
+    padding:0 0.9em;
+    font-size:0.9em;
+  }
 
   /* außerhalb der FPV-Sicht ist der Ausrichtungsschalter wirkungslos -> abgedunkelt */
   .align-row.is-dim{opacity:0.45;filter:saturate(0.55);}

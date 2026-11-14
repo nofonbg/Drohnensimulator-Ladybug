@@ -4,11 +4,14 @@
    Lizenziert unter CC BY-NC-SA 4.0 (c) 2026 Norbert Forster
    ===================================================================== */
 
+  /* Basis-Button des FPV-Ausrichtungsschalters (starr/Gimbal/Welt). Die Schriftgröße
+     steht bewusst NICHT hier, sondern in .align-row .align-bt weiter unten: die
+     alphabetische Ordnung dieser Datei zwingt .align-bt VOR .cbt, und bei gleicher
+     Spezifität gewinnt die spätere Regel - .cbt setzt dort font-size:1.15em. */
   .align-bt{
     width:auto;
     height:2em;
     padding:0 0.9em;
-    font-size:0.85em;
     font-weight:600;
     letter-spacing:0.05em;
     border-radius:999px;
@@ -32,6 +35,13 @@
     justify-content:center;
     gap:6px;
   }
+
+  /* Schriftgröße der drei Ausrichtungs-Buttons starr/Gimbal/Welt: 0.9em statt der
+     effektiven 1.15em aus .cbt. Der zusammengesetzte Selektor .align-row .align-bt
+     hat die höhere Spezifität (0,2,0 gegenüber 0,1,0 von .cbt) und ist damit unabhängig
+     von der alphabetischen Reihenfolge wirksam - die reine Klasse .align-bt verliert
+     gegen .cbt, weil "a" vor "c" sortiert wird. */
+  .align-row .align-bt{font-size:0.9em;}
 
   /* außerhalb der FPV-Sicht ist der Ausrichtungsschalter wirkungslos -> abgedunkelt */
   .align-row.is-dim{opacity:0.45;filter:saturate(0.55);}

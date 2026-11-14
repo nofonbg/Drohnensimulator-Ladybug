@@ -20,13 +20,19 @@ und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
 > Start- zum Zielplatz ohne Ringe und Stangen) umschalten – beim Wechsel startet die
 > Drohne neu auf dem Startplatz mit einem frisch gewürfelten Kurs.
 
-> **Neu – Wasserlandschaft:** Am Fernrand der Karte liegt eine **Wasserfläche mit
-> Wellenbewegung** – etwa ein Drittel der Landschaft – die **zwei Buchten unterschiedlicher
-> Größe** ins Gelände schneidet. Die Wasseroberfläche zählt als Boden: Aufsetzen quittiert
-> die rote Meldung **„Drohne gewassert!"**. In der Überblick-Sicht lässt sich die Kamera
-> jetzt zoomen und drehen, um die Küste zu betrachten.
+> **Neu – Himmel und Horizont:** Der Himmel ist die Panoramatextur `sky.jpg` auf einer
+> Halbkugel, das Gelände eine **Kreisscheibe** – beide teilen sich denselben Radius (8000)
+> und enden auf Augenhöhe. Dadurch läuft das **Meer von der Küste bis zum Horizont**
+> und trifft an der Horizontkante nahtlos auf den Himmel (keine sichtbare Kante, kein
+> Durchblitzen des Szene-Hintergrunds).
 
-<img src="docs/wasser.jpg" alt="Wasserlandschaft am Rand der Drohnen-Karte: Küste mit großer und kleiner Bucht, Wellenbewegung auf der Wasserfläche" width="700">
+> **Neu – Wasserlandschaft:** Die **Wasserfläche mit Wellenbewegung** folgt der Küste mit
+> ihren **zwei Buchten unterschiedlicher Größe** und reicht bis zum Scheibenrand. Die
+> Wasseroberfläche zählt als Boden: Aufsetzen quittiert die rote Meldung
+> **„Drohne gewassert!"**. In der Überblick-Sicht lässt sich die Kamera
+> zoomen und drehen, um die Küste zu betrachten.
+
+<img src="docs/wasser.jpg" alt="Wasserlandschaft der Drohnen-Karte: Küste mit großer und kleiner Bucht, Wellenbewegung auf der Wasserfläche bis zum Horizont" width="700">
 
 ## Features
 
@@ -46,10 +52,21 @@ und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
   **Rückstoß vom Hindernis weg**
   (sonst würde die Meldung sofort wieder erscheinen und der Flug blockieren),
   rote Meldung – **per Klick ausblendbar, danach fliegt es einfach weiter**.
-- **Wasserlandschaft mit Wellenbewegung**: eine Wasserfläche entlang des Fernrands
-  (z = −500 bis −167 = **genau ein Drittel** der 1000×1000-Landschaft) schneidet **zwei
-  Buchten unterschiedlicher Größe** ins Gelände – animierte Normal-Textur plus Spiegelung
-  über das three.js-Beispiel `Water`. Die Oberfläche ist das **Bodenniveau auf See**:
+- **Himmel als Halbkugel mit `sky.jpg`**: die obere Bildhälfte des 2:1-Equirect-Panoramas
+  (Zenit → Horizont) wird winkeltreu auf eine Halbkugel projiziert – statt des bisherigen
+  `Sky.js`-Prozedurhimmels. **Ein Maß an einer Stelle**: Kuppel (`HORIZON_R` = 8000),
+  Bodenscheibe, Wasser-Polygon, Kamera-Weitbereich und Zoom-Grenze lesen dieselbe
+  Konstante – nachjustieren genügt an einer Stelle.
+- **Boden als Kreisscheibe**: `flag_g.jpg` liegt nicht mehr auf einem 1000×1000-Quadrat,
+  sondern auf einer radialen Scheibe bis Radius 8016 (Speichen-Raster, innen so dicht wie
+  das alte Gitter, nach außen grob anwachsend). Die runde Außenkante endet **exakt auf
+  der Himmelkuppel** → nahtloser Horizont ohne Kante und ohne Schlitz zum
+  Szene-Hintergrund; die UV-Formel ist die alte (gleiche Kachelstellung), jenseits
+  von ±500 läuft die Textur per RepeatWrapping weiter.
+- **Wasserlandschaft mit Wellenbewegung**: die Küstenlinie (z = −167, **zwei Buchten
+  unterschiedlicher Größe**) schneidet **Land** ins Gelände, von da läuft das **Meer bis
+  zum Scheibenrand** – animierte Normal-Textur plus Spiegelung über das three.js-Beispiel
+  `Water`. Die Oberfläche ist das **Bodenniveau auf See**:
   Aufsetzen darauf meldet **„Drohne gewassert!"** (einmal pro Wat, ausblendbar wie eine
   Kollisionsmeldung). Zielplatz, Routenlinie und Ringe werden gegen die Küste geprüft und
   **nie ins Wasser gewürfelt**; das Ufer fällt natürlich zum Grund ab.
@@ -95,11 +112,13 @@ und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
 | `index.html` | App-Struktur: HTML-Aufbau und gesamtes JavaScript (Aufbau der 3D-Szene + Steuerung); **alle Kommentare auf Deutsch** |
 | `drohne.css` | Alle Stylesheet-Regeln, alphabetisch sortiert (aus `index.html` ausgelagert) |
 | `three.min.js` | three.js r145 (MIT) |
-| `Sky.js`, `OrbitControls.js` | Himmel und Orbit-Steuerung (three.js-Beispiele) |
+| `Sky.js` | Himmel-Skript von three.js – **wird nicht mehr geladen** (Himmel ist jetzt `sky.jpg`, siehe dort); nur noch als Altbestand im Ordner |
+| `OrbitControls.js` | Orbit-Steuerung (three.js-Beispiel) |
 | `Water.js`, `Water_2_M_Normal.jpg` | three.js-Beispiel „Water": spiegelnde Wasserfläche mit Wellenbewegung (Normal-Textur 512×512) |
 | `deckel.png` | Deckel-Textur, Kontur der Rumpf-Extrusion **und Favicon** |
 | `landing.png` | Landeplatten-Textur (mit Alpha) |
-| `flag_g.jpg` | Bodentextur (Luftbild eines Herbstgeländes, JPEG 512×512, 8×8 Kachelung) |
+| `flag_g.jpg` | Bodentextur (Luftbild eines Herbstgeländes, JPEG 512×512, 8×8 Kachelung) auf der Kreisscheibe |
+| `sky.jpg` | Himmeltextur: 2:1-Equirect-Panorama (1200×600), obere Bildhälfte Himmel, untere Wasserspiegelung; projiziert auf die Halbkugel (obere Hälfte per `offset.y`/`repeat.y` ausgewählt) |
 | `inc.css` | Reststylesheet des Ursprungshosts (nicht benötigt) |
 | `docs/drohnensimulator.png` | Screenshot für diese README |
 | `docs/wasser.jpg` | Screenshot der Wasserlandschaft (Küste mit beiden Buchten) |
@@ -126,9 +145,10 @@ Das eigene Werk darf geteilt, genutzt und bearbeitet werden, sofern gilt:
 2. **Nicht kommerziell** – keine Verwendung zu kommerziellen Zwecken
 3. **Weitergabe unter denselben Bedingungen** – Abwandlungen tragen dieselbe Lizenz
 
-Enthaltene Fremdteile behalten ihre eigenen Lizenzen: `three.min.js`, `Sky.js`,
+Enthaltene Fremdteile behalten ihre eigenen Lizenzen: `three.min.js`,
 `OrbitControls.js` und `Water.js` samt Wassertextur `Water_2_M_Normal.jpg` stammen aus
 dem [three.js](https://threejs.org/)-Projekt (MIT-Lizenz,
-kommerzielle Nutzung durch diese Bibliothek also unberührt).  
+kommerzielle Nutzung durch diese Bibliothek also unberührt). `Sky.js` (ebenfalls MIT,
+three.js) liegt nur noch als Altbestand bei und wird nicht mehr geladen.  
 
 Basierend auf einer Idee von [https://mam-mam.net](https://mam-mam.net/en/javascript/three_js_drone.html)

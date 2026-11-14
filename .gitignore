@@ -4,6 +4,9 @@
 # original ground texture (superseded by flag_g.jpg, kept locally as source)
 flag_g.png
 
+# HDR source of the sky texture (sky.jpg is used instead, kept locally as source)
+sky.hdr
+
 # editors
 *.swp
 .idea/

@@ -116,7 +116,6 @@ Das eigene Werk darf geteilt, genutzt und bearbeitet werden, sofern gilt:
 Enthaltene Fremdteile behalten ihre eigenen Lizenzen: `three.min.js`,
 `OrbitControls.js` und `Water.js` samt Wassertextur `Water_2_M_Normal.jpg` stammen aus
 dem [three.js](https://threejs.org/)-Projekt (MIT-Lizenz,
-kommerzielle Nutzung durch diese Bibliothek also unberührt). `Sky.js` (ebenfalls MIT,
-three.js) liegt nur noch als Altbestand bei und wird nicht mehr geladen.  
+kommerzielle Nutzung durch diese Bibliothek also unberührt).  
 
 Nach einer Idee von mam [https://mam-mam.net](https://mam-mam.net/en/javascript/three_js_drone.html)

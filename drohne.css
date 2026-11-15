@@ -1,6 +1,5 @@
 /* =====================================================================
    drohne.css - Darstellung des Ladybug-Drohnen-Simulators
-   Ausgelagert aus index.html; die Regeln sind alphabetisch sortiert.
    Lizenziert unter CC BY-NC-SA 4.0 (c) 2026 Norbert Forster
    ===================================================================== */
 
@@ -191,12 +190,6 @@
 
   .dot-red{background:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,0.22);}
 
-  .fblue{color:blue;font-weight:bold;}
-
-  .forange{color:orange;font-weight:bold;}
-
-  .fred{color:red;font-weight:bold;}
-
   .hint{display:flex;align-items:center;gap:5px;flex-wrap:wrap;}
 
   .hint-lights{
@@ -309,7 +302,7 @@
 
   /* Kursmodus-Schalter: parcours (drei Ringe + Pfosten + Durchflugzähler) <-> training
      (einfacher Flug von Platz 1 zu Platz 2, ohne Ringe und Pfosten). Er sitzt in der
-     Hinweiszeile zwischen den beiden Lichtbeschriftungen, wo früher „blinken" stand. */
+     Hinweiszeile zwischen den beiden Lichtbeschriftungen. */
   .mode-sw{display:inline-flex;gap:6px;}
 
   .pad{border-collapse:collapse;}
@@ -519,8 +512,6 @@
   /* Kameramodus-Schalter (Überblick <-> Ego-Sicht), volle Breite unter der Überschrift */
   .view-row{display:flex;justify-content:center;}
 
-  code{font-weight:bold;font-size:0.9em;color:#333;}
-
   kbd{
     display:inline-flex;
     align-items:center;
@@ -537,10 +528,6 @@
     border-radius:6px;
     box-shadow:0 1px 0 rgba(255,255,255,0.06) inset;
   }
-
-  pre.fblack{background:black;color:#FFF;padding:0.5em;}
-
-  pre.fgray{background:#F4F4F4;color:#000;padding:0.5em;}
 
   table{border-collapse:collapse;}
 

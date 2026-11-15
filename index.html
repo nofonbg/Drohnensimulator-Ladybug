@@ -8,22 +8,12 @@ Lizenziert unter CC BY-NC-SA 4.0 (Namensnennung, nicht-kommerziell,
     <link rel="canonical" href="https://mam-mam.net/en/javascript/three_js_drone.html" />
   <meta charset="UTF-8">
   <meta name="robots" content="index,follow,max-image-preview:large" />
-  <!--
-Das Reststylesheet des Ursprungshosts (inc.css, 836 Zeilen) ist komplett entfernt:
-das <link> führte als absoluter Pfad nur zu einem 404, und nichts davon wurde
-verwendet (0 der 30 Klassen kamen in index.html vor). Alle Styles stehen in drohne.css.
--->
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <!--
 Favicon: der Deckel der Drohne (deckel.png) funktioniert in jedem Browser direkt als
         PNG-Icon - eigene Icon-Datei nicht nötig
 -->
   <link rel="icon" type="image/png" href="deckel.png">
-  <!--
-entfernt: <script src="mamimageviewer.js" defer></script> - Bildbetrachter des Ursprungs-
-        hosts; diese Demo zeigt keine Galerie, daher wurde die Datei ganz weggelassen
--->
-<!-- Rest der Ursprungsseite: leerer Klick-Handler auf <main> (bewusst erhalten) -->
 <script>
   window.addEventListener('load',function(){
     document.getElementsByTagName('main')[0].addEventListener('click',function(){});
@@ -36,10 +26,8 @@ entfernt: <script src="mamimageviewer.js" defer></script> - Bildbetrachter des U
   <!-- ===== JS-Skripte: externe Bibliotheken (three.js r145) ===== -->
   <script src="three.min.js"></script>
   <script src="OrbitControls.js"></script>
-  <!-- Sky.js wird nicht mehr geladen: der Himmel ist jetzt die Textur sky.jpg auf einer Halbkugel
-  <script src="Sky.js"></script>
-  -->
-  <script src="Water.js"></script><!--
+  <script src="Water.js"></script>
+  <!--
 three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water.js)
 -->
 
@@ -77,24 +65,44 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
   // Ursprung, beide enden auf y=0). Dadurch trifft an der Horizontkante genau die
   // Bodenkante auf die Kuppelkante - von überall INNERHALB der Kugel trifft jeder
   // Blickstrahl ent Boden/Wasser oder Himmel, es bleibt keine Lücke (nahtlos).
-  // Nachjustieren genügt hier - Scheibe, Kuppel, Wasser-Polygon, Kamera-Weit (far)
-  // und Zoom-Begrenzung ziehen automatisch mit.
-  const HORIZON_R=8000;// Radius der Himmelkuppel (Halbkugel) in Welteinheiten
+  // Nachjustieren genügt hier - Scheibe, Kuppel, Wasser-Polygon, Kamera-Weit (far),
+  // Zoom-Begrenzung und die Klemmen für Kamera und Drohne (CAM_R_MAX usw. unten)
+  // ziehen automatisch mit.
+  const HORIZON_R=500;// Radius der Himmelkuppel (Halbkugel) in Welteinheiten
   const SKY_DEG_PER_SEC=0.5;// Drehung des Himmels (sky.jpg) um die Kugelachse in Grad
   // pro Sekunde: 0,5° = eine Runde in 12 Minuten - ruhiger Wolkenzug, nahe an echten
   // Verhältnissen (~15 m/s Wind auf 3 km Höhe ≈ 0,3°/s). Die Wolken ziehen damit
-  // sichtbar, ohne dass - wie früher mit Sprites - ein zweites, unabhängiges
-  // Wolkensystem mitläuft.
-  const GROUND_R=HORIZON_R+16;// Bodenscheibe ragt 16 Einheiten über die Kuppel hinaus:
-  // ihre 256 Facetten-Kanten liegen dann überALL über den 64 Kuppel-Facetten, es kann
-  // kein Schlitzenzwischenstich ans Hellblau von scene.background durchblitzen
+  // sichtbar.
+  const GROUND_R=HORIZON_R+4;// Bodenscheibe ragt 4 Einheiten über die Kugel hinaus - reine
+  // Sicherheitsmarge, kein Gestaltungsmaß. Die Kuppel läuft als Saum 30 Einheiten unter y=0
+  // weiter (thetaLength in buildScene), ein Blickstrahl an der Bodenkante muss also noch
+  // über den Scheibenrand kommen; ohne hinterlegte Hintergrundfarbe würde eine solche
+  // Lücke SCHWARZ durchblitzen. Ausgerechnet genügt die Marge, weil die
+  // Kamera garantiert INNERHALB der Kugel und ÜBER dem Gelände geklemmt wird (CAM_R_MAX):
+  // jeder abwärts gerichtete Strahl verlässt die Kugel erst unter y=-30 und schneidet
+  // dabei das Bodenniveau bei einem Radius von höchstens HORIZON_R - die Scheibe auf
+  // HORIZON_R+4 fängt ihn also immer auf, samt der ~0,04 Einheiten tiefen Facettenmitte
+  // des 256-Ecks.
   const GROUND_SPOKES=256;// Speichen der Bodenscheibe (Ring-Übergänge teilen Vertices -> keine Risse)
+  // ---- Klemmen für Kamera und Drohne: beide dürfen die Kuppel NICHT verlassen ----
+  // Analog zur Boden-/Wasserbegrenzung der Drohne (groundY in renderLoop) gibt es
+  // eine Wand und eine Decke - abgeleitet von HORIZON_R, damit die eine Zahl oben
+  // weiterhin alles steuert.
+  const CAM_R_MAX=HORIZON_R-5;// Kamera: größter 3D-Abstand vom Ursprung (x/y/z zusammen),
+  // geklemmt in renderLoop NACH controls.update(). Die Orbit-Steuerung bestimmt weiterhin
+  // Blick und Zoom, schiebt die Kamera aber nie über diesen Radius hinaus.
+  const DRONE_R_MAX=HORIZON_R-100;// Drohne: zylindrische Wand um den Ursprung. Der Kurs
+  // bleibt mit Platz 2 (max. 260), Bogen-Abschlägen (max. ~45) und Korridor (+/-75)
+  // deutlich darunter, es gibt also keinen Fall, in dem die Klemme den Spielraum beschneidet.
+  const DRONE_DOME_GAP=25;// Drohne: Abstand ihrer MITTE zur Kuppel unter der Decke. Groß
+  // genug für die Deckeloberkante (5,0 über der Mitte) und den FPV-Kameraversatz (7,7),
+  // damit die Ego-Kamera garantiert in der Kugel bleibt - selbst am äußersten Punkt.
   // Geländehöhe an einer Welt-x/z-Position: in buildScene() als Closure über das
   // Bodenhöhengitter angelegt und von der Routenlinie, den Ringpfosten sowie der
   // Bodenkollision in renderLoop() genutzt - bewusst global wie skyTex/sky.
   var floorY=null;// Geländehöhe an einer Welt-x/z-Position, in buildScene() angelegt
   // ---- Wasser: die Landschaftsänderung. Die Küstenlinie zieht sich ein Drittel vor
-  // dem FERNEN Rand der früheren 1000x1000-Landschaft entlang (z = -167 statt -500) und schneidet ZWEI
+  // dem FERNEN Rand der Landschaft entlang (z = -167) und schneidet ZWEI
   // Buchten unterschiedlicher Größe ins Land; von der Küste läuft das Meer BIS ZUM SCHEIBENRAND
   // (Horizont, Nutzerentscheidung). Alle Werte sind in Terrain-Einheiten, also exakt den
   // Koordinaten, die floorY() liefert (das Boden-Mesh liegt selbst auf Welt-y = -1, daher wird
@@ -118,10 +126,12 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
   // wahr, wo die Wasserfläche existiert - steuert das Aushöhlen des Geländes, die Flugphysik und
   // die Spritz-Meldung; Ufer, Wasser-Mesh und Kollision stimmen dadurch immer überein
   const isWater=(x,z)=>z<coastZ(x);
-  // Bodenhöhe FÜR DIE FLUGPHYSIK: an Land genau das Gelände wie bisher (nie
+  // Bodenhöhe FÜR DIE FLUGPHYSIK: an Land das Gelände selbst (nie
   // unter 0), im Meeresbereich die WASSEROBERFLÄCHE - die Drohne ruht AUF dem Wasser
   // statt auf den Meeresboden zu sinken. Das angehobene Uferband gewinnt weiterhin, weil max()
-  // jeden Boden behält, der über die Wasserlinie hinausragt.
+  // jeden Boden behält, der über die Wasserlinie hinausragt. Seit terrainHeightAt()
+  // die Erhebungen auf ±4 begrenzt (×4), kann das Land auch POSITIV sein (bis +3):
+  // dann trägt diese Höhe die Drohne - sie folgt den Hügeln statt über ihnen zu schweben.
   const groundY=(x,z)=>{
     const h=floorY(x,z);
     return isWater(x,z)?Math.max(h,WATER_LEVEL):Math.max(h,0);
@@ -144,16 +154,19 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
     // Materialien, Grundgeometrien, Gelände und Wasser.
     // ===========================================================================
     //■ Szene (Container für alle 3D-Objekte)
+    // Es gibt bewusst KEINE hinterlegte Hintergrundfarbe: von INNERHALB der Kugel
+    // trifft jeder Blickstrahl die Kuppel oder den Boden (siehe Horizont-Maße oben),
+    // eine Farbe wäre nirgends zu sehen. Außerhalb der Kugel stünde sie dahinter -
+    // aber Kamera und Drohne können die Kuppel nicht verlassen (Klemmen siehe oben).
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xccddff);
 
     //■ Kamera
     //THREE.PerspectiveCamera( Sichtfeld (Grad), Seitenverhältnis, nahste Entfernung, fernste Entfernung );
-    // far = 2 x HORIZON_R: die Kamera (max. Abstand 4000, siehe setupControls) sieht auch
-    // die Kuppel-Hinterseite (Abstand + Kuppelradius) noch vollständig vor der far-Plane
+    // far = 2 x HORIZON_R: die Kamera wird weltweit auf CAM_R_MAX = HORIZON_R-5 geklemmt
+    // (siehe renderLoop) und sieht so selbst vom äußersten Punkt aus die gegenüberliegende
+    // Kuppel-Hinterseite (CAM_R_MAX + HORIZON_R < 2 x HORIZON_R) vollständig vor der far-Plane
     camera = new THREE.PerspectiveCamera(25, w/h, 1, HORIZON_R*2);
     camera.position.set(0, 100, 150);// Startposition der Kamera setzen
-    //camera.rotation.set(0,8,0);// Kameradrehung auf (0,0,0) Grad - auskommentiert, die Kamera blickt per lookAt()
     camera.lookAt(new THREE.Vector3(0, 0, 0));// Kamera auf den Ursprung (0,0,0) ausrichten
     scene.add(camera);// Kamera zur Szene hinzufügen (Pflicht bei FPV-Kameraführung)
 
@@ -162,9 +175,8 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
     renderer.setSize(w, h);
     // Schattenkarten aktivieren
     renderer.shadowMap.enabled = true;
-    //renderer.setClearColor(0x000000, 1);// Hintergrundfarbe - auskommentiert, scene.background (siehe oben) liefert das Hellblau hinter dem Himmel
 
-    //■ Himmel: sky.jpg als Textur auf einer Halbkugel (statt Sky.js)
+    //■ Himmel: sky.jpg als Textur auf einer Halbkugel
     // sky.jpg ist ein 2:1-Equirect-Panorama (1200x600): obere Bildhälfte = Himmel
     // von Zenit bis Horizont, untere Bildhälfte = Wasserspiegelung. Auf der Halbkugel
     // (theta 0..90°) wird nur die obere Hälfte gezeigt:
@@ -175,7 +187,7 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
     //   * u=0..1 spannt die volle Kugelrunde (360°), wrapS=RepeatWRapping verhindert
     //     einen Nahtstich am Schnitt u=0/1 (Rückseite der Kugel)
     // skyTex ist GLOBALE (renderLoop() dreht sie pro Sekunde um SKY_DEG_PER_SEC, um
-    // die Wolken des Panoramas ziehen zu lassen - statt eines eigenen Sprite-Wolkensystems)
+    // die Wolken des Panoramas ziehen zu lassen)
     skyTex=new THREE.TextureLoader().load('sky.jpg');
     skyTex.wrapS=THREE.RepeatWrapping;
     skyTex.offset.set(0,0.5);
@@ -183,10 +195,12 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
     // Halbkugel mit Radius HORIZON_R, FEST auf dem Ursprung (konzentrisch zur Bodenscheibe,
     // Kalottenkante auf y=0 = Bodenniveau): Kuppel und Boden teilen die Horizontkante
     // (GROUND_SPOKES = gleiche Winkelteilung wie die Bodenscheibe, damit die Facetten
-    // der beiden Kanten deckungsgleich verlaufen). thetaLength reicht 30 Einheiten (~0.2°)
+    // der beiden Kanten deckungsgleich verlaufen). thetaLength reicht 30 Einheiten (~3,4°)
     // unter den Horizont: dieser Saum fängt alle Blickstrahl ab, die zwischen der
     // Kuppelkante (y=0) und der tiefer liegenden Wasserkante (y=-2.5) hindurchgehen -
-    // ohne ihn blitzte am Horizont eine hauchdünne Linie von scene.background durch.
+    // ohne ihn blitzte am Horizont eine hauchdünne Linie durch (eine Lücke wäre SCHWARZ,
+    // deshalb auch die 4 Einheiten Überstand der Bodenscheibe, siehe GROUND_R im
+    // Kopfbereich).
     let skyGeo=new THREE.SphereGeometry(HORIZON_R,GROUND_SPOKES,32,0,Math.PI*2,
                                         0,Math.PI/2+Math.asin(30/HORIZON_R));
     let skyMat=new THREE.MeshBasicMaterial({
@@ -199,12 +213,6 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
     sky.renderOrder=-1;// zuerst zeichnen, dann decken alle Objekte die Kuppel korrekt ab
     scene.add(sky);
 
-    // Hinweis: die alten Kumulus-Sprites (prozedurale DataTexture + Drift-Loop im
-    // renderLoop) sind entfernt - die Wolkenbildung übernimmt jetzt allein sky.jpg,
-    // das in renderLoop() um SKY_DEG_PER_SEC pro Sekunde um die Kugelachse dreht.
-    // Damit läuft nur noch EIN Wolkensystem (statt Foto-Wolken + Sprite-Wolken
-    // unabhängig voneinander), und 13 alpha-geblendete Sprites samt DataTexture-Bau
-    // (65 000 Pixel-Iterationen beim Start) entfallen.
     blinkStart=0;// globaler Startzeitpunkt für das Blinken von Rück-/Frontlicht
 
     //■ Lichtquellen ------------------------------------------------
@@ -220,7 +228,7 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
     spotLight.target.position.set(0,0,0);
     spotLight.castShadow=true;// Schattenwurf aktivieren
     spotLight.shadow.mapSize.width = 4096;  // feinere Schatten: 4096x4096 Schattenkarte
-    spotLight.shadow.mapSize.height = 4096; // feinere Schatten: 8192 (Alternative, hier nicht verwendet)
+    spotLight.shadow.mapSize.height = 4096; // dieselbe Höhe wie Breite (quadratische Karte)
     spotLight.shadow.radius=1;  // Schatten weichzeichnen (shadow.radius)
     scene.add(spotLight);
     scene.add(spotLight.target);
@@ -246,20 +254,7 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
     scene.add(sunLight);
     scene.add(sunLight.target);
     
-    // Punktlicht (auskommentiert)                    Farbe    Intensität Reichweite Abfall
-    //light = new THREE.PointLight( 0xffffff, 0.1, 4, 2 );// nicht verwendet
-    //scene.add( light );// nicht verwendet
-
-
     //■ Materialien
-    // durchsichtig (weiß, Deckkraft 0,3)
-    let mt1=new THREE.MeshLambertMaterial({
-      color:0xffffff,side:THREE.FrontSide,transparent:true,opacity:0.3
-    });
-    // blau
-    let mt2=new THREE.MeshLambertMaterial({
-      color:0x0022cc,side:THREE.FrontSide
-    });
     // rot
     let mt3=new THREE.MeshBasicMaterial({
       color:0xff3333, 
@@ -289,22 +284,39 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
     // abgetastet - mit 16-facher Anisotropie bleibt der Boden dort deutlich schärfer
     // (statt streifig weichgezeichneten Fernbändern)
     floorTexture.anisotropy=16;
+    // ---- Bumpmap für die Bodenscheibe: Water_2_M_Normal.jpg --------------------
+    // Dieselbe Normalmap wie das Meer (THREE.Water weiter unten) liefert hier das
+    // FEINRELIEF des Landes: feine Höhenvariationen, die das Scheiben-Mesh ohne
+    // einzigen zusätzlichen Vertex über die bestehende Sonnenrichtung (streifend
+    // von links, ~12°) angesprochen werden - Körnung und kleine Kanten sorgen für
+    // Maßstab und Glühen, während die große Geländewelle weiterhin aus den
+    // Vertex-Höhen von terrainHeightAt() kommt.
+    // Bewusst als normalMap eingebunden und NICHT als bumpMap: die Datei KODIERT
+    // Normalevektoren in RGB, three.js liest bei bumpMap dagegen nur die Hellig-
+    // keit als Höhe - das würde die Schattierung in die falsche Richtung lenken.
+    // Kachelstellung und Anisotropie identisch zu flag_g.jpg (8 Kacheln über die
+    // 1000-Einheiten-UV -> eine Kachel misst 125 Einheiten), damit Feinrelief und
+    // Farbtextur deckungsgleich sitzen und am Horizont gleich scharf abgetastet
+    // werden. repeat ist pro Textur frei wählbar - die Farbtextur kann ihre
+    // Wiederholung unabhängig von diesem Relief ändern.
+    let floorNormal=new THREE.TextureLoader().load('Water_2_M_Normal.jpg');
+    floorNormal.wrapS=THREE.RepeatWrapping;
+    floorNormal.wrapT=THREE.RepeatWrapping;
+    floorNormal.repeat.set(8,8);
+    floorNormal.anisotropy=16;
     let mt6=new THREE.MeshLambertMaterial({
       color:0xffffff,side:THREE.FrontSide,
       map:floorTexture,
-    });
-    // weiß
-    let mt7=new THREE.MeshLambertMaterial({
-      color:0xffffff,side:THREE.FrontSide,transparent:false,opacity:1.0
+      normalMap:floorNormal,// Bumpmap der Bodenscheibe (Normalmap-Modus, s.o.)
+      normalScale:new THREE.Vector2(1.5,1.5),// Stärke des Feinreliefs: 1,5 statt
+      // des Standards 1,0, weil die Sonne so flach einstrahlt und das Relief sonst
+      // in der Nähe kaum wahrnehmbar wäre; zu groß würde die Böschung jedoch
+      // ins Kalte kippen - der Wert ist über normalScale schnell nachjustiert
     });
     // grau -> Stahl: bläulicher Schimmer, damit die Drohne sich vom Boden abhebt
     // (Phong statt Lambert: nur Phong kennt den Glanzpunkt für den Metalllook)
     let mt8=new THREE.MeshPhongMaterial({
       color:0x9fb9dd, specular:0xc2d8f7, shininess:48, side:THREE.FrontSide
-    });
-    // dunkelgrau -> hellgrauer Kunststoff (matt, nur schwacher Schimmer)
-    let mt9=new THREE.MeshPhongMaterial({
-      color:0xd2d5da, specular:0x666666, shininess:10, side:THREE.FrontSide
     });
     // Deckel: die Marienkäfer-Zeichnung auf dem Rumpf
     // (deckel.png hat einen Alphakanal -> die Bildecken bleiben offen)
@@ -324,14 +336,8 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
 
     // Quader-Grundgeometrie (Einheitswürfel 1x1x1, wird skaliert)
     let bg=new THREE.BoxGeometry(1,1,1);
-    // Kugel-Grundgeometrie (vollständig)
-    let sg =new THREE.SphereGeometry(0.5,16,16,0,      Math.PI,  0,Math.PI);
-    // Kugel-Grundgeometrie (nur Halbkugel)
-    let sg2=new THREE.SphereGeometry(0.5,16,16,Math.PI,Math.PI*2,0,Math.PI);
     // Flächen-Grundgeometrie (Einheitsquadrat 1x1)
     let pg=new THREE.PlaneGeometry(1,1,1,1);
-    // Zylinder-Grundgeometrie (Einheitszylinder)
-    let cg=new THREE.CylinderGeometry(1,1,1,32,1,false,0,Math.PI*2);
 
     // abgerundeter Kasten: jeder Vertex, der weniger als r von einer Kante oder Ecke entfernt liegt, wird auf
     // die umgebende Zylinder-/Kugelfläche Radius r gezogen -> leicht abgerundete Kanten
@@ -358,43 +364,25 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
       return g;
     }
 
-    // abgerundeter Zylinder: das Profil (Radius gegenüber Höhe) bekommt am
-    // oberen und unteren Rand einen Bogen statt einer scharfen 90°-Kante, dann wird es um Y gedreht
-    function rcyl(R,h,r,seg){
-      r=Math.min(r, R*0.9, h*0.45);
-      const pts=[];
-      const add=(x,y)=>{
-        const p=pts[pts.length-1];
-        if(!p || Math.abs(p.x-x)>1e-9 || Math.abs(p.y-y)>1e-9) pts.push(new THREE.Vector2(x,y));
-      };
-      const arc=(cx,cy,a0,a1,n)=>{
-        for(let i=0;i<=n;i++){
-          const a=a0+(a1-a0)*i/n;
-          add(cx+Math.cos(a)*r, cy+Math.sin(a)*r);
-        }
-      };
-      add(0,-h/2);            // Unterdeckel (Mitte -> Kante)
-      add(R-r,-h/2);
-      arc(R-r,-h/2+r, -Math.PI/2, 0, 6);   // abgerundeter Unterrand
-      add(R, h/2-r);          // gerader Zylindermantel
-      arc(R-r, h/2-r, 0, Math.PI/2, 6);    // abgerundeter Oberrand
-      add(0, h/2);            // Oberdeckel (Kante -> Mitte)
-      return new THREE.LatheGeometry(pts, seg);
-    }
-    //let planeGeometry=new THREE.PlaneGeometry(0.1, 0.1, 1, 1);// Altbestand, unbenutzt
-    //let sphereGeometry =new THREE.SphereGeometry(0.05,16,16,0,2*Math.PI);// Altbestand, unbenutzt
-
-    // Boden: KREISSCHEIBE statt Quadrat (1000x1000) - die runde Außenkante liegt auf
-    // Radius GROUND_R exakt auf der Himmelkuppel, dadurch trifft der Boden nahtlos auf
-    // den Himmel (siehe HORIZON_R im Kopfbereich). Aufbau als Speiche-Raster: alle Ringe
+    // Boden: KREISSCHEIBE - die runde Außenkante liegt auf
+    // Radius GROUND_R = HORIZON_R+4 knapp HINTER der Himmelkuppel, dadurch trifft der
+    // Boden nahtlos auf den Himmel (siehe HORIZON_R im Kopfbereich, dort steht auch,
+    // warum 4 Einheiten Überstand genügen). Aufbau als Speiche-Raster: alle Ringe
     // teilen dieselben GROUND_SPOKES-Winkel, dadurch gibt es zwischen den Ringen keine
     // Risse (geteilte Vertices) und die Außenkante ist ein gleichmäßiges 256-Eck.
-    // Ringradien: innen so dicht wie das alte Gitter (6.25), ab 600 grob anwachsend -
-    // das Fernfeld ist nur noch sanft gewellt (die Feinoaktaven blendet terrainHeightAt() dort aus).
+    // Ringradien: innen fein mit 6,25-Einheiten-Schritt, erst ab 600 grob anwachsend
+    // (das Fernfeld liegt ohnehin nur noch sanft gewellt, weil terrainHeightAt() dort
+    // die Feinoaktaven ausblendet). Die Schwellen 596/600 hängen an GROUND_R: auf der
+    // kleinen Scheibe würde eine feste Kette über ihren eigenen Rand hinausragen und
+    // läge über dem Wasser-Polygon, das bei GROUND_R endet. Beide Zahlen hängen
+    // deshalb an GROUND_R, und der exakte Außenrand kommt am Ende als eigener Ring dazu.
     const groundRadii=[0];
-    for(let rr=6.25;rr<596;rr+=6.25) groundRadii.push(rr);
-    for(let rr=600;rr<GROUND_R;rr=Math.min(rr*1.045+2,GROUND_R)) groundRadii.push(rr);
-    // ^^ endet, sobald GROUND_R erreicht ist (Math.min erzwingt den exakten Endwert, kein Doppelring)
+    for(let rr=6.25;rr<Math.min(596,GROUND_R);rr+=6.25) groundRadii.push(rr);
+    for(let rr=Math.min(600,GROUND_R);rr<GROUND_R;rr=Math.min(rr*1.045+2,GROUND_R)) groundRadii.push(rr);
+    // ^^ grobe Ringe nur, wenn GROUND_R überhaupt über 600 liegt; die Kette endet per
+    //    Math.min exakt auf GROUND_R (kein Doppelring)
+    if(groundRadii[groundRadii.length-1]<GROUND_R) groundRadii.push(GROUND_R);
+    // ^^ exakter Außenrand, wenn die feine Kette vor GROUND_R endet (kleine Scheibe)
     const gRings=groundRadii.length;
     const gVerts=gRings*GROUND_SPOKES;
     const gPos=new Float32Array(gVerts*3);// Positionen; die Z-Höhe füllt buildTerrain()
@@ -407,8 +395,8 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
         const px=Math.cos(a)*rad, py=Math.sin(a)*rad;// lokale XY, py = -Welt-z (Mesh wird um x um -90° gedreht)
         const v=ri*GROUND_SPOKES+si;
         gPos[v*3]=px; gPos[v*3+1]=py; gPos[v*3+2]=0;
-        // UV-Formel identisch zur alten PlaneGeometry(1000,1000) -> gleiche Kachelstellung
-        // von flag_g.jpg, jenseits von ±500 läuft sie per RepeatWrapping einfach weiter
+        // UV-Formel spannt -500..+500 auf 0..1 -> eine flag_g.jpg-Kachel misst
+        // 125 Einheiten; jenseits von ±500 läuft sie per RepeatWrapping einfach weiter
         gUV[v*2]=(px+500)/1000; gUV[v*2+1]=(py+500)/1000;
       }
     }
@@ -418,8 +406,8 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
         const a=ri*GROUND_SPOKES+si, b=ri*GROUND_SPOKES+s2;
         const c=(ri+1)*GROUND_SPOKES+si, d=(ri+1)*GROUND_SPOKES+s2;
         // Quad von Ring ri nach ri+1, GEGEN den Uhrzeigersinn von lokal +Z (oben) aus
-        // gesehen: a->c->d + a->d->b -> FrontSide zeigt nach oben, wenn das Mesh wie
-        // früher um x um -90° gedreht liegt. Ring 0 ist der Mittelpunkt, dort degeneriert
+        // gesehen: a->c->d + a->d->b -> FrontSide zeigt nach oben, wenn das Mesh um
+        // x um -90° gedreht liegt. Ring 0 ist der Mittelpunkt, dort degeneriert
         // das zweite Dreieck auf einen Punkt - harmlos, der Mittelpunkt bekommt seinen
         // Normalvektor vom ersten Dreieck
         gIdx.push(a,c,d, a,d,b);
@@ -448,28 +436,44 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
     };
 
     // Geländehöhe (ROHwert, ohne den Mesh-Versatz -1) an Weltposition (wx,wz):
-    // dieselbe Formel wie früher pro Gittervertex, aber als REINE Funktion auswertbar -
-    // Kreisscheibe und floorY() werten sie damit exakt identisch aus (vorher bilinear
-    // über das Gitter interpoliert). Innerhalb r <= 500 rechnet alles unverändert wie
-    // bisher; das neue Fernfeld jenseits blendet die beiden Feinoaktaven aus, damit
-    // weit draußen keine Einzelfeatures flimmern.
+    // als REINE Funktion auswertbar - Kreisscheibe und floorY() werten sie damit
+    // exakt identisch aus. Innerhalb r <= 500 liefert sie das volle Höhengitter;
+    // das Fernfeld jenseits blendet die beiden Feinoaktaven aus, damit weit draußen
+    // keine Einzelfeatures flimmern.
     const terrainHeightAt=(wx,wz)=>{
-      const x=wx, y=-wz;// lokale Baum-Ebene wie im alten Gitter (y = -Welt-z)
+      const x=wx, y=-wz;// lokale Ebene (y = -Welt-z)
       // volles Höhengitter: drei Oktaven des Werterauschens -> breite Wellen, mittlere Beulen und Mulden
-      // plus feine Unregelmäßigkeiten, alles in unregelmäßigen Formen (statt der geraden Sinusstreifen zuvor)
-      const o1=(vnoise(x,   y,    170)-0.5)*1.5;  // breite, unregelmäßige Wellenzüge
-      const o2=(vnoise(x+812,y-371, 64)-0.5)*0.85;// mittlere Beulen und Mulden
-      const o3=(vnoise(x-255,y+693, 26)-0.5)*0.3; // feine Unregelmäßigkeiten (Vertex-Abstand)
+      // plus feine Unregelmäßigkeiten, alles in unregelmäßigen Formen
+      // HÖHENBAND: die drei Oktaven tragen 6,0 / 3,4 / 1,2 - zusammen also roh bis ±5,3.
+      // Die Höhen selbst kommen weiterhin nur aus diesen Vertex-Werten,
+      // die Bumpmap oben liefert ausschließlich das Feinrelief darüber.
+      const o1=(vnoise(x,   y,    170)-0.5)*6.0;  // breite, unregelmäßige Wellenzüge
+      const o2=(vnoise(x+812,y-371, 64)-0.5)*3.4;// mittlere Beulen und Mulden
+      const o3=(vnoise(x-255,y+693, 26)-0.5)*1.2; // feine Unregelmäßigkeiten (Vertex-Abstand)
       const r=Math.sqrt(x*x+y*y);
-      // Detailabblendung: ab 500 (alte Gittergrenze) sanft auf 1500 auf 0 ausblenden
+      // Detailabblendung: ab 500 sanft auf 1500 auf 0 ausblenden
       let df=Math.min(Math.max((r-500)/1000,0),1);
       df=df*df*(3-2*df);
       let h=o1+(o2+o3)*(1-df);
-      h=Math.max(-1,Math.min(1,h));// Erhöhungen auf +1 begrenzt: der Boden kommt nie über y = 0
+      // Deckel auf ±4: ohne ihn würden fast alle Flächen auf der Klammer platteauen
+      // und glatt wie ein Tablett aussehen. ±4 liegt knapp unter der Rohsumme ±5,3
+      // und lässt damit die volle Bandbreite der Formen erkennen. Weil floorY()
+      // weiter unten mit -1+terrainHeightAt() rechnet, reicht das Gelände in der
+      // WELT von -25 (tiefste Mulde) bis +3 (höchster Hügel). Alles bleibt
+      // konsistent, weil sich alles an floorY() ausrichtet: die Routenlinie und die
+      // Ringpfosten messen EXAKT dieselbe Funktion und wandern automatisch mit, die
+      // Flugphysik groundY()=max(floorY,0) folgt den Hügeln, und die flachen Zonen um
+      // Landeplatz 1 (r<30) und Landeplatz 2 (r2<25) sowie die Objekte auf y=0 im
+      // Ursprung liegen auf exakt 0 - dort greift der fade-Abfall.
+      h=Math.max(-4,Math.min(4,h));
       // die Umgebung von Landeplatz 1 vollkommen flach halten (r < 30, ab r >= 100 voll)
       let fade=Math.min(Math.max((r-30)/70,0),1);
       fade=fade*fade*(3-2*fade);
-      // Mulden werden um den Faktor 6 vertieft -> starker Hell-Dunkel-Relief schon durch die streifende Sonne
+      // Mulden werden um den Faktor 6 vertieft -> starker Hell-Dunkel-Relief schon durch die streifende Sonne.
+      // Das heißt: Täler bis -24 (Welt -25). Die Routenlinie
+      // und die Pfosten folgen dem Boden auch dort, d.h. der Kurs taucht sichtbar in die
+      // Mulden ein und bleibt fliegbar; die Drohne selbst landet über der Mulde auf der
+      // Physikschwelle max(floorY,0)=0.
       let zz=(h>0 ? h : h*6)*fade;
       // ---- Küste: im Wasserbereich wird die verformte Höhe durch das Meeresprofil ersetzt.
       // Das Uferband (bis zu 40 Einheiten LANDSEITIG der Küste) wird knapp über die
@@ -555,9 +559,8 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
 
     // Geländehöhe an einer Welt-x/z-Position: die rote Routenlinie, die Ringpfosten und die
     // Bodenkollision in renderLoop() werden damit platziert/messen. Zugewiesen wird der
-    // GLOBALE floorY (renderLoop braucht ihn). Kein Gitter mehr: die reine Funktion
-    // terrainHeightAt() ist überALL gültig - auch weit außerhalb der alten 1000x1000-Fläche,
-    // also bis zum Scheibenrand GROUND_R.
+    // GLOBALE floorY (renderLoop braucht ihn). Die reine Funktion
+    // terrainHeightAt() ist überALL gültig - bis zum Scheibenrand GROUND_R.
     floorY=(wx,wz)=>-1+terrainHeightAt(wx,wz);// das Boden-Mesh liegt auf y = -1
 
     // ---- Meer: die Wasserfläche der Landschaftsänderung. Das Polygon folgt der
@@ -571,7 +574,8 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
       const shape=new THREE.Shape();
       const Xc=Math.sqrt(GROUND_R*GROUND_R-COAST_Z*COAST_Z);// x, an dem die gerade Küste
       // (außerhalb von ±300 gilt überall COAST_Z) den Scheibenrand berührt: Xc²+COAST_Z²=R²
-      const NS=2400;// Küste im Abstand von ~6.7 Einheiten abgetastet (auch die Buchten fein)
+      const NS=2400;// Küste im Abstand von ~0,4 Einheiten abgetastet (auch die Buchten fein)
+      // - deutlich feiner, als der Scheibenrand es braucht
       shape.moveTo(-Xc,-coastZ(-Xc));// Beginn der Küstenlinie, westliches Ende (liegt auf dem Rand)
       for(let i=1;i<=NS;i++){
         const x=-Xc+2*Xc*i/NS;
@@ -582,7 +586,7 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
       const yEnd=-coastZ(Xc);// shapeY des östlichen Endpunkts (im Westen exakt derselbe Wert)
       const a0=Math.atan2(yEnd,Xc);// Winkel des Ostendpunkts in der Shape-Ebene (~1,2°)
       const a1=Math.PI-a0;// Westende = Spiegelung an der y-Achse bei gleichem Radius
-      const NA=180;// Sehnenabweichung des Bogens ~0.7 Einheiten auf 8000 -> unterpixelgroß
+      const NA=180;// Sehnenabweichung des Bogens ~0.02 Einheiten auf GROUND_R=504 -> unterpixelgroß
       for(let i=1;i<=NA;i++){
         const a=a0+(a1-a0)*i/NA;
         shape.lineTo(Math.cos(a)*GROUND_R, Math.sin(a)*GROUND_R);// landet exakt auf dem Westende
@@ -614,9 +618,9 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
     // ===========================================================================
     m0=new THREE.Mesh(pg,mt4);
     m0.rotation.set(-Math.PI/2,0,0);
-    //m0.castShadow=true;// Schattenwurf des Landeplatzes bewusst aus (er liegt flach am Boden)
+    // Schattenwurf des Landeplatzes bewusst aus: er liegt flach am Boden
     m0.receiveShadow=true;
-    m0.scale.set(30,29.3,1);// 50 % größer als zuvor, Proportionen des 980x957-Bildes beibehalten
+    m0.scale.set(30,29.3,1);// Platte 30 x 29,3 Einheiten, Proportionen des 980x957-Bildes beibehalten
     m0.position.set(0,0,0);
     scene.add(m0);
 
@@ -669,7 +673,7 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
       if(old){ scene.remove(old); old.geometry.dispose(); }
       courseCurve();// eine neue Bézier-Kurve für diesen Kurs würfeln
       const len=Math.hypot(pad2.x,pad2.z);
-      const nSeg=Math.max(64,Math.round(len/2));// die Schlange krümmt sich viel stärker als das alte S
+      const nSeg=Math.max(64,Math.round(len/2));// genug Stützpunkte für die stark gekrümmte Schlange
       const linePts=[];
       for(let i=0;i<=nSeg;i++){
         const p=routeCurve.getPoint(i/nSeg);
@@ -744,7 +748,7 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
       // genug öffnen, um den fernsten Punkt der S-Kurve zu erreichen
       const mid=routeCurve.getPoint(0.5);
       let maxR=0;
-      for(let i=0;i<=16;i++){// die Schlange streift weiter aus als das alte einzelne S
+      for(let i=0;i<=16;i++){// die Schlange streift weit aus
         const p=routeCurve.getPoint(i/16);
         maxR=Math.max(maxR,Math.hypot(p.x,p.z));
       }
@@ -781,9 +785,8 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
       214,212.64,211.14,209.14,206.73,204.64,203,201.77,201.18,200.91,201.41,201.91,202.41,
       202.91,203.32,203.64];
     // Bildpixel -> Welteinheiten: der längste Radius (Kopfspitze, 217,91 px) wird zu 4,7,
-    // damit der flache Deckel zum alten Scheibenradius passt und der Mantel (den die Fase
-    // 0,3 weiter nach außen schiebt) genau 5,0 in der Breite erreicht - gleiche Größe wie der alte
-    // abgerundete Zylinder (Radius 5, Höhe 2).
+    // damit der flache Deckel einen Radius von 4,7 erreicht und der Mantel (den die Fase
+    // 0,3 weiter nach außen schiebt) genau 5,0 in der Breite misst - die Breite des Rumpfes.
     const dk=4.7/Math.max.apply(null,deckelOutline);
     const deckPts=deckelOutline.map(function(r,i){
       const a=i/deckelOutline.length*Math.PI*2;
@@ -800,8 +803,8 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
     bodyGeo.translate(0,-0.7,0);// die Fase bringt oben und unten 0,3 dazu -> Körper auf y=0 zentrieren
     md0=new THREE.Mesh(bodyGeo,mt8);
     md0.castShadow=true;
-    //md0.receiveShadow=true;// Rumpf nimmt keine Schatten an (bewusst aus)
-    md0.position.set(0,4,0);// reicht über y 3..5 wie der alte Zylinder
+    // Rumpf nimmt bewusst keine Schatten an
+    md0.position.set(0,4,0);// reicht über y 3..5
     drone.add(md0);
 
     // weiches Shading für die extrudierte Hülle: ExtrudeGeometry ist nicht indexiert, daher hat jede
@@ -1153,21 +1156,25 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
   function setupControls(){
     // Orbit-Steuerung erzeugen (Ziehen mit linker/rechter Maustaste, Rad usw. bewegt die Kamera)
     controls = new THREE.OrbitControls(camera, renderer.domElement);
-    //controls.target.set(0,7,0);// Alternative: Ziel leicht über dem Boden - nicht verwendet
     controls.target=drone.position;
     controls.update();
     controls.enablePan=false;
-    // Zoomen (Rad / Pinch) und Umlenken (Ziehen / ein Finger) sind AKTIVIERT: die Standardansicht ist
+    // Zoomen (Rad / Pinch) und Umlenken (Ziehen / ein Finger) sind möglich: die Standardansicht ist
     // zu nah, um das Meer am fernen Rand zu zeigen; der Pilot muss daher zurückzoomen
     // und um die Drohne kreisen können, um die Küste mit ihren beiden Buchten zu sehen. minDistance
     // hält die Kamera außerhalb der Rotorspannweite (28 Einheiten) statt im Modell.
     controls.enableZoom=true;
     controls.enableRotate=true;
     controls.minDistance=20;
-    // Zoom nach außen endet bei 4000: mit Drone-Versatz (~400) bleibt die Kamera sicher
-    // INNERHALB der Himmelkuppel (HORIZON_R=8000) - von dort ist der Horizont überall
-    // nahtlos zu sehen und die far-Plane (2 x HORIZON_R) schneidet die Kuppel nie auf
-    controls.maxDistance=4000;
+    // Zoom nach außen endet bei 0,9 x HORIZON_R (= 450): von dort ist der Horizont
+    // nahtlos zu sehen und die far-Plane (2 x HORIZON_R) schneidet die Kuppel nie auf.
+    // Die HART Grenze zieht trotzdem renderLoop(): dort wird die Kamera weltweit auf
+    // CAM_R_MAX (HORIZON_R-5 = 495) und auf mindestens Bodenhöhe geklemmt. maxDistance
+    // begrenzt also den Abstand ZUR DROHNE, die Klemme den Abstand VOM URSPRUNG - und
+    // beide geraten nie ineinander: selbst mit der Drohne am äußersten Rand
+    // (DRONE_R_MAX = 400) bleiben 495 - 400 = 95 Einheiten Abstand, also weit über
+    // minDistance = 20. Es gibt keinen Fall, in dem sich die Grenzen wegdrücken würden.
+    controls.maxDistance=HORIZON_R*0.9;
 
     // Flugtasten: der Tastendruck wird geschluckt (preventDefault), damit der Browser ihn
     // nicht seiner Suchleiste übergibt oder mit den Pfeilen die Seite scrollt.
@@ -1247,6 +1254,11 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
         fpv=false;
         camera.position.copy(drone.position).add(camBackOffset);
         controls.update();// Orbit-Steuerung übernimmt wieder: Blick auf die Drohne
+        // Nach langem FPV-Flug kann die Drohne woanders stehen als beim Betreten - der
+        // wiederhergestellte Versatz trägt die Kamera dann über die Kuppel hinaus;
+        // dieselbe Klemme wie in renderLoop zieht sie sofort zurück (nicht erst im
+        // nächsten Frame, in dem ein Bild mit abgeschnittenem Horizont stünde).
+        clampCamPos();
       }
       viewToggle.classList.toggle('is-on',fpv);
       viewToggle.setAttribute('aria-pressed',fpv?'true':'false');
@@ -1331,8 +1343,25 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
 
   }
 
+  // Kuppel-Klemme der Überblick-Kamera: hält sie INNERHALB der Kugel (CAM_R_MAX) und
+  // mindestens auf Bodenhöhe (groundY - dieselbe Funktion wie bei der Drohne). Aufgerufen
+  // wird sie überall dort, wo die Überblick-Kamera gesetzt wird: in renderLoop() NACH
+  // controls.update() (sonst rollt die Orbit-Steuerung die Korrektur im selben Frame
+  // zurück) und nach dem Wiederherstellen des FPV-Versatzes in setFpv. Die Ego-Kamera
+  // braucht das nicht: sie folgt der Drohne, deren eigene Klemmen (Wand DRONE_R_MAX,
+  // Decke DRONE_DOME_GAP) beide Grenzen automatisch mittransportieren.
+  function clampCamPos(){
+    const camR=camera.position.length();
+    if(camR>CAM_R_MAX) camera.position.multiplyScalar(CAM_R_MAX/camR);// (1) Radius
+    const camFloor=groundY(camera.position.x,camera.position.z);
+    if(camera.position.y<camFloor) camera.position.y=camFloor;// (2) Boden/Wasser
+  }
+
   function renderLoop () {
-    if(!fpv) controls.update();// in der FPV wird die Kamera gesetzt -> die Orbit-Steuerung darf nicht dagegenarbeiten
+    if(!fpv){
+      controls.update();// in der FPV wird die Kamera gesetzt -> die Orbit-Steuerung darf nicht dagegenarbeiten
+      clampCamPos();// Kuppel-Klemme, bewusst erst NACH controls.update() - siehe oben
+    }
     // Propellerblätter (Rotoren) drehen
     drone1.rotation.y+=Math.PI/8;
     drone2.rotation.y+=Math.PI/8;
@@ -1407,8 +1436,8 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
 
     pos.y += pos.vy;
     // Boden: die Drohne darf weder unter den Boden noch INS Gelände sinken - Hügel ragen
-    // über y=0 hinaus, daher wird der alte flache y=0-Test ein echter Geländetest (Plätze und Start-
-    // scheibe bleiben wegen max auf 0). Das Abprallverhalten bleibt unverändert. Über dem Meer
+    // über y=0 hinaus, daher wird ein echter Geländetest gerechnet (Plätze und Start-
+    // scheibe bleiben wegen max auf 0). Über dem Meer
     // meldet groundY() die WASSEROBERFLÄCHE, die Drohne landet also auf dem Wasser, nicht auf dem Grund.
     const gy=groundY(pos.x,pos.z);
     if(pos.y<gy){
@@ -1430,6 +1459,32 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
     pos.z += Math.sin(-pos.turn-Math.PI/2)*pos.vz;
     pos.x += Math.cos(-pos.turn)*pos.vx;
     pos.z += Math.sin(-pos.turn)*pos.vx;
+
+    // ---- Kuppel-WAND: die Drohne darf den Radius DRONE_R_MAX nicht überschreiten -
+    // das seitliche Gegenstück zum Boden-/Wassertest oben (groundY). Die Position wird
+    // auf den Zylinder zurückgezogen und der nach außen gerichtete Geschwindigkeits-
+    // anteil entfernt: die Drohne gleitet entlang der Wand weiter (tangential bleibt
+    // alles erhalten), statt innen Energie aufzuladen und beim Abwenden ruckartig
+    // wegzuschießen. Ohne diese Klemme flog sie durch die Kuppelfläche nach draußen.
+    const drW=Math.hypot(pos.x,pos.z);
+    if(drW>DRONE_R_MAX){
+      const kW=DRONE_R_MAX/drW, nxW=pos.x/drW, nzW=pos.z/drW;
+      const vrW=(pos.vx*nxW+pos.vz*nzW);// Geschwindigkeitsanteil nach außen
+      if(vrW>0){ pos.vx-=vrW*nxW; pos.vz-=vrW*nzW; }
+      pos.x*=kW; pos.z*=kW;
+    }
+    // ---- Kuppel-DECKE: die zulässige Höhe folgt der Kugelgleichung (je weiter draußen,
+    // desto niedriger die Decke) und endet DRONE_DOME_GAP unter der Kuppel - so bleiben
+    // Deckeloberkante (5,0) und FPV-Kameraversatz (7,7) selbst am äußersten Punkt
+    // garantiert INNERHALB der Kugel. Das Abprallverhalten spiegelt exakt den
+    // Bodentest oben: zurückschwingen, halb gedämpft, hart an der Decke abfangen.
+    const drC=pos.x*pos.x+pos.z*pos.z;
+    const ceilY=Math.sqrt(HORIZON_R*HORIZON_R-drC)-DRONE_DOME_GAP;
+    if(pos.y>ceilY){
+      pos.y -=pos.vy;
+      pos.vy=-pos.vy*0.5;
+      if(pos.y>ceilY) pos.y=ceilY;// Sicherheitsnetz für große Schritte
+    }
 
     // ---- Kollisionsanalyse: Ringe und Pfosten des aktuellen Kurses. Die Drohne wird als
     // Kugel um ihre Mitte modelliert (Radius = halbe Rotorspannweite, einmalig aus der
@@ -1581,7 +1636,7 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
         fpvAlignQ.slerp(fpvTargetQ,0.14);
         camera.quaternion.copy(fpvAlignQ);
       }else{
-        // starr auf der Drohne: vollständige Ausrichtung, genau wie zuvor
+        // starr auf der Drohne: vollständige Ausrichtung
         camera.quaternion.copy(drone.quaternion);
       }
       if(fpvTilt!==0){
@@ -1644,23 +1699,6 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
 
 </head>
 <body>
-  <header>
-<!--
-Werbeblock der Ursprungsseite (728x90, angelegt am 11.07.24) - auskommentiert, wird nicht geladen
--->
-<!--
-Werbeblock der Ursprungsseite (Abschnitte unten auskommentiert, damit nichts geladen wird):
-<ins class="adsbygoogle"
-     style="display:block"
-     data-ad-client="ca-pub-6334792568243351"
-     data-ad-slot="7381926024"
-     data-ad-format="auto"
-     data-full-width-responsive="true"></ins>
-<script>
-     (adsbygoogle = window.adsbygoogle || []).push({});
-</script>
--->
-  </header>
   <!-- ===== Bereich: Seite - links die 3D-Ansicht, rechts das Steuerungspanel ===== -->
   <main>
 

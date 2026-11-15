@@ -30,6 +30,10 @@ Favicon: der Deckel der Drohne (deckel.png) funktioniert in jedem Browser direkt
   <!--
 three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water.js)
 -->
+  <!-- EZ-Tree-Beispiel (MIT, Daniel Greenheck), angepasst: prozeduraler
+       Baumgenerator mit Wind-Shader, globales THREE statt ES-Modul,
+       Details siehe Kopfkommentar in TreeGenerator.js -->
+  <script src="TreeGenerator.js"></script>
 
 <link rel="stylesheet" href="drohne.css">
 
@@ -139,6 +143,8 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
   var waterMesh=null;// THREE.Water-Meeresoberfläche, in buildScene() erzeugt, in renderLoop() animiert
   var waterPrevT=0;// letzter Zeitstempel der Wellenanimation (ms), 0 = noch kein Frame gesehen
   var waterTouched=false;// die Drohne liegt bereits auf dem Meer (nur eine Spritzmeldung pro Tauchgang)
+  var treeGroup=null;// Baumgruppe der aktuellen Runde, in buildTrees() angelegt
+  var treeWindMats=[];// Blattmaterialien mit Wind-Shader, renderLoop() schiebt uTime pro Frame nach
   // Neustart der Szene (neuer Kurs): wird in buildScene() angelegt, weil es die
   // Bau-Funktionen der Szene braucht; die Steuerung ruft es auf (Klick auf die
   // Erfolgsmeldung und Wechsel zwischen Parcours und Training).
@@ -218,7 +224,7 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
     //■ Lichtquellen ------------------------------------------------
     // Umgebungslicht (Licht auf jedes Objekt aus jeder Richtung), damit unbeleuchtete Flächen nie schwarz werden
     // bewusst schwach gehalten: je weniger Fülllicht, desto stärker der Hell-Dunkel-Relief des Geländes
-    var AmbientLight=new THREE.AmbientLight(0xffffff,0.10);
+    var AmbientLight=new THREE.AmbientLight(0xffffff,0.6);
     scene.add( AmbientLight );// Umgebungslicht zur Szene hinzufügen
 
     // Scheinwerfer direkt von oben (Farbe, Intensität, Reichweite, Winkel, Weichzeichnung[0-1], Abfall[1,1])
@@ -759,7 +765,291 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
       pathLight.angle=Math.atan((maxR+45)/H);// Winkel aus dem fernsten Kurspunkt -> alles beleuchtet
     };
     aimPathLight();
-    
+
+    // ==== BÄUME ===============================================================
+    // Vier zufällig gesetzte ausgewachsene Bäume auf der LANDFLÄCHE: zwei
+    // Laubbäume (EZ-Tree-Preset "große Eiche") und zwei Nadelbäume (Preset
+    // "große Kiefer"). TreeGenerator.js (EZ-Tree, MIT) wächst das Skelett mit
+    // stratifizierten Kinderästen, Knorrigkeit und Wachstumskraft; die Blätter
+    // sind gekreuzte Quads mit prozeduraler Alpha-Textur und einem Wind-Shader.
+    // Die Plätze und Formen werden pro Kurs neu gewürfelt, deshalb steht
+    // buildTrees() auch in resetScene().
+    // ===========================================================================
+
+    // Prozedurale Texturen (kein externes Bildmaterial nötig): Rinde mit
+    // längs laufenden Fasern, ein Laubkissen aus Einzelblättern und ein
+    // Nadelspray für die Nadelbäume. Jeweils einmal pro Seitenlade angelegt.
+    const canvasTextur=(malen,size)=>{
+      const c=document.createElement('canvas');
+      c.width=c.height=size;
+      malen(c.getContext('2d'),size);
+      const t=new THREE.CanvasTexture(c);
+      t.wrapS=t.wrapT=THREE.RepeatWrapping;
+      return t;
+    };
+    // Rinde: senkrechte Streifen (u = Umfang des Rohrs, v läuft entlang des
+    // Astes und wechselt pro Abschnitt zwischen 0/1 - die Streifen müssen
+    // deshalb in v-Richtung konstant sein, sonst entstehen Streifenmuster)
+    const barkTex=canvasTextur((g,s)=>{
+      g.fillStyle='#7a5636'; g.fillRect(0,0,s,s);
+      for(let i=0;i<220;i++){
+        const x=Math.random()*s, w=1+Math.random()*3;
+        const dunkel=Math.random()<0.6;
+        g.fillStyle=dunkel
+          ?'rgba(58,38,22,'+(0.25+Math.random()*0.4)+')'
+          :'rgba(160,124,84,'+(0.15+Math.random()*0.3)+')';
+        g.fillRect(x,0,w,s);
+      }
+      // feine Querrisse für Struktur
+      for(let i=0;i<40;i++){
+        const y=Math.random()*s;
+        g.fillStyle='rgba(40,26,14,0.2)';
+        g.fillRect(0,y,s,1);
+      }
+    },128);
+    // Laub: viele kleine Blätter in unterschiedlichen Grüntönen, locker im
+    // Quadrat verteilt - transparente Fläche außerhalb wird per alphaTest
+    // verworfen, dadurch entsteht eine weiche, durchbrochene Krone
+    const laubTex=canvasTextur((g,s)=>{
+      g.clearRect(0,0,s,s);
+      const farben=['#4e7f2c','#5f9438','#3f6b24','#6fa83f','#7fae3a','#355e1f'];
+      for(let i=0;i<90;i++){
+        const x=s/2+(Math.random()-0.5)*s*0.88;
+        const y=s/2+(Math.random()-0.5)*s*0.88;
+        const r=s*0.05*(0.55+Math.random());
+        g.save();
+        g.translate(x,y);
+        g.rotate(Math.random()*Math.PI*2);
+        g.fillStyle=farben[Math.floor(Math.random()*farben.length)];
+        g.beginPath();
+        g.ellipse(0,0,r*1.8,r,0,0,Math.PI*2);
+        g.fill();
+        g.restore();
+      }
+    },256);
+    // Nadel: ein Raster aus vielen kurzen, gescheitelten Nadelstrichen - der
+    // Untergrund bleibt bewusst dünn, damit die Quads nicht wie grüne
+    // Scheibchen wirken, sondern an den Rändern ausgefranst als Nadelbesen
+    const nadelTex=canvasTextur((g,s)=>{
+      g.clearRect(0,0,s,s);
+      // nur ein schwacher Kern als Basis, die Nadeln tragen die Fläche
+      const grund=g.createRadialGradient(s/2,s/2,s*0.04,s/2,s/2,s*0.42);
+      grund.addColorStop(0,'rgba(45,86,53,0.72)');
+      grund.addColorStop(0.55,'rgba(45,86,53,0.4)');
+      grund.addColorStop(1,'rgba(45,86,53,0)');
+      g.fillStyle=grund;
+      g.beginPath(); g.arc(s/2,s/2,s*0.45,0,Math.PI*2); g.fill();
+      // Nadeln: in Schichten, von innen nach außen, jede Nadel leicht gebogen
+      const farben=['#2f5c39','#3a6b44','#27502f','#437a4d','#517f5b','#1e4226','#63a06e'];
+      for(let i=0;i<1100;i++){
+        const x=Math.random()*s, y=Math.random()*s;
+        const len=s*0.1*(0.35+Math.random()*0.75);
+        const winkel=-Math.PI/2+(Math.random()-0.5)*3.0;
+        g.strokeStyle=farben[Math.floor(Math.random()*farben.length)];
+        g.lineWidth=1.1+Math.random()*1.8;
+        g.lineCap='round';
+        g.beginPath();
+        g.moveTo(x,y);
+        g.quadraticCurveTo(
+          x+Math.cos(winkel)*len*0.5+(Math.random()-0.5)*len*0.3,
+          y+Math.sin(winkel)*len*0.5+(Math.random()-0.5)*len*0.3,
+          x+Math.cos(winkel)*len, y+Math.sin(winkel)*len);
+        g.stroke();
+      }
+      // vereinzelt kleine Zapfen als dunkle Punkte für Struktur
+      g.fillStyle='rgba(70,50,30,0.65)';
+      for(let i=0;i<8;i++){
+        const x=s*0.25+Math.random()*s*0.5, y=s*0.25+Math.random()*s*0.5;
+        g.beginPath(); g.ellipse(x,y,s*0.012,s*0.026,Math.random(),0,Math.PI*2); g.fill();
+      }
+    },256);
+
+    // EZ-Tree-Presets (Werte aus oak_large.json bzw. pine_large.json des
+    // Ursprungsprojekts); der seed pro Baum wird neu gewürfelt. Beim Nadel-
+    // preset sind Blattgröße und -anzahl angepasst: 26 kleinere Besen statt
+    // 18 großer - dichteres Nadelkleid statt einzelner großer Quads
+    const laubPreset={
+      type:'deciduous',branch:{
+        levels:3,
+        angle:{1:54,2:43,3:32},
+        children:{0:9,1:5,2:3},
+        force:{direction:{x:0,y:1,z:0},strength:0.02},
+        gnarliness:{0:-0.04,1:0.16,2:-0.06,3:0.09},
+        length:{0:47.7,1:29.39,2:17.62,3:7.16},
+        radius:{0:3,1:0.69,2:0.69,3:1.19},
+        sections:{0:16,1:9,2:8,3:3},
+        segments:{0:12,1:5,2:3,3:3},
+        start:{1:0.35,2:0.1,3:0.0},
+        taper:{0:0.73,1:0.42,2:0.69,3:0.75},
+        twist:{0:-0.23,1:0.42,2:0,3:0}
+      },
+      leaves:{billboard:'double',angle:36,count:10,start:0.16,
+              size:4.5,sizeVariance:0.7,alphaTest:0.5}
+    };
+    const nadelPreset={
+      type:'evergreen',branch:{
+        levels:1,
+        angle:{1:129.13,2:16,3:60},
+        children:{0:100,1:3,2:0},
+        force:{direction:{x:0,y:1,z:0},strength:0.009},
+        gnarliness:{0:0.05,1:0.08,2:0,3:0},
+        length:{0:65.25,1:34.85,2:27.25,3:1},
+        radius:{0:1.27,1:0.37,2:0.7,3:0.7},
+        sections:{0:12,1:10,2:8,3:6},
+        segments:{0:8,1:6,2:4,3:3},
+        start:{1:0.293,2:0.14,3:0.3},
+        taper:{0:0.7,1:0.7,2:0.7,3:0.7},
+        twist:{0:0,1:0,2:0,3:0}
+      },
+      leaves:{billboard:'double',angle:17,count:26,start:0.076,
+              size:1.6,sizeVariance:0.3,alphaTest:0.3}
+    };
+
+    // Ein Stellplatz gilt als frei, wenn er: auf dem LAND liegt (kein Wurzelwerk
+    // im Meer), im Spielraum zwischen 70 und 370 Einheiten vom Ursprung liegt
+    // (also außerhalb beider Landeplatten), mindestens 45 Einheiten von
+    // Landeplatz 2 entfernt ist (Platte + Sicherheitsrand), mindestens
+    // PARCOUR_ABSTAND von der Routenlinie hält und mindestens 130 Einheiten
+    // Abstand zu den bereits gesetzten Bäumen hat (Wert begründet am Block oben).
+    // PARCOUR_ABSTAND = Krone (bis ~53) + Drohnenkugel (~14) + Rand ~18: eine
+    // Krone, die auf die Kursmitte herüberragt, ließe die Drohne auf dem
+    // Parcours nicht mehr unbeschadet hindurch - Bäume stehen also IMMER
+    // außerhalb des Parcours. 80 Stützpunkte verteilt entlang der Bézier-Kurve
+    // decken die Schlange lückenlos ab (größte Lücke ~13 Einheiten, immer
+    // kleiner als die Hälfte des Abstands). Die Bäume untereinander halten
+    // 130 Einheiten Abstand: Kronen-Halbachsen liegen bei ~41..69, zwei
+    // Kronenhüllen (je plus Drohnenkugel von ~12) überlappen erst darunter -
+    // die Ausweichschleife sieht so nie zwei Bäume gleichzeitig und muss nie
+    // zwischen zwei Kronen vermitteln.
+    const PARCOUR_ABSTAND=85;
+    const treeSpotFree=(x,z,stellen)=>{
+      if(isWater(x,z)) return false;
+      const r=Math.hypot(x,z);
+      if(r<70||r>370) return false;
+      if(Math.hypot(x-pad2.x,z-pad2.z)<45) return false;
+      for(let i=0;i<=80;i++){
+        const p=routeCurve.getPoint(i/80);
+        if(Math.hypot(x-p.x,z-p.z)<PARCOUR_ABSTAND) return false;
+      }
+      for(const s of stellen){
+        if(Math.hypot(x-s.x,z-s.z)<130) return false;
+      }
+      return true;
+    };
+
+    // Einen Baum bauen: Skelett + Blätter über TreeGenerator, Materialien
+    // pro Baum eigen (Blattmaterial trägt den Wind-Shader), danach auf die
+    // Zielhöhe skalieren - die EZ-Tree-Presets sind deutlich größer als die
+    // Spielwelt und der Drohne (Spannweite 28 Einheiten)
+    const baumBauen=(typ,seed)=>{
+      const preset=(typ==='laub')?laubPreset:nadelPreset;
+      const opt=Object.assign({},preset,{seed:seed});
+      const gen=new TreeGenerator(opt);
+      // Rinde: mattes Braun, leichter Farbunterschied pro Baum
+      const rinde=new THREE.MeshLambertMaterial({
+        color:new THREE.Color(0x6b4a2f).offsetHSL(
+          (Math.random()-0.5)*0.03,(Math.random()-0.5)*0.1,(Math.random()-0.5)*0.08),
+        map:barkTex
+      });
+      // Blätter: Textur im Originalton, nur leicht getönt; DoubleSide +
+      // alphaTest, damit die transparenten Texturstellen kein Sortier-Chaos
+      // erzeugen und im Schatten mitgeschnitten werden
+      const blatt=new THREE.MeshLambertMaterial({
+        color:new THREE.Color(0xffffff).offsetHSL(0,0,(Math.random()-0.5)*0.1),
+        map:(typ==='laub')?laubTex:nadelTex,
+        alphaTest:preset.leaves.alphaTest,
+        side:THREE.DoubleSide
+      });
+      const g=gen.build(rinde,blatt);
+      treeWindMats.push(blatt);
+      return g;
+    };
+
+    // Vier Bäume zufällig verteilen: zweimal Laub, zweimal Nadel, jedes Mal
+    // neuer Stellplatz, neuer seed und kleine Höhenvarianz. Wird von
+    // buildScene() und bei jedem Kurswechsel aus resetScene() aufgerufen.
+    const buildTrees=()=>{
+      if(treeGroup){
+        scene.remove(treeGroup);
+        // Geometrien und Materialien freigeben (Texturen sind pro Seitenlade
+        // einmalig und bleiben erhalten)
+        treeGroup.traverse(o=>{
+          if(!o.isMesh) return;
+          if(o.geometry) o.geometry.dispose();
+          if(o.material) o.material.dispose();
+        });
+      }
+      treeWindMats=[];
+      // alte Baum-Kollisionsformen entfernen, falls buildTrees() ohne
+      // vorangegangenen buildRings()-Aufruf läuft (der leert die Liste ohnehin)
+      obstacles=obstacles.filter(o=>o.kind!=='crown'&&o.kind!=='trunk');
+      treeGroup=new THREE.Group(); treeGroup.name='trees';
+      const stellen=[];
+      const typen=['laub','nadel','laub','nadel'];
+      for(const typ of typen){
+        let x=0,z=0,gesetzt=false;
+        for(let versuch=0;versuch<400&&!gesetzt;versuch++){
+          const a=Math.random()*Math.PI*2;
+          const r=70+Math.random()*300;// 70..370 vom Ursprung
+          x=Math.cos(a)*r; z=Math.sin(a)*r;
+          gesetzt=treeSpotFree(x,z,stellen);
+        }
+        if(!gesetzt) continue;// praktisch ausgeschlossen: die Landfläche ist groß genug
+        stellen.push({x,z});
+        const seed=Math.floor(Math.random()*1e9)+1;
+        const baum=baumBauen(typ,seed);
+        // auf die Zielhöhe skalieren: Laubbäume 80..108, Nadelbäume 92..124
+        // Einheiten - vierfache Größe gegenüber der vorherigen Stufe
+        // (zum Vergleich: Drohnen-Spannweite 28, Ringdurchmesser 48,
+        // HORIZON_R=500 bis zum Horizont)
+        baum.updateMatrixWorld(true);
+        const box=new THREE.Box3().setFromObject(baum);
+        const hoehe=box.max.y-box.min.y;
+        const zielH=4*((typ==='laub')?(20+Math.random()*7):(23+Math.random()*8));
+        baum.scale.setScalar(zielH/hoehe);
+        // auf die Geländehöhe, Stammfuß 0,4 Einheiten tief im Boden (im Gefälle
+        // kann das Facettenmesh zwischen zwei Vertices etwas über floorY liegen)
+        baum.position.set(x,floorY(x,z)-0.4,z);
+        baum.rotation.y=Math.random()*Math.PI*2;// Zufallsdrehung um die eigene Achse
+        treeGroup.add(baum);
+
+        // ---- Kollisionsformen des Baumes in die Hindernisliste -----------
+        // Vereinfachte Formen statt Geometrie-Abtastung: der STAMM ist ein
+        // vertikaler ZYlINDER vom Stammfuß bis zur Kronenunterkante mit dem
+        // Fußradius des Presets (größter Radius, also bewusst großzügig - der
+        // Stamm verjüngt sich nach oben ohnehin), die KRONE ist ein achsen-
+        // parallelles ELLIPSOID aus der Welt-Box der Blattquads. Beides reicht
+        // für die Drohnenkugel völlig aus: angetroffen wird der Baum fast nur
+        // am Stamm (Flug in Bodennähe) oder am Kronenrand.
+        baum.updateMatrixWorld(true);// Weltmatrizen nach Skalierung/Drehung neu
+        const blattMesh=baum.getObjectByName('TreeBlatt');
+        if(blattMesh){
+          const kb=new THREE.Box3().setFromObject(blattMesh);
+          const kx=0.5*(kb.min.x+kb.max.x), ky=0.5*(kb.min.y+kb.max.y),
+                kz=0.5*(kb.min.z+kb.max.z);
+          // Halbachsen mit 10 % Rand: ein Ellipsoid geht durch die Flächen-
+          // mitten der Box, die Blattspitzen an den Ecken lägen sonst außerhalb
+          // und ließen die Drohne durch die Krone hindurchschneiden
+          const ax=0.55*(kb.max.x-kb.min.x), ay=0.55*(kb.max.y-kb.min.y),
+                az=0.55*(kb.max.z-kb.min.z);
+          const presetB=(typ==='laub')?laubPreset:nadelPreset;
+          const stammR=presetB.branch.radius[0]*baum.scale.x;
+          const y0=baum.position.y;// Stammfuß (0,4 unter der Geländehöhe)
+          const y1=Math.max(y0+1, kb.min.y);// bis zur Kronenunterkante
+          // REIHENFOLGE: zuerst der Stamm, dann die Krone. Die Ausweichschleife
+          // nimmt pro Runde den ERSTEN Treffer der Liste - ein Stammfuß unter
+          // der Kronenhülle muss die Meldung "Baumstamm" bekommen und mit dem
+          // einfachen seitlichen Schub freisetzen, nicht mit dem Kronenweg.
+          obstacles.push({kind:'trunk', x:baum.position.x, z:baum.position.z,
+                          y0:y0, y1:y1, r:stammR});
+          if(ax>1&&ay>1&&az>1){
+            obstacles.push({kind:'crown', x:kx, y:ky, z:kz, ax:ax, ay:ay, az:az});
+          }
+        }
+      }
+      scene.add(treeGroup);
+    };
+    buildTrees();
 
     // Drohnengruppe (Wurzel aller Drohenteile)
     drone=new THREE.Group;
@@ -1019,6 +1309,7 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
       scene.getObjectByName('pad2').position.set(pad2.x,0,pad2.z);
       buildRouteLine();// neue Bézier-Schlange für die neue Platzposition
       buildRings();// neue Ringpositionen/-farben, Pfoshöhen neu gewürfelt + frische Hindernisse
+      buildTrees();// neue zufällige Baumplätze und Baumformen, abgestimmt auf die neue Route
       aimPathLight();
       successShown=false;
       document.getElementById('landedToast').classList.remove('show');
@@ -1077,7 +1368,7 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
   var fpvTargetQ=new THREE.Quaternion();// Arbeitswert: gewünschte Ausrichtung des aktuellen Frames
   var fpvLevelE=new THREE.Euler(0,0,0,'YXZ');// Arbeitswert: nur-Gier-Ausrichtung (weltfest)
   var obstacles=[];// Ringe + Pfosten des aktuellen Kurses, jeden Frame geprüft
-  var lastCollision='';// '' | 'ring' | 'post' - Art des letzten Aufpralls
+  var lastCollision='';// '' | 'ring' | 'post' | 'trunk' | 'crown' - Art des letzten Aufpralls
   var collisionCount=0;// wie eschadlos es seit dem Laden der Seite zuging? (Anzahl der Aufpralle)
   var droneColR=-1;// Kollisionskugel der Drohne, einmalig aus dem Begrenzungsbox gemessen
   var droneColCY=4;// Mitte dieser Kugel über dem Ursprung der Drohnengruppe
@@ -1127,10 +1418,28 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
     const rl=Math.sqrt(rx*rx+ry*ry+rz*rz);// Abstand von der Ringachse
     return Math.sqrt((rl-o.R)*(rl-o.R)+a*a);
   }
+  // Abstand der Drohnenmitte von einem Kronen-Ellipsoid (Positiv = außen, negativ =
+  // innen), entlang des Strahls vom Zentrum gemessen. Der Punkt wird dafür in den
+  // Einheitsraum transformiert (Komponente geteilt durch Halbachse), dort ist die
+  // Krone eine Einheitskugel: |q| > 1 außerhalb, < 1 darin. Exakt ist die Distanz
+  // auf den drei Achsen, als Näherung sonst - gut genug für eine Kugel von ~12
+  // Einheiten an einer Krone von ~100. Gemeinsame Helferfunktion von
+  // obstacleContact (Kontaktprüfung) und der Ausweichschleife (Herausdrücken).
+  function kroneDistanz(o, sx, sy, sz){
+    const dx=sx-o.x, dy=sy-o.y, dz=sz-o.z;
+    const dl=Math.sqrt(dx*dx+dy*dy+dz*dz);
+    const ql=Math.sqrt(dx*dx/(o.ax*o.ax)+dy*dy/(o.ay*o.ay)+dz*dz/(o.az*o.az));
+    if(ql>1e-6) return dl-dl/ql;// = dl*(1-1/|q|)
+    return -Math.min(o.ax,o.ay,o.az);// exakt im Zentrum -> tief innen
+  }
   // Kontaktprüfung der Drohnenkugel (Mitte sx/sy/sz) an EINEM Hindernis. Liefert null
   // bei ausreichendem Freiraum, sonst ein kleines Info-Objekt mit dem gemessenen Abstand
   // und der Geometrie, die zum Herausdrücken nötig ist. Genutzt von der Frame-Prüfung in
   // renderLoop und von der Ausweichschleife, die eine bereits in Kontakt geratene Drohne befreit.
+  // Vier Arten: 'ring' (Torus-Mittellinie), 'post' (Pfosten) und 'trunk' (Baumstamm)
+  // sind vertikale Segmente - nur die Kennung unterscheidet sie, damit die Meldung
+  // "Ring" bzw. "Pfosten" bzw. "Baumstamm" zeigt. 'crown' ist das Ellipsoid der
+  // Baumkrone, gebaut in buildTrees().
   function obstacleContact(o, sx, sy, sz){
     if(o.kind==='ring'){
       // Abstand der Drohnenmitte vom Mittellinienkreis des Torus
@@ -1142,13 +1451,20 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
       const need=o.tube+droneColR;
       if(d<need) return {kind:'ring', o:o, d:d, need:need, dx:dx, dy:dy, dz:dz,
                          rx:rx, ry:ry, rz:rz, rl:rl};
+    }else if(o.kind==='crown'){
+      const dx=sx-o.x, dy=sy-o.y, dz=sz-o.z;
+      const d=kroneDistanz(o, sx, sy, sz);
+      // negativ innerhalb, positiv außen - deshalb funktioniert auch das
+      // Herausdrücken aus dem Inneren mit demselben Formelweg (need - d)
+      if(d<droneColR) return {kind:'crown', o:o, d:d, need:droneColR, dx:dx, dy:dy, dz:dz};
     }else{
-      // Abstand der Drohnenmitte vom vertikalen Pfosten-Segment
+      // Abstand der Drohnenmitte vom vertikalen Segment: Pfosten ('post') wie
+      // Stamm ('trunk') - derselbe Zylinder, nur andere Meldung
       const cy=Math.max(o.y0,Math.min(o.y1,sy));
       const dx=sx-o.x, dy=sy-cy, dz=sz-o.z;
       const rr=o.r+droneColR;
       const d2=dx*dx+dy*dy+dz*dz;
-      if(d2<rr*rr) return {kind:'post', o:o, d:Math.sqrt(d2), need:rr, dx:dx, dy:dy, dz:dz};
+      if(d2<rr*rr) return {kind:o.kind, o:o, d:Math.sqrt(d2), need:rr, dx:dx, dy:dy, dz:dz};
     }
     return null;
   }
@@ -1385,6 +1701,18 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
     md3.visible=blinkOn;
     md4.visible=blinkOn;
 
+    // Wind in den Baumkronen: der Zeitgeber des Blatt-Shaders (s. TreeGenerator)
+    // läuft mit der echten Uhrzeit; Sinuswellen vertragen große Werte. Erst ein
+    // Material, dessen Baum im Blickfeld gerendert wird, hat den Shader über
+    // onBeforeCompile überhaupt bekommen - deshalb wird hier nur vorhandenes
+    // fortgeschrieben (userData.shader), nicht auf Nicht-kompiliertes gewartet
+    if(treeWindMats.length){
+      const windT=performance.now()/1000;
+      for(const m of treeWindMats){
+        if(m.userData.shader) m.userData.shader.uniforms.uTime.value=windT;
+      }
+    }
+
     // Wellenanimation: die Normalen-Textur wandert über die Meeresoberfläche, angetrieben von der ECHTEN
     // verstrichenen Zeit (gedeckelt, damit ein Hintergrund-Tab die Wellen beim Aktivieren nicht vorspringen lässt)
     if(waterMesh){
@@ -1486,9 +1814,11 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
       if(pos.y>ceilY) pos.y=ceilY;// Sicherheitsnetz für große Schritte
     }
 
-    // ---- Kollisionsanalyse: Ringe und Pfosten des aktuellen Kurses. Die Drohne wird als
+    // ---- Kollisionsanalyse: Ringe und Pfosten des Kurses sowie Stämme und Kronen der
+    // vier Bäume (Kollisionsformen in buildTrees() eingetragen). Die Drohne wird als
     // Kugel um ihre Mitte modelliert (Radius = halbe Rotorspannweite, einmalig aus der
-    // Begrenzungsbox gemessen). Ein Ring ist sein Mittellinienkreis, ein Pfosten ein vertikales Segment.
+    // Begrenzungsbox gemessen). Ein Ring ist sein Mittellinienkreis, Pfosten und Stamm
+    // ein vertikales Segment (Zylinder), die Krone ein Ellipsoid.
     // Bei einem Treffer wird die Drohne auf den Beginn dieses Bewegungsschritts zurückgesetzt, die
     // Geschwindigkeit auf null gesetzt, eine kurze rote Meldung erscheint (siehe showCrash) und eine Ausweichschleife schiebt
     // die Drohne aus jedem noch bestehenden Kontakt HERAUS - ohne diesen Schub liegt die
@@ -1496,7 +1826,9 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
     // kurzem Pfosten durch das Gelände), die Meldung würde schon im nächsten
     // Frame wieder erscheinen und die Drohne könnte nie wegsteuern (sie war festgeklemmt). Genau
     // durch die Mitte eines Rings bleibt kollisionsfrei: die Öffnung (Radius 21) ist breiter als die
-    // Drohnenkugel, gefährlich sind nur das Randrohr und der Pfosten darunter.
+    // Drohnenkugel, gefährlich sind nur das Randrohr und der Pfosten darunter. Auf dem
+    // Parcours selbst steht kein Baum (treeSpotFree hält PARCOUR_ABSTAND zur Routenlinie),
+    // Ringe und Pfosten bleiben also jederzeit frei anfliegbar.
     if(obstacles.length){
       if(droneColR<0){
         const b=new THREE.Box3().setFromObject(drone);
@@ -1504,7 +1836,7 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
         droneColCY=0.5*(b.min.y+b.max.y)-drone.position.y;
       }
       const sx=pos.x, sy=pos.y+droneColCY, sz=pos.z;
-      let hitKind='';//'ring' | 'post' - erster Kontakt dieses Frames (er steuert die Meldung)
+      let hitKind='';//'ring' | 'post' | 'trunk' | 'crown' - erster Kontakt dieses Frames (er steuert die Meldung)
       for(let i=0;i<obstacles.length&&!hitKind;i++){
         const c=obstacleContact(obstacles[i], sx, sy, sz);
         if(c) hitKind=c.kind;
@@ -1566,8 +1898,42 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
               if(!found){tx=pos.x; ty=pos.y+droneColCY; tz=pos.z;}// behalten, nächste Runde erneut versuchen
             }
             pos.x=tx; pos.y=ty-droneColCY; pos.z=tz;
+          }else if(c.kind==='crown'){
+            // Baumkrone (Ellipsoid): vom Zentrum weg drücken - entlang dieses
+            // Strahls ist der Schub exakt (Distanz wächst dort linear bis zur
+            // Oberfläche, neuer Abstand = Oberflächenpunkt + need). Würde der
+            // Schub die Drohne UNTER die Krone und damit ins Gelände schieben
+            // (sie hing an der Kronenunterkante nahe dem Boden), stattdessen
+            // waagerecht an der Ellipsoidkante vorbei: bei UNVERÄNDERTER Höhe
+            // läuft die Schleife von der Kronenachse aus nach außen, bis die
+            // gemessene Distanz den Kontaktabstand erreicht. Die Höhe bleibt
+            // erhalten (nie tiefer als der aktuelle, bereits auf den Boden
+            // geklemmte Stand), und der Lauf bewegt die Drohne zugleich vom
+            // Stamm weg - beide Formen eines Baumes sind danach freigegeben.
+            const dl=Math.sqrt(c.dx*c.dx+c.dy*c.dy+c.dz*c.dz);
+            let tx=pos.x, ty=pos.y+droneColCY, tz=pos.z;
+            if(dl>1e-6){
+              const k=(need-c.d)/dl;
+              tx+=c.dx*k; ty+=c.dy*k; tz+=c.dz*k;
+            }else{
+              tx+=need;// Sonderfall: genau im Ellipsoid-Zentrum -> seitlich hinaus
+            }
+            if(ty<groundY(tx,tz)){
+              let hx=c.dx, hz=c.dz;
+              let hl=Math.hypot(hx,hz);
+              if(hl<1e-6){hx=1; hz=0; hl=1;} else {hx/=hl; hz/=hl;}
+              const sy=pos.y+droneColCY;// Höhe bleibt, damit nie unter den Boden gedrückt wird
+              tx=pos.x; tz=pos.z; ty=sy;// Ausgangspunkt, falls kein Ziel gefunden wird
+              let gefunden=false;
+              for(let t=1;t<=250;t++){
+                const qx=o.x+hx*(hl+t), qz=o.z+hz*(hl+t);
+                if(kroneDistanz(o, qx, sy, qz)>=need){tx=qx; tz=qz; gefunden=true; break;}
+              }
+              if(!gefunden){tx=pos.x; tz=pos.z;}// behalten, nächste Runde erneut versuchen
+            }
+            pos.x=tx; pos.y=ty-droneColCY; pos.z=tz;
           }else{
-            // Pfosten: die Ausweichrichtung ist waagerecht oder nach oben und kann nie
+            // Pfosten und Baumstamm: die Ausweichrichtung ist waagerecht oder nach oben und kann nie
             // unterirdisch enden, daher ist der einfache Normalschub hier immer sicher
             const dl=Math.sqrt(c.dx*c.dx+c.dy*c.dy+c.dz*c.dz);
             if(dl>1e-6){
@@ -1580,7 +1946,10 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
         }
         lastCollision=hitKind;
         collisionCount++;
-        showCrash(hitKind==='ring'?'Kollision mit dem Ring!':'Kollision mit dem Pfosten!');
+        showCrash((({ring:'Kollision mit dem Ring!',
+                     post:'Kollision mit dem Pfosten!',
+                     trunk:'Kollision mit dem Baumstamm!',
+                     crown:'Kollision mit der Baumkrone!'})[hitKind])||'Kollision!');
       }
 
       // ---- Ring-Durchflugzähler: signierter Abstand der Drohnenmitte von jeder Ringebene.

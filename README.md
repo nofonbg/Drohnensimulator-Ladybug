@@ -86,7 +86,7 @@ und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
 | `TreeGenerator.js` | EZ-Tree-Beispiel-Addon (MIT, Daniel Greenheck): prozeduraler Baumgenerator |
 | `deckel.png` | Textur Ladybug, Kontur der Rumpf-Extrusion **und Favicon** |
 | `landing.png` | Landeplatz-Textur (mit Alpha) |
-| `flag_g.jpg` | Bodentextur (Luftbild eines Herbstgeländes, JPEG 512×512, 8×8 Kachelung) auf der Kreisscheibe, KI generiert |
+| `flag_g.jpg` | Bodentextur, KI generiert |
 | `sky.jpg` | abgeleitet aus https://sketchupfree.com/sketchup-textures/hdr-textures/sky-outside/sunrise-sunset-hdr-77 |
 | `docs/drohnensimulator.png` | Screenshot für diese README |
 | `LICENSE` | CC BY-NC-SA 4.0 des eigenen Werks (Namensnennung, nicht-kommerziell, ShareAlike) |

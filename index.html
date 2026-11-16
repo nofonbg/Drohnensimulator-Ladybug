@@ -1609,20 +1609,33 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
     // hier geschluckt (stopPropagation), solange das Rad fokussiert ist, damit sie die Kamera neigen
     // anstatt die Drohne zu steuern.
     const TILT_MIN=-30, TILT_MAX=90, TILT_SPAN=TILT_MAX-TILT_MIN;
-    const SCALE_TRAVEL=150;// px, die der Marker auf dem Maßstab läuft (Skalenhöhe 156 - 2 x 3)
     const knob=document.getElementById('tiltKnob');
     const tiltNeedle=document.getElementById('tiltNeedle');
+    const scaleEl=document.querySelector('.pitch-scale');
+    // px, die der Marker auf dem Maßstab läuft: Skalenhöhe minus 2 x Nadelföße.
+    // Skala und Nadel stehen in em und hängen damit von der responsiven
+    // Schriftgröße des Bedienpanels ab (auf schmalen Anzeigen schrumpft das
+    // Panel mit) - deshalb wird die Höhe bei jedem Eintrag frisch gemessen,
+    // statt mit der festen Zahl 150 px zu rechnen.
+    const scaleTravel=function(){
+      const nadel=tiltNeedle?tiltNeedle.offsetHeight:3;
+      const skala=scaleEl?scaleEl.offsetHeight:156;
+      return Math.max(1,skala-2*nadel);
+    };
     const setTilt=function(v){
       fpvTilt=Math.max(TILT_MIN,Math.min(TILT_MAX,Math.round(v)));
       // der Marker gleitet auf dem Maßstab (oben = -30°, unten = +90°) und die Rändelung des
       // Rads wandert mit, sodass die Rippen sichtbar durch den Schlitz laufen
-      tiltNeedle.style.transform='translateY('+((fpvTilt-TILT_MIN)/TILT_SPAN*SCALE_TRAVEL).toFixed(1)+'px)';
-      knob.style.setProperty('--spinY',(fpvTilt*1.1).toFixed(1)+'px');
+      tiltNeedle.style.transform='translateY('+((fpvTilt-TILT_MIN)/TILT_SPAN*scaleTravel()).toFixed(1)+'px)';
+      // Rändelungsversatz in em (0,06875em je Grad = 1,1 px bei 16 px Panel-Schrift):
+      // die Rippen wandern auch dann proportional durch den Schlitz, wenn das Rad mitschrumpft
+      knob.style.setProperty('--spinY',(fpvTilt*0.06875).toFixed(4)+'em');
       knob.setAttribute('aria-valuenow',String(fpvTilt));
       knob.setAttribute('aria-valuetext',fpvTilt+' Grad');
     };
     // am Schlitz ziehen: Finger nach unten = weiter nach unten schauen, Finger nach oben = nach oben schauen
-    // (0,8° pro Pixel -> der volle Bereich -30..90° spannt das 150 px lange Rad)
+    // (0,8° pro Pixel - aus dem Verhältnis von TILT_SPAN zur gemessenen Laufstrecke,
+    //  da dadurch auch bei geschrumpftem Rad der volle Bereich -30..90° erreichbar ist)
     let dragY=null;
     knob.addEventListener('pointerdown',function(e){
       dragY=e.clientY;
@@ -1633,7 +1646,7 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
       if(dragY===null) return;
       const dy=e.clientY-dragY;
       dragY=e.clientY;
-      setTilt(fpvTilt + dy*0.8);
+      setTilt(fpvTilt + dy*TILT_SPAN/scaleTravel());
     });
     const endDrag=function(){ dragY=null; };
     knob.addEventListener('pointerup',endDrag);
@@ -1655,6 +1668,60 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
         e.stopPropagation();// nicht zusätzlich die dokumentweiten Flugtasten auslösen
       }
     });
+    //■ STRENGE VORGABE: das Bedienpanel ist IMMER exakt so groß wie das
+    // Canvas-Quadrat und scrollt NIEMALS. Die quadratische Seitenlänge bestimmt
+    // das Canvas über die CSS-Formeln in drohne.css - das Panel wird hier zusätzlich
+    // AM GEMESSENEN Canvas ausgerichtet, damit beide wirklich identisch groß sind
+    // (auch wenn sich die Formeln später einmal ändern oder das Canvas durch
+    // renderer.setSize() ein anderes Inline-Maß bekommt).
+    // Danach wird die Schriftgröße des Panels so lange verkleinert (Start 16 px,
+    // 0,5-er-Schritte, absolute Untergrenze 5 px), bis scrollWidth und
+    // scrollHeight in clientWidth/clientHeight hineinpassen: in kleine Quadrate
+    // (z. B. 354 px auf einem Hochformat-Handy) passen Pfeiltasten, Rad, WASD,
+    // Licht- und Legendenzeile nur mit kleinerer Schrift. overflow:hidden in
+    // drohne.css fängt auf, was selbst 5 px nicht mehr hineinbekommt - gescrollt
+    // wird dabei trotzdem nie. Das clamp() im Portrait-Block der CSS-Datei ist
+    // ausschließlich der Fallback vor diesem ersten Durchlauf.
+    const panelEl=document.querySelector('.ctrl-panel');
+    const canvasEl=document.querySelector('.scene-canvas');
+    const fitPanel=function(){
+      if(!panelEl||!canvasEl) return;
+      // (1) Panel exakt auf das Canvas-Quadrat setzen. ABGERUNDET (floor), nie
+      //     aufgerundet: das Panel ist nur eine Flexzeile breit - ein halbes
+      //     Pixel zu viel beim Aufrunden (317,5 -> 318) hätte die Summe aus
+      //     Canvas + Abstand + Panel über die Zeilenbreite gedrückt und die
+      //     beiden Elemente untereinander gestellt (siehe Kommentar in
+      //     drohne.css beim Querformat-Block).
+      const seite=Math.floor(Math.min(canvasEl.offsetWidth,canvasEl.offsetHeight));
+      panelEl.style.width=seite+'px';
+      panelEl.style.height=seite+'px';
+      // (2) Schrift so weit verkleinern, bis der Inhalt OHNE Scrollen passt
+      let f=16;
+      panelEl.style.fontSize=f+'px';
+      while(f>5&&(panelEl.scrollWidth>panelEl.clientWidth||
+                  panelEl.scrollHeight>panelEl.clientHeight)){
+        f-=0.5;
+        panelEl.style.fontSize=f+'px';
+      }
+    };
+    fitPanel();// direkt nach dem Aufbau des Panels (DOMContentLoaded -> main())
+    // Größenänderung neu einpassen (Fenster drehen/scrollen, Mobilbrowser-Leiste,
+    // Teilen-Modus): ZUERST sofort - die Entprellung danach fängt den Zustand nach
+    // dem Einrasten ab (dvh/Browserleiste können sich danach noch ändern). Ein
+    // reiner Debounce reicht nicht: unter Last (SwiftShader-Renderloop) verzögert
+    // sich der Timer, und für diese Millisekunden stünde ein zu großes Panel in
+    // einem zu kleinen Fenster - die strenge Vorgabe "nie scrollen" wäre verletzt.
+    // setTilt() danach, weil die Nadellaufstrecke (scaleTravel) von der gerade
+    // geänderten Schriftgröße abhängt.
+    const refit=function(){ fitPanel(); setTilt(fpvTilt); };
+    let fitTimer=null;
+    window.addEventListener('resize',function(){
+      refit();
+      clearTimeout(fitTimer);
+      fitTimer=setTimeout(refit,150);
+    });
+    window.addEventListener('load',refit);// Nachladen von Seite/Bildern einmal nachziehen
+
     setTilt(fpvTilt);// Maßstabmarker und Rändelversatz einmalig beim Start zeichnen
 
   }

@@ -21,18 +21,7 @@ und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
   starr gekoppelt, gedämpftes Gimbal oder welt-ausgerichtet (exakter Horizont).
 - **Thumbwheel „Kamerawinkel"** mit Lineal-Skala zwischen den Steuer-Pads
   (Mauszug, Rad, Pfeiltasten) als lokaler Kopfneigungswinkel in jedem Modus.
-- **Bedienpanel immer quadratisch wie das Canvas**: Bedienpanel und 3D-Ansicht sind in
-  beiden Orientierungen **exakt gleich große Quadrate**, und das Panel scrollt **nie**
-  (`overflow:hidden`). Die Seitenlänge S bestimmt eine Formel pro Orientierung
-  (`min(600 px, …)` in `drohne.css`): im Hochformat gestapelt untereinander, im
-  Querformat nebeneinander (die Flexzeile legt dort nie um) – der Canvas schrumpft also
-  mit, damit Canvas + Panel immer ohne Scrollen auf den Bildschirm passen. Eine
-  JavaScript-Schleife (`fitPanel`) richtet das Panel am gemessenen Canvas aus und
-  verkleinert die Panel-Schrift (Start 16 px, Boden 5 px), bis der gesamte Inhalt ohne
-  Scrollen hineinpasst. Alle Innenmaße stehen in `em` und skalieren deshalb
-  proportional mit (13,5 px Schrift bei 515 px Seitenlänge, 9 px bei 354 px, 7 px und
-  weniger auf sehr kleinen Anzeigen – die Kacheln unterschreiten dort die
-  44-px-Tippfläche, das ist die Folge der strengen „nie scrollen"-Regel).
+- **Bedienpanel immer quadratisch wie das Canvas** und damit weitgehend responsive.
 - **Parcours:** 3–4 kubische Bézier-Segmente
 - **Drei farbige Ringe** (Bernstein, Grün, Rosa) auf **unterschiedlich hohen Pfosten** –
   Innenöffnung **150 % der Drohnengröße**, Ringebene exakt senkrecht zum Kurs,

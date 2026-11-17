@@ -34,6 +34,11 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
        Baumgenerator mit Wind-Shader, globales THREE statt ES-Modul,
        Details siehe Kopfkommentar in TreeGenerator.js -->
   <script src="TreeGenerator.js"></script>
+  <!-- three.js-Beispiel "TerrainGenerator" (MIT), angepasst: prozedurale
+       Berglandschaft (Höhenfeld mit thermischer Erosion, Farbbänder nach
+       Höhe und Neigung als Vertex-Farben), globales THREE statt ES-Modul,
+       Details siehe Kopfkommentar in TerrainGenerator.js -->
+  <script src="TerrainGenerator.js"></script>
 
 <link rel="stylesheet" href="drohne.css">
 
@@ -133,9 +138,10 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
   // Bodenhöhe FÜR DIE FLUGPHYSIK: an Land das Gelände selbst (nie
   // unter 0), im Meeresbereich die WASSEROBERFLÄCHE - die Drohne ruht AUF dem Wasser
   // statt auf den Meeresboden zu sinken. Das angehobene Uferband gewinnt weiterhin, weil max()
-  // jeden Boden behält, der über die Wasserlinie hinausragt. Seit terrainHeightAt()
-  // die Erhebungen auf ±4 begrenzt (×4), kann das Land auch POSITIV sein (bis +3):
-  // dann trägt diese Höhe die Drohne - sie folgt den Hügeln statt über ihnen zu schweben.
+  // jeden Boden behält, der über die Wasserlinie hinausragt. Das Land des
+  // TerrainGenerator-Geländes ist POSITIV (Berge bis ~+16 Roh-Einheiten):
+  // dann trägt diese Höhe die Drohne - sie folgt den Hügeln statt über ihnen
+  // zu schweben; Mulden unter 0 hingegen bleiben bei der Physik bei 0.
   const groundY=(x,z)=>{
     const h=floorY(x,z);
     return isWater(x,z)?Math.max(h,WATER_LEVEL):Math.max(h,0);
@@ -280,45 +286,70 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
       color:0x6666ff, 
       side:THREE.FrontSide
     });
-    // Boden
-    let floorTexture=new THREE.TextureLoader().load('flag_g.jpg');// JPEG 512x512: 152 KB statt 2,5 MB als PNG
-    floorTexture.wrapS=THREE.RepeatWrapping;
-    floorTexture.wrapT=THREE.RepeatWrapping;
-    // angeben, wie oft sich die Textur wiederholt
-    floorTexture.repeat.set(8,8);
-    // Anisotropie: an der flachen Horizontsicht wird die Textur über sehr spitze Winkel
-    // abgetastet - mit 16-facher Anisotropie bleibt der Boden dort deutlich schärfer
-    // (statt streifig weichgezeichneten Fernbändern)
-    floorTexture.anisotropy=16;
-    // ---- Bumpmap für die Bodenscheibe: Water_2_M_Normal.jpg --------------------
-    // Dieselbe Normalmap wie das Meer (THREE.Water weiter unten) liefert hier das
-    // FEINRELIEF des Landes: feine Höhenvariationen, die das Scheiben-Mesh ohne
-    // einzigen zusätzlichen Vertex über die bestehende Sonnenrichtung (streifend
-    // von links, ~12°) angesprochen werden - Körnung und kleine Kanten sorgen für
-    // Maßstab und Glühen, während die große Geländewelle weiterhin aus den
-    // Vertex-Höhen von terrainHeightAt() kommt.
-    // Bewusst als normalMap eingebunden und NICHT als bumpMap: die Datei KODIERT
-    // Normalevektoren in RGB, three.js liest bei bumpMap dagegen nur die Hellig-
-    // keit als Höhe - das würde die Schattierung in die falsche Richtung lenken.
-    // Kachelstellung und Anisotropie identisch zu flag_g.jpg (8 Kacheln über die
-    // 1000-Einheiten-UV -> eine Kachel misst 125 Einheiten), damit Feinrelief und
-    // Farbtextur deckungsgleich sitzen und am Horizont gleich scharf abgetastet
-    // werden. repeat ist pro Textur frei wählbar - die Farbtextur kann ihre
-    // Wiederholung unabhängig von diesem Relief ändern.
-    let floorNormal=new THREE.TextureLoader().load('Water_2_M_Normal.jpg');
-    floorNormal.wrapS=THREE.RepeatWrapping;
-    floorNormal.wrapT=THREE.RepeatWrapping;
-    floorNormal.repeat.set(8,8);
-    floorNormal.anisotropy=16;
+    // Boden: die Landschaft stammt aus dem TerrainGenerator (TerrainGenerator.js,
+    // Port des three.js-Beispiels) und wird über VERTEX-FARBEN gefärbt (Wiese,
+    // Wald, Fels, Schnee nach Höhe und Neigung, s. terrainGen.colorAt in
+    // buildTerrain) - die alte Bodentextur flag_g.jpg samt Bumpmap gibt es nicht
+    // mehr. DARAUF kommen jetzt zwei Texturen, die pro Vertex GEMISCHT werden:
+    // wiese.jpg auf den tiefer liegenden grünen Zonen und felswand.jpg auf den
+    // hellen Flächen. Die Trennung der beiden Flächenarten über die ERHEBUNG
+    // (nicht über die Farbe - die mischt Fels schon zu früh ein, s.
+    // terrainGen.colorAt): Die Mischung steckt im Attribut aBlend
+    // (0 = wiese .. 1 = fels), das buildTerrain() aus colorAt().t schreibt; die
+    // Vertex-Farben tinten beide Texturen weiterhin (helle Farbe -> Textur voll
+    // sichtbar), die Beleuchtung bleibt normales Lambert.
+    let wieseTex=new THREE.TextureLoader().load('wiese.jpg');
+    let felsTex=new THREE.TextureLoader().load('felswand.jpg');
+    for(const t of [wieseTex,felsTex]){
+      t.wrapS=t.wrapT=THREE.RepeatWrapping;// über die ganze Landschaft kacheln
+      // Anisotropie wie früher flag_g.jpg: an der flachen Horizontsicht wird sehr
+      // schräg abgetastet - 16-fach hält den Boden in der Ferne scharf
+      t.anisotropy=16;
+    }
     let mt6=new THREE.MeshLambertMaterial({
       color:0xffffff,side:THREE.FrontSide,
-      map:floorTexture,
-      normalMap:floorNormal,// Bumpmap der Bodenscheibe (Normalmap-Modus, s.o.)
-      normalScale:new THREE.Vector2(1.5,1.5),// Stärke des Feinreliefs: 1,5 statt
-      // des Standards 1,0, weil die Sonne so flach einstrahlt und das Relief sonst
-      // in der Nähe kaum wahrnehmbar wäre; zu groß würde die Böschung jedoch
-      // ins Kalte kippen - der Wert ist über normalScale schnell nachjustiert
+      vertexColors:true,// Farbbänder pro Vertex aus terrainGen.colorAt()
     });
+    // ---- Dual-Texture-Erweiterung von mt6 (onBeforeCompile) -----------------
+    // Planare UVs aus der lokalen XY-Ebene der Kreisscheibe (= Welt-x/z, denn
+    // das Mesh liegt um -90° um x gedreht), je Textur eine eigene Kachelgröße.
+    // Die Mischung mix(wiese, fels, aBlend) wird HINTER <color_fragment>
+    // eingehängt, damit die Vertex-Farben zuerst greifen und die Texturen
+    // multiplizieren - dort, wo colorAt Weiß (Schnee) liefert, erscheint also
+    // die Felswand-Textur in voller Helligkeit.
+    const KACHSEL_WIESE=1/66;// eine wiese.jpg-Kachel misst 66 Welteinheiten
+    const KACHSEL_FELS=1/108;// felswand.jpg ist gröber: eine Kachel 108 Einheiten
+    mt6.onBeforeCompile=(shader)=>{
+      shader.uniforms.uWiese={value:wieseTex};
+      shader.uniforms.uFels={value:felsTex};
+      shader.uniforms.uKw={value:KACHSEL_WIESE};
+      shader.uniforms.uKf={value:KACHSEL_FELS};
+      shader.vertexShader=
+        'attribute float aBlend;\n'+
+        'varying float vBlend;\n'+
+        'varying vec2 vUvW;\n'+
+        'varying vec2 vUvF;\n'+
+        'uniform float uKw;\n'+
+        'uniform float uKf;\n'+
+        shader.vertexShader;
+      shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>',
+        '#include <begin_vertex>\n'+
+        '  vBlend=aBlend;\n'+
+        '  vUvW=transformed.xy*uKw;\n'+// lokale XY = Welt-x/z (Mesh um -90° gedreht)
+        '  vUvF=transformed.xy*uKf;');
+      shader.fragmentShader=
+        'varying float vBlend;\n'+
+        'varying vec2 vUvW;\n'+
+        'varying vec2 vUvF;\n'+
+        'uniform sampler2D uWiese;\n'+
+        'uniform sampler2D uFels;\n'+
+        shader.fragmentShader;
+      shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>',
+        '#include <color_fragment>\n'+
+        '  vec4 texW=texture2D(uWiese,vUvW);\n'+
+        '  vec4 texF=texture2D(uFels,vUvF);\n'+
+        '  diffuseColor.rgb*=mix(texW.rgb,texF.rgb,clamp(vBlend,0.0,1.0));');
+    };
     // grau -> Stahl: bläulicher Schimmer, damit die Drohne sich vom Boden abhebt
     // (Phong statt Lambert: nur Phong kennt den Glanzpunkt für den Metalllook)
     let mt8=new THREE.MeshPhongMaterial({
@@ -377,8 +408,8 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
     // teilen dieselben GROUND_SPOKES-Winkel, dadurch gibt es zwischen den Ringen keine
     // Risse (geteilte Vertices) und die Außenkante ist ein gleichmäßiges 256-Eck.
     // Ringradien: innen fein mit 6,25-Einheiten-Schritt, erst ab 600 grob anwachsend
-    // (das Fernfeld liegt ohnehin nur noch sanft gewellt, weil terrainHeightAt() dort
-    // die Feinoaktaven ausblendet). Die Schwellen 596/600 hängen an GROUND_R: auf der
+    // (das Fernfeld fällt ohnehin schon sanft zum Rand ab, weil terrainHeightAt()
+    // erst ab 470 gegen 0 glättet - davor verstärkt er die Hügel sogar). Die Schwellen 596/600 hängen an GROUND_R: auf der
     // kleinen Scheibe würde eine feste Kette über ihren eigenen Rand hinausragen und
     // läge über dem Wasser-Polygon, das bei GROUND_R endet. Beide Zahlen hängen
     // deshalb an GROUND_R, und der exakte Außenrand kommt am Ende als eigener Ring dazu.
@@ -392,7 +423,6 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
     const gRings=groundRadii.length;
     const gVerts=gRings*GROUND_SPOKES;
     const gPos=new Float32Array(gVerts*3);// Positionen; die Z-Höhe füllt buildTerrain()
-    const gUV=new Float32Array(gVerts*2);
     const gIdx=[];
     for(let ri=0;ri<gRings;ri++){
       const rad=groundRadii[ri];
@@ -401,9 +431,9 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
         const px=Math.cos(a)*rad, py=Math.sin(a)*rad;// lokale XY, py = -Welt-z (Mesh wird um x um -90° gedreht)
         const v=ri*GROUND_SPOKES+si;
         gPos[v*3]=px; gPos[v*3+1]=py; gPos[v*3+2]=0;
-        // UV-Formel spannt -500..+500 auf 0..1 -> eine flag_g.jpg-Kachel misst
-        // 125 Einheiten; jenseits von ±500 läuft sie per RepeatWrapping einfach weiter
-        gUV[v*2]=(px+500)/1000; gUV[v*2+1]=(py+500)/1000;
+        // kein uv-Attribut nötig: die Texturen wiese.jpg/felswand.jpg werden im
+        // Shader (mt6, onBeforeCompile) aus den Positionen planar abgetastet;
+        // flag_g.jpg samt Normalmap ist abgelöst
       }
     }
     for(let ri=0;ri<gRings-1;ri++){
@@ -421,99 +451,122 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
     }
     let fpg=new THREE.BufferGeometry();
     fpg.setAttribute('position',new THREE.BufferAttribute(gPos,3));
-    fpg.setAttribute('uv',new THREE.BufferAttribute(gUV,2));
     fpg.setIndex(gIdx);
 
-    // deterministisches pseudo-zufälliges Werterauschen (Ganzzahl-Hash + weiche bilineare Interpolation).
-    // Keine Textur und nichts animiert: das Feld wird unten einmal pro Vertex ausgewertet, daher kostet
-    // das unregelmäßige Gelände zur Laufzeit nichts.
-    const hash2=(ix,iy)=>{
-      let n=(Math.imul(ix,374761393)^Math.imul(iy,668265263))|0;
-      n=Math.imul(n^(n>>>13),1274126177);
-      return ((n^(n>>>16))>>>0)/4294967295;// Ergebnisbereich 0..1
-    };
-    const vnoise=(x,y,cell)=>{
-      const fx=x/cell, fy=y/cell;
-      const ix=Math.floor(fx), iy=Math.floor(fy);
-      const sx=fx-ix, sy=fy-iy;
-      const ux=sx*sx*(3-2*sx), uy=sy*sy*(3-2*sy);// Smoothstep -> weiche Nähte, keine Gitterlinien
-      const a=hash2(ix,iy), b=hash2(ix+1,iy), c=hash2(ix,iy+1), d=hash2(ix+1,iy+1);
-      return (a+(b-a)*ux)*(1-uy)+(c+(d-c)*ux)*uy;// Ergebnisbereich 0..1
-    };
+    // ---- Landschaft aus dem TerrainGenerator --------------------------------
+    // TerrainGenerator.js ist der Port des three.js-Beispiels "TerrainGenerator"
+    // (MIT, s. Dateikopf): domain-warptes, abgeleitungsgedämpftes Perlin-Rauschen
+    // formt die Berggrate, thermische (Talus-)Erosion entschärft steile Hänge über
+    // den Winkel der Ruhe. Das quadratische Feld wird gebacken (bake) und danach
+    // bilinear abgetastet - Kreisscheibe, floorY(), Routenlinie, Ringpfosten,
+    // Baumplätze und Flugphysik messen dadurch exakt dieselbe Höhe.
+    // GEWÜRFELT: Der Seed ist bei JEDEM Laden zufällig, und resetScene() backt
+    // das Feld mit frischem Seed neu - jede Seite und jeder neue Kurs zeigt also
+    // eine andere Landschaft (gleiche Parameter, andere Täler und Grate). Die
+    // Parameter selbst bleiben fest, damit Wasserlinie, Landeplätze und
+    // Horizont-Verstärkung bei jedem Seed gleich zuverlässig greifen.
+    // Parameter: Feld exakt über der Bodenscheibe (±GROUND_R), Zellgröße ~3,9
+    // Einheiten (enger als der Ringschritt 6,25 der Scheibe), rohes Höhenband
+    // ca. -9..+17 (Wasserlinie -1,5, Landeplätze 0), ein Bergfuß misst ~280
+    // Einheiten über frequency.
+    // Zufalls-Seed als uint32 (0 wird vom Generator auf 1 angehoben)
+    const neuerSeed=()=>(Math.random()*4294967296)>>>0;
+    const terrainGen=new TerrainGenerator({
+      seed:neuerSeed(),// jede Seite startet mit einer anderen Landschaft
+      size:GROUND_R*2,// quadratisches Feld über ±GROUND_R (504)
+      segments:256,// Zellgröße 1008/256 = 3,94 Einheiten
+      heightScale:26,// rohes Band mit seaLevel 0,35: ca. -9,1 .. +16,9
+      frequency:0.0035,// Grundfuß eines Berges ~1/0,0035 Rausch-Einheiten
+      octaves:5,
+      lacunarity:1.97,
+      gain:0.5,
+      erosion:0.7,// Ableitungsdämpfung: Täler flacher, Grate schärfer
+      warp:0.35,// Domain-Warp -> Grate mäandern statt gerade zu laufen
+      valleyBias:1.2,
+      seaLevel:0.35,// vor der Skalierung abgezogen -> Talboden unter 0
+      talus:1,
+      talusPasses:12// volle thermische Erosion wie im Original
+    });
+    terrainGen.bake();
 
     // Geländehöhe (ROHwert, ohne den Mesh-Versatz -1) an Weltposition (wx,wz):
-    // als REINE Funktion auswertbar - Kreisscheibe und floorY() werten sie damit
-    // exakt identisch aus. Innerhalb r <= 500 liefert sie das volle Höhengitter;
-    // das Fernfeld jenseits blendet die beiden Feinoaktaven aus, damit weit draußen
-    // keine Einzelfeatures flimmern.
+    // terrainGen.sampleHeight() (gebackenes, geerodetes Feld, bilinear) PLUS der
+    // projektspezifische Nachbau: Randabfall zur Kuppelkante, flache Landeplätze
+    // und Küstenprofil. Als REINE Funktion auswertbar - Kreisscheibe und floorY()
+    // werten sie damit exakt identisch aus (dieselbe Rolle wie terrainHeightAt()
+    // vorher, nur mit dem Generator-Feld statt dem alten Werterauschen).
     const terrainHeightAt=(wx,wz)=>{
-      const x=wx, y=-wz;// lokale Ebene (y = -Welt-z)
-      // volles Höhengitter: drei Oktaven des Werterauschens -> breite Wellen, mittlere Beulen und Mulden
-      // plus feine Unregelmäßigkeiten, alles in unregelmäßigen Formen
-      // HÖHENBAND: die drei Oktaven tragen 6,0 / 3,4 / 1,2 - zusammen also roh bis ±5,3.
-      // Die Höhen selbst kommen weiterhin nur aus diesen Vertex-Werten,
-      // die Bumpmap oben liefert ausschließlich das Feinrelief darüber.
-      const o1=(vnoise(x,   y,    170)-0.5)*6.0;  // breite, unregelmäßige Wellenzüge
-      const o2=(vnoise(x+812,y-371, 64)-0.5)*3.4;// mittlere Beulen und Mulden
-      const o3=(vnoise(x-255,y+693, 26)-0.5)*1.2; // feine Unregelmäßigkeiten (Vertex-Abstand)
-      const r=Math.sqrt(x*x+y*y);
-      // Detailabblendung: ab 500 sanft auf 1500 auf 0 ausblenden
-      let df=Math.min(Math.max((r-500)/1000,0),1);
-      df=df*df*(3-2*df);
-      let h=o1+(o2+o3)*(1-df);
-      // Deckel auf ±4: ohne ihn würden fast alle Flächen auf der Klammer platteauen
-      // und glatt wie ein Tablett aussehen. ±4 liegt knapp unter der Rohsumme ±5,3
-      // und lässt damit die volle Bandbreite der Formen erkennen. Weil floorY()
-      // weiter unten mit -1+terrainHeightAt() rechnet, reicht das Gelände in der
-      // WELT von -25 (tiefste Mulde) bis +3 (höchster Hügel). Alles bleibt
-      // konsistent, weil sich alles an floorY() ausrichtet: die Routenlinie und die
-      // Ringpfosten messen EXAKT dieselbe Funktion und wandern automatisch mit, die
-      // Flugphysik groundY()=max(floorY,0) folgt den Hügeln, und die flachen Zonen um
-      // Landeplatz 1 (r<30) und Landeplatz 2 (r2<25) sowie die Objekte auf y=0 im
-      // Ursprung liegen auf exakt 0 - dort greift der fade-Abfall.
-      h=Math.max(-4,Math.min(4,h));
+      const x=wx, z=wz;
+      const roh=terrainGen.sampleHeight(wx,wz);// unverändelter Feldwert (auch für den Meeresboden)
+      let h=roh;
+      const r=Math.sqrt(x*x+z*z);
+      // ---- Horizont-Verstärkung in ZWEI STUFEN: ab r=300 wächst wie bisher
+      // ein Faktor bis 2,0 an (weich über Smoothstep bis r=470). AB r=335
+      // kommt eine zweite Stufe dazu, die die bisherige Höhe bis ×4
+      // vervielfacht - die Felshügel im Hintergrund, also der Bereich mit dem
+      // größten Abstand von der Küstenlinie, sind damit um 300 % höher als
+      // bisher (doppelt so hoch -> vierfach). Der Spielbereich bleibt exakt
+      // unverändert: r <= 335 (Landeplätze, Kurskorridor, Baumzone) bekommt
+      // dieselbe Höhe wie zuvor; dahinter wächst die Überhöhung sanft an.
+      if(r>300){
+        let hb=Math.min((r-300)/170,1);
+        hb=hb*hb*(3-2*hb);// Stufe 1: +0 % .. +100 % (wie bisher)
+        let hc=Math.min((r-335)/135,1);
+        hc=hc*hc*(3-2*hc);// Stufe 2: ×1 .. ×4 auf die Stufe-1-Höhe
+        h*=(1+hb)*(1+3*hc);
+      }
+      // Randabfall: auf der letzten Meile (ab 470, früher 494) auf GROUND_R
+      // (504) gegen 0 - die Scheibenkante schmiegt sich zuletzt an die
+      // Kuppelkante (y=0) an. Die frühere Schwelle 494 reichte nur für die
+      // doppelte Höhe; mit dem vierfachen Rücken (roh bis 16,9 × 8 ≈ 135)
+      // würden die Kuppen sonst über die Himmelkuppel (HORIZON_R = 500)
+      // hinausragen und dort von der Kuppel abgeschnitten. Ab 470 bleibt die
+      // höchste mögliche Kuppe bei ~492 Einheiten Abstand vom Ursprung -
+      // knapp unter der Kuppel, aber sicher innerhalb.
+      if(r>470){
+        let fr=Math.min((r-470)/(GROUND_R-470),1);
+        fr=fr*fr*(3-2*fr);
+        h*=(1-fr);
+      }
       // die Umgebung von Landeplatz 1 vollkommen flach halten (r < 30, ab r >= 100 voll)
       let fade=Math.min(Math.max((r-30)/70,0),1);
       fade=fade*fade*(3-2*fade);
-      // Mulden werden um den Faktor 6 vertieft -> starker Hell-Dunkel-Relief schon durch die streifende Sonne.
-      // Das heißt: Täler bis -24 (Welt -25). Die Routenlinie
-      // und die Pfosten folgen dem Boden auch dort, d.h. der Kurs taucht sichtbar in die
-      // Mulden ein und bleibt fliegbar; die Drohne selbst landet über der Mulde auf der
-      // Physikschwelle max(floorY,0)=0.
-      let zz=(h>0 ? h : h*6)*fade;
-      // ---- Küste: im Wasserbereich wird die verformte Höhe durch das Meeresprofil ersetzt.
+      h*=fade;
+      // ---- Küste: im Wasserbereich wird die Höhe durch das Meeresprofil ersetzt.
       // Das Uferband (bis zu 40 Einheiten LANDSEITIG der Küste) wird knapp über die
-      // Wasserlinie angehoben - sonst könnte ein trockenes Tal direkt am Ufer unter den Meeresspiegel sinken
-      // und die Wasserfläche würde in der Luft enden. Ab der Wasserlinie läuft der Boden
-      // weich zum unregelmäßigen Meeresboden ab; Streifen UND beide Buchten bekommen dadurch ein
-      // natürliches, schräges Ufer statt einer Klippe. (Außerhalb von -40 bleibt das Rauschen unberührt.)
-      // Die Formel ist in -z-Richtung unbegrenzt - das Meer läuft so bis zum Scheibenrand.
-      const d=coastZ(x)-wz;// >0: im Meeresbereich, Abstand hinter der Küstenlinie
+      // Wasserlinie angehoben - sonst könnte ein trockenes Tal direkt am Ufer unter
+      // den Meeresspiegel sinken und die Wasserfläche würde in der Luft enden. Ab
+      // der Wasserlinie läuft der Boden weich zum unregelmäßigen Meeresboden ab;
+      // Streifen UND beide Buchten bekommen dadurch ein natürliches, schräges Ufer
+      // statt einer Klippe. (Außerhalb von -40 bleibt das Gelände unberührt.)
+      // Die Formel ist in -z-Richtung unbegrenzt - das Meer läuft so bis zum
+      // Scheibenrand.
+      const d=coastZ(x)-z;// >0: im Meeresbereich, Abstand hinter der Küstenlinie
       if(d>-40){
-        const base=Math.max(zz,WATER_LEVEL+0.3);// trockenes Ufer: mindestens 0,3 über dem Wasser
+        const base=Math.max(h,WATER_LEVEL+0.3);// trockenes Ufer: mindestens 0,3 über dem Wasser
         if(d<=0){
-          zz=base;
+          h=base;
         }else{
           let t=Math.min(d/30,1); t=t*t*(3-2*t);// Smoothstep-Rampe -> weicher Uferübergang
-          zz=base+((WATER_SEABED+h*0.5)-base)*t;// Meeresboden folgt dem Rauschen etwas
+          h=base+((WATER_SEABED+roh*0.5)-base)*t;// Meeresboden folgt dem Feld etwas
         }
       }
       // Boden unter dem 2. Landeplatz abflachen (innerhalb 25 flach, bis 55 auslaufend),
       // derselbe Gedanke wie die flache Scheibe um Platz 1 im Ursprung
-      const dx=x-pad2.x, dy=y-(-pad2.z);
-      const r2=Math.sqrt(dx*dx+dy*dy);
+      const dx=x-pad2.x, dz=z-pad2.z;
+      const r2=Math.sqrt(dx*dx+dz*dz);
       if(r2<55){
         let f2=Math.min(Math.max((r2-25)/30,0),1);
         f2=f2*f2*(3-2*f2);
-        zz=zz*f2;// die verformte Höhe wieder auf 0 zurückziehen
+        h*=f2;// die Feldhöhe wieder auf 0 zurückziehen
       }
-      return zz;
+      return h;
     };
 
     // Kreisscheibe mit terrainHeightAt()-Höhen befüllen (die Geometrie samt Topologie
     // liegt bereits an). Von resetScene() erneut aufgerufen, wenn ein neuer Platz 2
     // und damit neues Gelände gewürfelt wurde - dieselben Vertex-Positionen bleiben,
-    // nur die Z-Werte und die Normalen werden neu berechnet.
+    // nur die Z-Werte, die Normalen und die Farben werden neu berechnet.
     const buildTerrain=()=>{
       const pos=fpg.attributes.position;
       for(let i=0;i<pos.count;i++){
@@ -523,6 +576,31 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
       fpg.computeVertexNormals();
       pos.needsUpdate=true;
       fpg.attributes.normal.needsUpdate=true;
+      // Vertex-Farben: dieselben Höhen- und Neigungsbänder wie das TSL-Shader-
+      // material des Originals (Wiese, trockenes Gras, Wald, Fels, Schutt,
+      // Flechten, Schnee) - vorberechnet statt im Shader, weil three.js r145 kein
+      // TSL kennt (s. TerrainGenerator.colorAt). Flachheit kommt aus den frisch
+      // berechneten Normalen: das Mesh liegt um x um -90° gedreht, die WELT-y der
+      // Normalen ist also ihre lokale z (die Höhe) - und als y an colorAt geht
+      // bewusst der ROHwert (lokale z), damit er auf minY/maxY des Feldes liegt.
+      if(!fpg.attributes.color){
+        fpg.setAttribute('color',new THREE.BufferAttribute(new Float32Array(pos.count*3),3));
+      }
+      const nor=fpg.attributes.normal;
+      const col=fpg.attributes.color;
+      // aBlend: Textur-Mischung pro Vertex (0 = wiese.jpg, 1 = felswand.jpg),
+      // vom Shader in mt6 (onBeforeCompile) als Mischfaktor gelesen
+      if(!fpg.attributes.aBlend){
+        fpg.setAttribute('aBlend',new THREE.BufferAttribute(new Float32Array(pos.count),1));
+      }
+      const blk=fpg.attributes.aBlend;
+      for(let i=0;i<pos.count;i++){
+        const c=terrainGen.colorAt(pos.getX(i), pos.getZ(i), -pos.getY(i), nor.getZ(i));
+        col.setXYZ(i,c.r,c.g,c.b);
+        blk.setX(i,c.t);
+      }
+      col.needsUpdate=true;
+      blk.needsUpdate=true;
     };
 
     // 2. Landeplatz: zufällige Richtung und Entfernung (140-260 Einheiten von Platz 1) - wird
@@ -924,6 +1002,10 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
     const PARCOUR_ABSTAND=85;
     const treeSpotFree=(x,z,stellen)=>{
       if(isWater(x,z)) return false;
+      // Standfestigkeit prüfen: Flachheit des Geländes (sampleSlope des
+      // Generators = Welt-Normalen-y, 1 = eben) - unter 0,8 (~37° Neigung)
+      // wachsen keine Bäume
+      if(terrainGen.sampleSlope(x,z)<0.8) return false;
       const r=Math.hypot(x,z);
       if(r<70||r>370) return false;
       if(Math.hypot(x-pad2.x,z-pad2.z)<45) return false;
@@ -1305,6 +1387,11 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
       held.clear(); pos.x=0; pos.y=0; pos.z=0;
       pos.vx=0; pos.vy=0; pos.vz=0; pos.turn=0;
       newPad2();
+      // neue Landschaft: Höhenfeld mit frischem Zufalls-Seed neu backen -
+      // buildTerrain() zeichnet danach Höhen, Vertex-Farben und Texturmaske
+      // neu, Routenlinie/Ringe/Bäume messen exakt dieselbe neue Höhe
+      terrainGen.parameters.seed=neuerSeed();
+      terrainGen.bake();
       buildTerrain();
       scene.getObjectByName('pad2').position.set(pad2.x,0,pad2.z);
       buildRouteLine();// neue Bézier-Schlange für die neue Platzposition

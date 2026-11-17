@@ -21,10 +21,10 @@ und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
   starr gekoppelt, gedämpftes Gimbal oder welt-ausgerichtet (exakter Horizont).
 - **Thumbwheel „Kamerawinkel"** mit Lineal-Skala zwischen den Steuer-Pads
   (Mauszug, Rad, Pfeiltasten) als lokaler Kopfneigungswinkel in jedem Modus.
-- **Bedienpanel immer quadratisch wie das Canvas** und damit weitgehend responsive.
+- **Bedienpanel immer quadratisch wie das Canvas** für bessere responsive Darstellung auf unterschiedlichen Geräten
 - **Parcours:** 3–4 kubische Bézier-Segmente
 - **Drei farbige Ringe** (Bernstein, Grün, Rosa) auf **unterschiedlich hohen Pfosten** –
-  Innenöffnung **150 % der Drohnengröße**, Ringebene exakt senkrecht zum Kurs,
+  Ringebene exakt senkrecht zum Kurs,
   Positionen bei 25 % / 50 % / 75 % der Kurvenlänge.
 - **Vier zufällig gesetzte Bäume** (2 Laub, 2 Nadel) pro Kurs, prozedural aus dem
   EZ-Tree-Generator gewachsen (85–121 Einheiten hoch, **mindestens 85 Einheiten von der
@@ -33,10 +33,12 @@ und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
 - **Kollisionsanalyse** pro Frame: Drohne gegen **Ringe, Pfosten, Bäume**, **Bodengelände und der
   Wasserfläche**. Bei Treffer: Zurücksetzen auf die sichere Position, Tempo 0, – per Klick  
   ausblendbar, danach fliegt die Drohne einfach weiter.
-- **Himmel als Halbkugel mit `sky.jpg`**: die obere Bildhälfte des Panoramas
-  (Zenit → Horizont) wird winkeltreu auf eine Halbkugel projiziert. Die Wolken
-  des Panoramas ziehen wahrnehmbar.
-- **Boden**: `flag_g.jpg`, KI generiert
+- **Himmel als Halbkugel mit `sky.jpg`**: die Wolken   des Panoramas ziehen wahrnehmbar.
+- **Landschaft aus dem `TerrainGenerator`**: Die Bodenscheibe wird von einem
+  prozeduralen Geländefgenerator (Port des three.js-Beispiels „TerrainGenerator")
+  geformt, **Vertex-Farben** (Wiese, Wald, Fels, Schnee) und zwei Fotos texturieren das
+  Gelände: **`wiese.jpg` auf den grünen Flächen, `felswand.jpg` auf den hellen**
+  (Fels, Schutt, Schnee) – pro Vertex gemischt.
 - **Wasserlandschaft mit Wellenbewegung**: die Küstenlinie mit zwei Buchten
   unterschiedlicher Größe. Das **animierte Meer läuft bis
   zum Scheibenrand** (three.js `Water`. Die Oberfläche ist **Bodenniveau auf See**:
@@ -53,8 +55,6 @@ und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
 - **Ziellandung** mit Meldung „Erfolgreich im Ziel gelandet";
   **Klick = neuer Kurs** (neues Ziel, neue Kurve, neue Ring-/Pfostenverteilung, neues Gelände).
 - Rote, dem Gelände folgende Routenlinie + weiches Korridorlicht über dem Kurs.
-- Blinkende Positionslichter (0,5 s) wird beim Blick durch die FPV-Kamera sichtbar, zufälliges Ziel,
-  texturierte Landeplätze.
 
 ## Steuerung
 
@@ -85,9 +85,11 @@ und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
 | `OrbitControls.js` | Orbit-Steuerung (three.js-Beispiel) |
 | `Water.js`, `Water_2_M_Normal.jpg` | three.js-Beispiel „Water": spiegelnde Wasserfläche mit Wellenbewegung |
 | `TreeGenerator.js` | EZ-Tree-Beispiel-Addon (MIT, Daniel Greenheck): prozeduraler Baumgenerator |
+| `TerrainGenerator.js` | Port des three.js-Beispiels „TerrainGenerator" (MIT): prozedurales Gelände mit thermischer Erosion, Farb- und Texturbändern |
 | `deckel.png` | Textur Ladybug, Kontur der Rumpf-Extrusion **und Favicon** |
 | `landing.png` | Landeplatz-Textur (mit Alpha) |
-| `flag_g.jpg` | Bodentextur, KI generiert |
+| `wiese.jpg` | Bodentextur Wiese (grüne Flächen der Landschaft), KI generiert |
+| `felswand.jpg` | Bodentextur Felswand (helle Flächen: Fels, Schutt, Schnee), KI generiert |
 | `sky.jpg` | abgeleitet aus https://sketchupfree.com/sketchup-textures/hdr-textures/sky-outside/sunrise-sunset-hdr-77 |
 | `docs/drohnensimulator.png` | Screenshot für diese README |
 | `LICENSE` | CC BY-NC-SA 4.0 des eigenen Werks (Namensnennung, nicht-kommerziell, ShareAlike) |
@@ -118,6 +120,9 @@ Enthaltene Fremdteile behalten ihre eigenen Lizenzen: `three.min.js`,
 dem [three.js](https://threejs.org/)-Projekt (MIT-Lizenz,
 kommerzielle Nutzung durch diese Bibliothek also unberührt); `TreeGenerator.js`
 geht auf [EZ-Tree](https://github.com/dgreenheck/ez-tree) von Daniel Greenheck
-zurück (ebenfalls MIT).  
+zurück (ebenfalls MIT); `TerrainGenerator.js` ist ein in JavaScript portierter
+Auszug des three.js-Beispiels
+[`TerrainGenerator`](https://github.com/mrdoob/three.js/blob/master/examples/jsm/generators/TerrainGenerator.js)
+(ebenfalls MIT, s. Dateikopf).  
 
 Nach einer Idee von mam [https://mam-mam.net](https://mam-mam.net/en/javascript/three_js_drone.html)

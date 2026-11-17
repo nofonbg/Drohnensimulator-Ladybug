@@ -1,7 +1,8 @@
 # macOS
 .DS_Store
 
-# original ground texture (superseded by flag_g.jpg, kept locally as source)
+# original ground texture (superseded by TerrainGenerator + wiese.jpg/felswand.jpg;
+# the derived flag_g.jpg has been deleted, only this source file is ignored here)
 flag_g.png
 
 # HDR source of the sky texture (sky.jpg is used instead, kept locally as source)

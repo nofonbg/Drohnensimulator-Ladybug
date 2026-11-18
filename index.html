@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
     <!--
 Lizenziert unter CC BY-NC-SA 4.0 (Namensnennung, nicht-kommerziell,
@@ -23,12 +23,12 @@ Favicon: der Deckel der Drohne (deckel.png) funktioniert in jedem Browser direkt
   <meta name="Description" content="Control a 3D drone directly in your browser using both on‑screen buttons and keyboard input. Built with Three.js, this demo shows smooth flight movement, camera following, and complete source code.">
   <meta name="Keywords" content="3D,WebGL,three.js,javascript,drone">
 
-  <!-- ===== JS-Skripte: externe Bibliotheken (three.js r145) ===== -->
+  <!-- ===== JS-Skripte: externe Bibliotheken (three.js r147) ===== -->
   <script src="three.min.js"></script>
   <script src="OrbitControls.js"></script>
   <script src="Water.js"></script>
   <!--
-three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water.js)
+three.js r147-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water.js)
 -->
   <!-- EZ-Tree-Beispiel (MIT, Daniel Greenheck), angepasst: prozeduraler
        Baumgenerator mit Wind-Shader, globales THREE statt ES-Modul,
@@ -56,19 +56,23 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
   <!-- setupControls() (Teil 2, Steuerung) auf.                             -->
   <!-- ===================================================================== -->
 <script>
-  var controls;
-  var scene,camera,renderer;
+  let controls;
+  let scene,camera,renderer;
+  // Fehlerhaken des Renderer-Aufbaus: ohne WebGL kann buildScene() nicht
+  // weiterlaufen - main() prüft diesen Flag und verzichtet dann auf Steuerung
+  // und Frameschleife (die Meldung zeigt bereits showCrash()).
+  let webglFehler=false;
   // ---- Globale Szenenobjekte: von buildScene() angelegt und von renderLoop()
   // (Bereich Steuerung) pro Frame benutzt - deshalb bewusst global deklariert.
-  var drone,drone1,drone2,drone3,drone4;// Drohnengruppe und die vier Rotorgruppen
-  var md0,md1,md2,md3,md4,md5,md6,md7,md8;// Rumpf, Träger, Markierungen, Landebeine
-  var md11,md12,md21,md22,md31,md32,md41,md42;// Rotorblätter der vier Rotoren
-  var blinkStart;// Startzeitpunkt des Lichtblinkens der Markierungen (siehe renderLoop)
-  var sky;// Himmelkuppel (sky.jpg-Textur), fest auf dem Ursprung - siehe buildScene()
-  var skyTex;// Textur der Kuppel; in renderLoop() um SKY_DEG_PER_SEC pro Sekunde gedreht
-  var skyPrevT=0;// letzter Zeitstempel der Himmelsdrehung (ms), 0 = noch kein Frame gesehen
+  let drone;// Drohnengruppe (Gesamtkörper, in buildScene() angelegt)
+  const rotoren=[];// die vier Rotorgruppen - renderLoop() dreht sie alle über diese Liste
+  let md3,md4;// vorderes und heckseitiges Markierungslicht (in renderLoop blinkend)
+  let blinkStart;// Startzeitpunkt des Lichtblinkens der Markierungen (siehe renderLoop)
+  let sky;// Himmelkuppel (sky.jpg-Textur), fest auf dem Ursprung - siehe buildScene()
+  let skyTex;// Textur der Kuppel; in renderLoop() um SKY_DEG_PER_SEC pro Sekunde gedreht
+  let skyPrevT=0;// letzter Zeitstempel der Himmelsdrehung (ms), 0 = noch kein Frame gesehen
   // 2. Landeplatz: wird in buildScene() mit einer Zufallsposition (Welt-x/z) gefüllt
-  var pad2={"x":0, "z":0};
+  const pad2={"x":0, "z":0};
   // ---- Horizont-Maße: EINE Zahl für Boden, Wasser UND Himmel -----------------
   // Bodenscheibe und Himmelkuppel teilen sich diesen Radius (konzentrisch auf dem
   // Ursprung, beide enden auf y=0). Dadurch trifft an der Horizontkante genau die
@@ -109,16 +113,16 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
   // Geländehöhe an einer Welt-x/z-Position: in buildScene() als Closure über das
   // Bodenhöhengitter angelegt und von der Routenlinie, den Ringpfosten sowie der
   // Bodenkollision in renderLoop() genutzt - bewusst global wie skyTex/sky.
-  var floorY=null;// Geländehöhe an einer Welt-x/z-Position, in buildScene() angelegt
+  let floorY=null;// Geländehöhe an einer Welt-x/z-Position, in buildScene() angelegt
   // ---- Wasser: die Landschaftsänderung. Die Küstenlinie zieht sich ein Drittel vor
   // dem FERNEN Rand der Landschaft entlang (z = -167) und schneidet ZWEI
   // Buchten unterschiedlicher Größe ins Land; von der Küste läuft das Meer BIS ZUM SCHEIBENRAND
   // (Horizont, Nutzerentscheidung). Alle Werte sind in Terrain-Einheiten, also exakt den
   // Koordinaten, die floorY() liefert (das Boden-Mesh liegt selbst auf Welt-y = -1, daher wird
   // die Wasseroberfläche eine Einheit tiefer gerendert - siehe waterMesh.position.y in buildScene()).
-  var COAST_Z=-167;// gerade Küstenlinie: Meer, wo z < coastZ(x); Land, wo z > coastZ(x)
-  var WATER_LEVEL=-1.5;// Wasseroberfläche in Terrain-Einheiten (gerendert als Welt-y = WATER_LEVEL-1)
-  var WATER_SEABED=-4.5;// Meeresboden in Terrain-Einheiten -> darüber 3 Einheiten Wassertiefe
+  const COAST_Z=-167;// gerade Küstenlinie: Meer, wo z < coastZ(x); Land, wo z > coastZ(x)
+  const WATER_LEVEL=-1.5;// Wasseroberfläche in Terrain-Einheiten (gerendert als Welt-y = WATER_LEVEL-1)
+  const WATER_SEABED=-4.5;// Meeresboden in Terrain-Einheiten -> darüber 3 Einheiten Wassertiefe
   // weiche Bucht: 0 außerhalb von |x-cx| >= hw, `depth` in der Mitte, Kosinus-Übergang ohne Kanten
   const bayBump=(x,cx,hw,depth)=>{
     const dx=Math.abs(x-cx);
@@ -146,15 +150,16 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
     const h=floorY(x,z);
     return isWater(x,z)?Math.max(h,WATER_LEVEL):Math.max(h,0);
   };
-  var waterMesh=null;// THREE.Water-Meeresoberfläche, in buildScene() erzeugt, in renderLoop() animiert
-  var waterPrevT=0;// letzter Zeitstempel der Wellenanimation (ms), 0 = noch kein Frame gesehen
-  var waterTouched=false;// die Drohne liegt bereits auf dem Meer (nur eine Spritzmeldung pro Tauchgang)
-  var treeGroup=null;// Baumgruppe der aktuellen Runde, in buildTrees() angelegt
-  var treeWindMats=[];// Blattmaterialien mit Wind-Shader, renderLoop() schiebt uTime pro Frame nach
+  let waterMesh=null;// THREE.Water-Meeresoberfläche, in buildScene() erzeugt, in renderLoop() animiert
+  let waterPrevT=0;// letzter Zeitstempel der Wellenanimation (ms), 0 = noch kein Frame gesehen
+  let waterTouched=false;// die Drohne liegt bereits auf dem Meer (nur eine Spritzmeldung pro Tauchgang)
+  let treeGroup=null;// Baumgruppe der aktuellen Runde, in buildTrees() angelegt
+  let treeWindMats=[];// Blattmaterialien mit Wind-Shader, renderLoop() schiebt uTime pro Frame nach
+  let baumStellen=[];// Stellplätze der vier Bäume der laufenden Runde, von buildTrees() gefüllt
   // Neustart der Szene (neuer Kurs): wird in buildScene() angelegt, weil es die
   // Bau-Funktionen der Szene braucht; die Steuerung ruft es auf (Klick auf die
   // Erfolgsmeldung und Wechsel zwischen Parcours und Training).
-  var resetScene=null;
+  let resetScene=null;
   function buildScene(){
     // Ziel-Canvas holen und dessen Breite/Höhe auslesen
     let can=document.getElementById('can');
@@ -183,8 +188,25 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
     scene.add(camera);// Kamera zur Szene hinzufügen (Pflicht bei FPV-Kameraführung)
 
     //■ Renderer (zeichnet die Szene auf das Canvas)
-    renderer = new THREE.WebGLRenderer({canvas:can, antialias: true});// Kantenglättung (antialiasing) aktiviert
+    // Kantenglättung (antialiasing) aktiviert. Der Renderer-Aufbau ist der
+    // einzige Punkt, an dem die Seite ohne WebGL scheitert - deshalb in einem
+    // try/catch: statt einer leeren Fläche erscheint eine verständliche
+    // Meldung, und main() bricht nach dem Fehlerhaken ab (kein leerer
+    // Animationslauf, keine Folgefehler in der Konsole).
+    try{
+      renderer = new THREE.WebGLRenderer({canvas:can, antialias: true});
+    }catch(e){
+      webglFehler=true;
+      showCrash('Kein WebGL verfügbar! Die 3D-Ansicht kann nicht gestartet werden.'+
+                (e&&e.message?' Grund: '+e.message:''));
+      return;// Szenenaufbau abbrechen, main() prüft webglFehler
+    }
     renderer.setSize(w, h);
+    // Pixeldichte begrenzen: auf High-DPI-Anzeigen (dpr 2 oder 3) wird mit
+    // höchstens dem Zweifachen gerendet. 2x macht Kanten und Texturdetails
+    // scharf, ohne die Renderfläche wie bei 3x auf das Neunfache zu treiben -
+    // das ist der übliche Kompromiss aus Schärfe und Bildrate.
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
     // Schattenkarten aktivieren
     renderer.shadowMap.enabled = true;
 
@@ -230,7 +252,7 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
     //■ Lichtquellen ------------------------------------------------
     // Umgebungslicht (Licht auf jedes Objekt aus jeder Richtung), damit unbeleuchtete Flächen nie schwarz werden
     // bewusst schwach gehalten: je weniger Fülllicht, desto stärker der Hell-Dunkel-Relief des Geländes
-    var AmbientLight=new THREE.AmbientLight(0xffffff,0.6);
+    const AmbientLight=new THREE.AmbientLight(0xffffff,0.6);
     scene.add( AmbientLight );// Umgebungslicht zur Szene hinzufügen
 
     // Scheinwerfer direkt von oben (Farbe, Intensität, Reichweite, Winkel, Weichzeichnung[0-1], Abfall[1,1])
@@ -239,8 +261,20 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
     spotLight.position.set(0,3000,0);
     spotLight.target.position.set(0,0,0);
     spotLight.castShadow=true;// Schattenwurf aktivieren
-    spotLight.shadow.mapSize.width = 4096;  // feinere Schatten: 4096x4096 Schattenkarte
-    spotLight.shadow.mapSize.height = 4096; // dieselbe Höhe wie Breite (quadratische Karte)
+    // Schattenkarte 2048x2048 (war 4096): der Spot wirft nur den Schatten der
+    // Drohne und des Bodens unter ihr - bei der Kegelöffnung von PI/40 und der
+    // Höhe 3000 deckt 2048 den gesamten Wirkbereich mit ~0,3 Einheiten pro
+    // Texel ab (Spielbereich ~1000 Einheiten), doppelt so fein wie nötig.
+    // Die Detailwirkung im Nahbereich kommt von der 2048er-Karte der Sonne.
+    spotLight.shadow.mapSize.width = 2048;
+    spotLight.shadow.mapSize.height = 2048; // dieselbe Höhe wie Breite (quadratische Karte)
+    // Tiefenbereich der Schattenkamera straffen: die Sonne steht 3000 über
+    // dem Ursprung, alle schattenwerfenden Objekte liegen zwischen 2200 und
+    // 3600 davon entfernt (Bodenkante max. ~3040, Berge ~2560). Der bisherige
+    // Default 0,5..5000 verbrauchte die Tiefenpräzision nutzlos - engerer
+    // Bereich bedeutet weniger Schatten-Artefakte (Acne) bei gleichem Bias.
+    spotLight.shadow.camera.near=2200;
+    spotLight.shadow.camera.far=3600;
     spotLight.shadow.radius=1;  // Schatten weichzeichnen (shadow.radius)
     scene.add(spotLight);
     scene.add(spotLight.target);
@@ -578,7 +612,7 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
       fpg.attributes.normal.needsUpdate=true;
       // Vertex-Farben: dieselben Höhen- und Neigungsbänder wie das TSL-Shader-
       // material des Originals (Wiese, trockenes Gras, Wald, Fels, Schutt,
-      // Flechten, Schnee) - vorberechnet statt im Shader, weil three.js r145 kein
+      // Flechten, Schnee) - vorberechnet statt im Shader, weil three.js r147 kein
       // TSL kennt (s. TerrainGenerator.colorAt). Flachheit kommt aus den frisch
       // berechneten Normalen: das Mesh liegt um x um -90° gedreht, die WELT-y der
       // Normalen ist also ihre lokale z (die Höhe) - und als y an colorAt geht
@@ -676,11 +710,15 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
         shape.lineTo(Math.cos(a)*GROUND_R, Math.sin(a)*GROUND_R);// landet exakt auf dem Westende
       }
       const wgeo=new THREE.ShapeGeometry(shape);
-      const waterNormals=new THREE.TextureLoader().load('Water_2_M_Normal.jpg');
+      const waterNormals=new THREE.TextureLoader().load('water_normal.jpg');
       waterNormals.wrapS=waterNormals.wrapT=THREE.RepeatWrapping;// Wellen wandern über das Meer (Textur-Wiederholung)
+      // Spiegelungs-RenderTarget 256x256 (war 512): Water.js rendert pro Frame
+      // die ganze Szene ein zweites Mal in diesen Puffer - die Auflösung ist
+      // der größte einzelne Posten der Wasserfläche. Bei der Wellenverzerrung
+      // (distortionScale 3) ist 256 px visuell nicht zu unterscheiden.
       waterMesh=new THREE.Water(wgeo,{
-        textureWidth:512,
-        textureHeight:512,
+        textureWidth:256,
+        textureHeight:256,
         waterNormals:waterNormals,
         // Sonnenrichtung für Glanz und Spiegelung: leicht von links oben (passend zum hellen
         // Himmel in sky.jpg), damit Wasserglanz und Himmel zusammenpassen
@@ -995,8 +1033,8 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
     // außerhalb des Parcours. 80 Stützpunkte verteilt entlang der Bézier-Kurve
     // decken die Schlange lückenlos ab (größte Lücke ~13 Einheiten, immer
     // kleiner als die Hälfte des Abstands). Die Bäume untereinander halten
-    // 130 Einheiten Abstand: Kronen-Halbachsen liegen bei ~41..69, zwei
-    // Kronenhüllen (je plus Drohnenkugel von ~12) überlappen erst darunter -
+    // 130 Einheiten Abstand: die Blattkronen reichen ~41..69 vom Stamm, zwei
+    // Kronen (je plus Drohnenkugel von ~12) überlappen erst darunter -
     // die Ausweichschleife sieht so nie zwei Bäume gleichzeitig und muss nie
     // zwischen zwei Kronen vermitteln.
     const PARCOUR_ABSTAND=85;
@@ -1096,39 +1134,107 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
         treeGroup.add(baum);
 
         // ---- Kollisionsformen des Baumes in die Hindernisliste -----------
-        // Vereinfachte Formen statt Geometrie-Abtastung: der STAMM ist ein
-        // vertikaler ZYlINDER vom Stammfuß bis zur Kronenunterkante mit dem
-        // Fußradius des Presets (größter Radius, also bewusst großzügig - der
-        // Stamm verjüngt sich nach oben ohnehin), die KRONE ist ein achsen-
-        // parallelles ELLIPSOID aus der Welt-Box der Blattquads. Beides reicht
-        // für die Drohnenkugel völlig aus: angetroffen wird der Baum fast nur
-        // am Stamm (Flug in Bodennähe) oder am Kronenrand.
+        // Vereinfachte Formen statt Geometrie-Abtastung pro Frame, aber eng an
+        // der tatsächlichen Geometrie gemessen: der STAMM ist ein vertikaler
+        // KEGELSTUMPF vom Stammfuß bis zur Kronenunterkante. Beide Radien
+        // (unten / oben) werden aus der Stammgeometrie gemessen, weil sich der
+        // Stamm verjüngt - ein Zylinder mit dem großen Fußradius läge oben bis
+        // zu 0,7 Einheiten zu weit im Weg (gemessen, s. cdp_baum_probe).
+        // Die KRONE ist kein Ellipsoid aus der Welt-Box der Blattquads mehr,
+        // sondern ein Voxel-Raster über die tatsächliche Blattgeometrie: die
+        // Blattwolke ist unregelmäßig (Nadelbaum konisch, Laubbaum gelappt),
+        // eine Box-Hülle mit 10 % Rand hielt die Drohne im Median ~12 und
+        // teilweise ~37 Einheiten VOR der sichtbaren Krone auf. Das Raster
+        // markiert pro Blatt-Dreieck Ecken und Schwerpunkt in Weltkoordinaten;
+        // die Kollisionsprüfung misst danach den Abstand zu den besetzten
+        // Zellen und spart die ~20.000 Vertices pro Baum.
         baum.updateMatrixWorld(true);// Weltmatrizen nach Skalierung/Drehung neu
         const blattMesh=baum.getObjectByName('TreeBlatt');
         if(blattMesh){
           const kb=new THREE.Box3().setFromObject(blattMesh);
           const kx=0.5*(kb.min.x+kb.max.x), ky=0.5*(kb.min.y+kb.max.y),
                 kz=0.5*(kb.min.z+kb.max.z);
-          // Halbachsen mit 10 % Rand: ein Ellipsoid geht durch die Flächen-
-          // mitten der Box, die Blattspitzen an den Ecken lägen sonst außerhalb
-          // und ließen die Drohne durch die Krone hindurchschneiden
-          const ax=0.55*(kb.max.x-kb.min.x), ay=0.55*(kb.max.y-kb.min.y),
-                az=0.55*(kb.max.z-kb.min.z);
           const presetB=(typ==='laub')?laubPreset:nadelPreset;
-          const stammR=presetB.branch.radius[0]*baum.scale.x;
           const y0=baum.position.y;// Stammfuß (0,4 unter der Geländehöhe)
           const y1=Math.max(y0+1, kb.min.y);// bis zur Kronenunterkante
+          // ---- Stamm: Radien unten und oben messen -------------------------
+          // Alle Rinde-Vertices in Weltkoordinaten, dann je ein Band von 25 %
+          // der Stammhöhe am Fuß und unter der Krone: der größte Abstand von
+          // der Stammachse dort ist der Radius. Äste, die ins Band ragen,
+          // würden ihn aufblasen - deshalb nur Vertices bis zum vollen
+          // Fußradius zählen (die Rinde sitzt dort um die Achse, ein Ast-
+          // segment wächst in wenigen Einheiten über den Stamm hinaus).
+          const rindeMesh=baum.getObjectByName('TreeRinde');
+          let rUnten=0, rOben=0;
+          if(rindeMesh){
+            const rp=rindeMesh.geometry.attributes.position;
+            const rmw=rindeMesh.matrixWorld;
+            const v=new THREE.Vector3();
+            const rMax0=presetB.branch.radius[0]*baum.scale.x;// Fußradius des Presets (obere Grenze)
+            const bandUnten=y0+0.25*(y1-y0), bandOben=y1-0.25*(y1-y0);
+            for(let i=0;i<rp.count;i++){
+              v.fromBufferAttribute(rp,i).applyMatrix4(rmw);
+              if(v.y>y1) continue;// oberhalb der Kronenunterkante: Äste, nicht Stamm
+              const rr=Math.hypot(v.x-baum.position.x, v.z-baum.position.z);
+              if(rr>rMax0) continue;// deutlich außerhalb des Stammes, kein Stammkern
+              if(v.y<=bandUnten&&rr>rUnten) rUnten=rr;
+              if(v.y>=bandOben&&v.y<=y1&&rr>rOben) rOben=rr;
+            }
+          }
+          if(rUnten<0.3) rUnten=presetB.branch.radius[0]*baum.scale.x;
+          if(rOben<0.2||rOben>rUnten) rOben=rUnten*0.7;// Fallback: kräftige, aber glaubwürdige Verjüngung
+          // ---- Krone: Voxel-Raster über die Blattgeometrie ----------------
+          // Zellgröße ~ halbe Blattquadratgröße (Laub 4,5 / Nadel 1,6 local,
+          // skaliert ~1,4x): so sitzt jede besetzte Zelle auf sichtbarem
+          // Blatt, Lücken zwischen den Quads bleiben offen (die Drohne soll
+          // ohnehin nur auf die Kollisionskugel reagieren). Pro Dreieck werden
+          // die drei Ecken und der Schwerpunkt markiert - das schließt die
+          // Mitte der Quads, ohne die Fläche zu übervoll zu setzen.
+          const zelle=4;// Rasterkantenlänge in Weltkohlenwelt-Einheiten
+          const raster=new Map();// "ix,iy,iz" -> Mittelpunkt der Zelle
+          const pGeo=blattMesh.geometry;
+          const pPos=pGeo.attributes.position;
+          const pIdx=pGeo.index;
+          const mw=blattMesh.matrixWorld;
+          const va=new THREE.Vector3(), vb=new THREE.Vector3(), vc=new THREE.Vector3();
+          const markiere=(x,y,z)=>{
+            const key=Math.floor(x/zelle)+','+Math.floor(y/zelle)+','+Math.floor(z/zelle);
+            if(!raster.has(key)) raster.set(key,[x,y,z]);
+          };
+          const dreiecke=pIdx?pIdx.count:pPos.count;
+          for(let t=0;t+2<dreiecke;t+=3){
+            const ia=pIdx?pIdx.getX(t):t, ib=pIdx?pIdx.getX(t+1):t+1, ic=pIdx?pIdx.getX(t+2):t+2;
+            va.fromBufferAttribute(pPos,ia).applyMatrix4(mw);
+            vb.fromBufferAttribute(pPos,ib).applyMatrix4(mw);
+            vc.fromBufferAttribute(pPos,ic).applyMatrix4(mw);
+            markiere(va.x,va.y,va.z);
+            markiere(vb.x,vb.y,vb.z);
+            markiere(vc.x,vc.y,vc.z);
+            markiere((va.x+vb.x+vc.x)/3,(va.y+vb.y+vc.y)/3,(va.z+vb.z+vc.z)/3);
+          }
+          // Dichte Zellen in ein Array legen (Reihenfolge egal) und die
+          // Bounding-Kugel der Krone für die Vorabprüfung mitgeben.
+          const punkte=[];
+          let R=0;
+          for(const [key,m] of raster){
+            punkte.push(m[0],m[1],m[2]);
+            const dd=(m[0]-kx)**2+(m[1]-ky)**2+(m[2]-kz)**2;
+            if(dd>R) R=dd;
+          }
+          R=Math.sqrt(R)+zelle*0.87;// Rand über den Zellmittelpunkten hinaus
           // REIHENFOLGE: zuerst der Stamm, dann die Krone. Die Ausweichschleife
           // nimmt pro Runde den ERSTEN Treffer der Liste - ein Stammfuß unter
           // der Kronenhülle muss die Meldung "Baumstamm" bekommen und mit dem
           // einfachen seitlichen Schub freisetzen, nicht mit dem Kronenweg.
           obstacles.push({kind:'trunk', x:baum.position.x, z:baum.position.z,
-                          y0:y0, y1:y1, r:stammR});
-          if(ax>1&&ay>1&&az>1){
-            obstacles.push({kind:'crown', x:kx, y:ky, z:kz, ax:ax, ay:ay, az:az});
+                          y0:y0, y1:y1, r:rUnten, rOben:rOben});
+          if(punkte.length>=3){
+            obstacles.push({kind:'crown', x:kx, y:ky, z:kz, R:R,
+                            zelle:zelle, punkte:new Float32Array(punkte)});
           }
         }
       }
+      baumStellen=stellen;// für treeSpotFree() beim nächsten Kurs (Abstandsregel untereinander)
       scene.add(treeGroup);
     };
     buildTrees();
@@ -1173,9 +1279,10 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
       {depth:1.4,bevelEnabled:true,bevelThickness:0.3,bevelSize:0.3,bevelSegments:4,steps:1,curveSegments:1});
     bodyGeo.rotateX(-Math.PI/2);
     bodyGeo.translate(0,-0.7,0);// die Fase bringt oben und unten 0,3 dazu -> Körper auf y=0 zentrieren
-    md0=new THREE.Mesh(bodyGeo,mt8);
-    md0.castShadow=true;
-    // Rumpf nimmt bewusst keine Schatten an
+    const md0=new THREE.Mesh(bodyGeo,mt8);// Rumpf
+    md0.castShadow=true;// wirft einen Schatten ...
+    // ... nimmt aber selbst bewusst KEINEN an (kein receiveShadow) - der
+    // Rumpf bleibt gleichmäßig hell beleuchtet, auch unter Baumkronen
     md0.position.set(0,4,0);// reicht über y 3..5
     drone.add(md0);
 
@@ -1218,21 +1325,21 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
       }
       duv.needsUpdate=true;
     }
-    let md0deck=new THREE.Mesh(deckGeo, mt10);
+    const md0deck=new THREE.Mesh(deckGeo, mt10);// Deckplatten-Bild
     md0deck.rotation.x=-Math.PI/2;// flach hinlegen, die Bildoberseite zeigt zur Nase (-z)
     md0deck.position.set(0,5.01,0);
     drone.add(md0deck);
 
-    // Trägerstreben der Rotoren aus Quadergeometrie erzeugen
-    md1=new THREE.Mesh(bg,mt8);
+    // erste Trägerstrebe der Rotoren aus Quadergeometrie erzeugen (20 lang, 45° gedreht)
+    const md1=new THREE.Mesh(bg,mt8);
     md1.castShadow=true;
     //md1.receiveShadow=true;// Schattenannahme der Drohnteile bewusst aus
     md1.scale.set(20,1,1);
     md1.position.set(0, 4.5, 0);
     md1.rotation.set(0,Math.PI*0.25,0);
     drone.add(md1);
-    // Trägerstreben der Rotoren aus Quadergeometrie erzeugen
-    md2=new THREE.Mesh(bg,mt8);
+    // zweite Trägerstrebe der Rotoren aus Quadergeometrie erzeugen (quer zur ersten)
+    const md2=new THREE.Mesh(bg,mt8);
     md2.castShadow=true;
     //md2.receiveShadow=true;// Schattenannahme der Drohnteile bewusst aus
     md2.scale.set(20,1,1);
@@ -1269,104 +1376,53 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
       drone.add(club);
     });
 
-    // Landebeine aus Quadergeometrie erzeugen (glänzend schwarz, wie Marienkäferbeine)
-    md5=new THREE.Mesh(bg,mt11);
-    md5.castShadow=true;
-    md5.receiveShadow=true;
-    md5.scale.set(10,0.5,0.5);
-    md5.position.set(-3,0.25,0);
-    md5.rotation.set(0,Math.PI/2,0);
-    drone.add(md5);
-    // weiteres Landebein aus Quadergeometrie erzeugen
-    md6=new THREE.Mesh(bg,mt11);
-    md6.castShadow=true;
-    md6.receiveShadow=true;
-    md6.scale.set(10,0.5,0.5);
-    md6.position.set(3,0.25,0);
-    md6.rotation.set(0,Math.PI/2,0);
-    drone.add(md6);
-    // weiteres Landebein aus Quadergeometrie erzeugen
-    md7=new THREE.Mesh(bg,mt11);
-    md7.castShadow=true;
-    md7.receiveShadow=true;
-    md7.scale.set(3,0.5,0.5);
-    md7.position.set(-3,1.5,0);
-    md7.rotation.set(0,0,Math.PI/2);
-    drone.add(md7);
-    // weiteres Landebein aus Quadergeometrie erzeugen
-    md8=new THREE.Mesh(bg,mt11);
-    md8.castShadow=true;
-    md8.receiveShadow=true;
-    md8.scale.set(3,0.5,0.5);
-    md8.position.set(3,1.5,0);
-    md8.rotation.set(0,0,Math.PI/2);
-    drone.add(md8);
+    // Landebeine aus Quadergeometrie erzeugen (glänzend schwarz, wie Marienkäferbeine):
+    // zwei lange Querbocke (10 Einheiten) an den Außenseiten und darüber zwei
+    // senkrechte Säulen (3 Einheiten) - alle vier identisch gebaut,
+    // unterschiedlich nur Länge, Position und Drehung.
+    for(const bein of [
+      { laenge:10, x:-3, y:0.25, drehung:[0,Math.PI/2,0] },// linker Querbock
+      { laenge:10, x: 3, y:0.25, drehung:[0,Math.PI/2,0] },// rechter Querbock
+      { laenge: 3, x:-3, y:1.5,  drehung:[0,0,Math.PI/2] },// linke Hochsäule (steht senkrecht)
+      { laenge: 3, x: 3, y:1.5,  drehung:[0,0,Math.PI/2] } // rechte Hochsäule (steht senkrecht)
+    ]){
+      const b=new THREE.Mesh(bg,mt11);
+      b.castShadow=true;
+      b.receiveShadow=true;
+      b.scale.set(bein.laenge,0.5,0.5);
+      b.position.set(bein.x,bein.y,0);
+      b.rotation.set(bein.drehung[0],bein.drehung[1],bein.drehung[2]);
+      drone.add(b);
+    }
 
 
-    // Propellerblätter (Rotoren) aus Quadergeometrie erzeugen
-    drone1=new THREE.Group;
-    drone1.position.set(-7,5,-7);
-    md11=new THREE.Mesh(bg,mt11);
-    md11.castShadow=true;
-    md11.receiveShadow=true;
-    md11.scale.set(10,0.5,0.5);
-    md11.rotation.set(0,Math.PI*0.5,0);
-    drone1.add(md11);
-    md12=new THREE.Mesh(bg,mt11);
-    md12.castShadow=true;
-    md12.receiveShadow=true;
-    md12.scale.set(8,0.5,0.5);
-    md12.rotation.set(0,Math.PI*0.0,0);
-    drone1.add(md12);
-    drone.add(drone1);
-    // Propellerblätter (Rotoren) aus Quadergeometrie erzeugen
-    drone2=new THREE.Group;
-    drone2.position.set(-7,5,7);
-    md21=new THREE.Mesh(bg,mt11);
-    md21.castShadow=true;
-    md21.receiveShadow=true;
-    md21.scale.set(10,0.5,0.5);
-    md21.rotation.set(0,Math.PI*0.5,0);
-    drone2.add(md21);
-    md22=new THREE.Mesh(bg,mt11);
-    md22.castShadow=true;
-    md22.receiveShadow=true;
-    md22.scale.set(8,0.5,0.5);
-    md22.rotation.set(0,Math.PI*0.0,0);
-    drone2.add(md22);
-    drone.add(drone2);
-    // Propellerblätter (Rotoren) aus Quadergeometrie erzeugen
-    drone3=new THREE.Group;
-    drone3.position.set(7,5,7);
-    md31=new THREE.Mesh(bg,mt11);
-    md31.castShadow=true;
-    md31.receiveShadow=true;
-    md31.scale.set(10,0.5,0.5);
-    md31.rotation.set(0,Math.PI*0.5,0);
-    drone3.add(md31);
-    md32=new THREE.Mesh(bg,mt11);
-    md32.castShadow=true;
-    md32.receiveShadow=true;
-    md32.scale.set(8,0.5,0.5);
-    md32.rotation.set(0,Math.PI*0.0,0);
-    drone3.add(md32);
-    drone.add(drone3);
-    // Propellerblätter (Rotoren) aus Quadergeometrie erzeugen
-    drone4=new THREE.Group;
-    drone4.position.set(7,5,-7);
-    md41=new THREE.Mesh(bg,mt11);
-    md41.castShadow=true;
-    md41.receiveShadow=true;
-    md41.scale.set(10,0.5,0.5);
-    md41.rotation.set(0,Math.PI*0.5,0);
-    drone4.add(md41);
-    md42=new THREE.Mesh(bg,mt11);
-    md42.castShadow=true;
-    md42.receiveShadow=true;
-    md42.scale.set(8,0.5,0.5);
-    md42.rotation.set(0,Math.PI*0.0,0);
-    drone4.add(md42);
-    drone.add(drone4);
+    // Propellerblätter (Rotoren) aus Quadergeometrie erzeugen - vier identische
+    // Rotoren an den Ecken der X-förmigen Trägerung; nur die Position unterscheidet
+    // sie. Jeder Rotor ist eine eigene Gruppe, damit renderLoop() ihn pro Frame um
+    // die senkrechte Achse drehen kann; in jedem Rotor sitzen zwei überkreuzte
+    // Blätter (10 und 8 Einheiten lang) im rechten Winkel zueinander.
+    for(const r of [
+      { x:-7, z:-7 },// hinten links
+      { x:-7, z: 7 },// vorne links
+      { x: 7, z: 7 },// vorne rechts
+      { x: 7, z:-7 } // hinten rechts
+    ]){
+      const rotor=new THREE.Group;
+      rotor.position.set(r.x,5,r.z);
+      for(const blattVon of [
+        { laenge:10, drehung:Math.PI*0.5 },// langes Blatt
+        { laenge: 8, drehung:0 }           // kurzes Blatt, quer dazu
+      ]){
+        const blatt=new THREE.Mesh(bg,mt11);
+        blatt.castShadow=true;
+        blatt.receiveShadow=true;
+        blatt.scale.set(blattVon.laenge,0.5,0.5);
+        blatt.rotation.set(0,blattVon.drehung,0);
+        rotor.add(blatt);
+      }
+      rotoren.push(rotor);// für die Drehung in renderLoop() merken
+      drone.add(rotor);
+    }
 
     scene.add(drone);
 
@@ -1421,45 +1477,43 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
   <!-- Toast-Meldungen, Frameschleife renderLoop() und der Start der App.    -->
   <!-- ===================================================================== -->
 <script>
-  var pos={"x":0, "y":0, "z":0, "vx":0, "vy":0, "vz":0, "turn":0};
+  let pos={"x":0, "y":0, "z":0, "vx":0, "vy":0, "vz":0, "turn":0};
   // aktuell gehaltene Flugbefehle ('up','dn','tl','tr','mf','mb','ml','mr'), gespeist aus
   // Tastatur UND den Tastenkappen im Panel. Ein SET statt eines Einzelwerts, damit jede
   // Kombination im selben Frame ausgewertet werden kann - eine Pfeiltaste plus eine WASD-Taste
   // (steigen beim Beschleunigen, drehen beim Fliegen), zwei WASD-Tasten usw. Gegenläufige
   // Tasten (W+S, links/rechts) heben sich einfach auf null auf. Bewusst global wie pos.
-  var held=new Set();
+  let held=new Set();
   // Tastenkürzel -> Flugbefehl, gemeinsam von den keydown- und keyup-Handlern genutzt
   function keyCmd(k){
     return {w:"mf", s:"mb", a:"ml", d:"mr",
             arrowup:"up", arrowdown:"dn", arrowleft:"tl", arrowright:"tr"}[k]||null;
   }
   // Einmal-Flag: die Erfolgsmeldung blendet sich nur einmal ein
-  var successShown=false;
+  let successShown=false;
   // Kursmodus: 'parcours' (Standard: drei Ringe + Pfosten + Durchflugzähler) oder 'training'
   // (einfacher Flug von Platz 1 zu Platz 2, keine Ringe, keine Pfosten). Umschaltbar über das Knopp-Paar
   // in der Hinweiszeile des Panels; ein Wechsel startet die Szene immer mit einem
   // ganz neuen Kurs neu (gleicher Weg wie ein Klick auf die Erfolgsmeldung).
-  var courseMode='parcours';
+  let courseMode='parcours';
   // Kameramodus: false = Überblick (Orbit-Steuerung), true = Ego-Sicht an der Nase klebend
-  var fpv=false;
+  let fpv=false;
   // FPV-Kameraneigung in Grad: negativ = nach oben schauen, positiv = nach unten schauen (-30..90),
   // gesteuert über das weiße Winkelrad zwischen den Pfeil- und WASD-Tastenfeldern
-  var fpvTilt=0;
-  var fpvTiltQ=new THREE.Quaternion();// Arbeits-Quaternion, jeden Frame wiederverwendet (keine Allokation pro Frame)
-  var fpvAxisX=new THREE.Vector3(1,0,0);
+  let fpvTilt=0;
+  const fpvTiltQ=new THREE.Quaternion();// Arbeits-Quaternion, jeden Frame wiederverwendet (keine Allokation pro Frame)
+  const fpvAxisX=new THREE.Vector3(1,0,0);
   // FPV-Kameraausrichtung: 'starr' = starr auf der Drohne (volles Nicken/Rollen geht ins Bild),
   // 'gimbal' = Gieren folgt, Nicken/Rollen mit Trägheit gedämpft (wie ein 2-Achsen-Gimbal),
   // 'welt' = Ausrichtung an den Weltkoordinaten fest (nur Gieren folgt, Horizont immer waagerecht)
-  var fpvAlign='starr';
-  var fpvAlignQ=new THREE.Quaternion(); // geglättete Gimbal-Ausrichtung, jeden Frame wiederverwendet
-  var fpvTargetQ=new THREE.Quaternion();// Arbeitswert: gewünschte Ausrichtung des aktuellen Frames
-  var fpvLevelE=new THREE.Euler(0,0,0,'YXZ');// Arbeitswert: nur-Gier-Ausrichtung (weltfest)
-  var obstacles=[];// Ringe + Pfosten des aktuellen Kurses, jeden Frame geprüft
-  var lastCollision='';// '' | 'ring' | 'post' | 'trunk' | 'crown' - Art des letzten Aufpralls
-  var collisionCount=0;// wie eschadlos es seit dem Laden der Seite zuging? (Anzahl der Aufpralle)
-  var droneColR=-1;// Kollisionskugel der Drohne, einmalig aus dem Begrenzungsbox gemessen
-  var droneColCY=4;// Mitte dieser Kugel über dem Ursprung der Drohnengruppe
-  var crashAt=-1e9, crashTimer=null;// -1e9: ein Aufprall direkt nach dem Laden darf eine Meldung auslösen
+  let fpvAlign='starr';
+  const fpvAlignQ=new THREE.Quaternion(); // geglättete Gimbal-Ausrichtung, jeden Frame wiederverwendet
+  const fpvTargetQ=new THREE.Quaternion();// Arbeitswert: gewünschte Ausrichtung des aktuellen Frames
+  const fpvLevelE=new THREE.Euler(0,0,0,'YXZ');// Arbeitswert: nur-Gier-Ausrichtung (weltfest)
+  let obstacles=[];// Ringe + Pfosten des aktuellen Kurses, jeden Frame geprüft
+  let droneColR=-1;// Kollisionskugel der Drohne, einmalig aus dem Begrenzungsbox gemessen
+  let droneColCY=4;// Mitte dieser Kugel über dem Ursprung der Drohnengruppe
+  let crashAt=-1e9, crashTimer=null;// -1e9: ein Aufprall direkt nach dem Laden darf eine Meldung auslösen
   // kurze rote Kollisionsmeldung: blendet sich nach 1,6 s selbst aus UND ist per Klick
   // schließbar (Handler in setupControls()), so der Pilot einfach weiterfliegt. Sperre, damit
   // eine an ein Hindernis gedrückte Drohne sie nicht jeden Frame spammt.
@@ -1479,9 +1533,9 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
   // Drohnenmitte von Ringebene i im Vorframe -> Vorzeichenwechsel = Ebene gekreuzt,
   // und wenn die Kreuzung in der Öffnung stattfand (nicht irgendwo außerhalb des Rings), zählt
   // der Ring. resetScene() setzt alles für den neuen Kurs zurück.
-  var passedRings=[false,false,false];
-  var ringPrevSide=[null,null,null];
-  var ringPassCount=0;
+  let passedRings=[false,false,false];
+  let ringPrevSide=[null,null,null];
+  let ringPassCount=0;
   function updateRingBadge(){
     const el=document.getElementById('ringBadge');
     if(!el) return;
@@ -1505,28 +1559,41 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
     const rl=Math.sqrt(rx*rx+ry*ry+rz*rz);// Abstand von der Ringachse
     return Math.sqrt((rl-o.R)*(rl-o.R)+a*a);
   }
-  // Abstand der Drohnenmitte von einem Kronen-Ellipsoid (Positiv = außen, negativ =
-  // innen), entlang des Strahls vom Zentrum gemessen. Der Punkt wird dafür in den
-  // Einheitsraum transformiert (Komponente geteilt durch Halbachse), dort ist die
-  // Krone eine Einheitskugel: |q| > 1 außerhalb, < 1 darin. Exakt ist die Distanz
-  // auf den drei Achsen, als Näherung sonst - gut genug für eine Kugel von ~12
-  // Einheiten an einer Krone von ~100. Gemeinsame Helferfunktion von
-  // obstacleContact (Kontaktprüfung) und der Ausweichschleife (Herausdrücken).
+  // Abstand der Drohnenmitte von einem Blatt der Baumkrone. Die Krone liegt
+  // als Voxel-Raster vor (siehe buildTrees): jedes Element von o.punkte ist der
+  // Mittelpunkt einer besetzten Rasterzelle (Koordinaten x,y,z pro Zelle
+  // gespeichert). Geliefert wird der kleinste Abstand zu diesen Zellmitteln,
+  // positiv = außerhalb, 0 = die Drohne sitzt auf einem Blatt. Für die
+  // Ausweichrichtung braucht obstacleContact() den Strahl vom Kronenzentrum -
+  // der Strahl ist bei einem unregelmäßigen Raster ohnehin die robusteste
+  // Richtung (ein Gradient zur nächsten Zelle kann in eine Lücke zwischen den
+  // Blattquads zeigen). Vorab die Bounding-Kugel: außerhalb von
+  // |Mittelpunkt| > o.R + droneColR ist garantiert kein Kontakt, die
+  // Ausweichschleife spart sich dann die Punktewiederholung. Gemeinsame
+  // Helferfunktion von obstacleContact (Kontaktprüfung) und der
+  // Ausweichschleife (Herausdrücken).
   function kroneDistanz(o, sx, sy, sz){
     const dx=sx-o.x, dy=sy-o.y, dz=sz-o.z;
-    const dl=Math.sqrt(dx*dx+dy*dy+dz*dz);
-    const ql=Math.sqrt(dx*dx/(o.ax*o.ax)+dy*dy/(o.ay*o.ay)+dz*dz/(o.az*o.az));
-    if(ql>1e-6) return dl-dl/ql;// = dl*(1-1/|q|)
-    return -Math.min(o.ax,o.ay,o.az);// exakt im Zentrum -> tief innen
+    const d0=Math.sqrt(dx*dx+dy*dy+dz*dz);
+    if(d0>o.R+droneColR) return d0-o.R;// außerhalb der Kugel: sicher frei
+    const p=o.punkte;
+    let best=Infinity;
+    for(let i=0;i<p.length;i+=3){
+      const qx=sx-p[i], qy=sy-p[i+1], qz=sz-p[i+2];
+      const d2=qx*qx+qy*qy+qz*qz;
+      if(d2<best) best=d2;
+    }
+    return Math.sqrt(best);
   }
   // Kontaktprüfung der Drohnenkugel (Mitte sx/sy/sz) an EINEM Hindernis. Liefert null
   // bei ausreichendem Freiraum, sonst ein kleines Info-Objekt mit dem gemessenen Abstand
   // und der Geometrie, die zum Herausdrücken nötig ist. Genutzt von der Frame-Prüfung in
   // renderLoop und von der Ausweichschleife, die eine bereits in Kontakt geratene Drohne befreit.
-  // Vier Arten: 'ring' (Torus-Mittellinie), 'post' (Pfosten) und 'trunk' (Baumstamm)
-  // sind vertikale Segmente - nur die Kennung unterscheidet sie, damit die Meldung
-  // "Ring" bzw. "Pfosten" bzw. "Baumstamm" zeigt. 'crown' ist das Ellipsoid der
-  // Baumkrone, gebaut in buildTrees().
+  // Vier Arten: 'ring' (Torus-Mittellinie) und 'post' (Pfosten) sind vertikale
+  // Segmente - nur die Kennung unterscheidet sie, damit die Meldung "Ring"
+  // bzw. "Pfosten" zeigt. 'trunk' ist der Stamm als Kegelstumpf (Radius
+  // rUnten/rOben, gemessen in buildTrees), 'crown' das Voxel-Raster der
+  // Baumkrone, ebenfalls in buildTrees gebaut.
   function obstacleContact(o, sx, sy, sz){
     if(o.kind==='ring'){
       // Abstand der Drohnenmitte vom Mittellinienkreis des Torus
@@ -1539,17 +1606,36 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
       if(d<need) return {kind:'ring', o:o, d:d, need:need, dx:dx, dy:dy, dz:dz,
                          rx:rx, ry:ry, rz:rz, rl:rl};
     }else if(o.kind==='crown'){
-      const dx=sx-o.x, dy=sy-o.y, dz=sz-o.z;
       const d=kroneDistanz(o, sx, sy, sz);
-      // negativ innerhalb, positiv außen - deshalb funktioniert auch das
-      // Herausdrücken aus dem Inneren mit demselben Formelweg (need - d)
-      if(d<droneColR) return {kind:'crown', o:o, d:d, need:droneColR, dx:dx, dy:dy, dz:dz};
+      // d = Abstand zum nächsten Blatt (>=0). Für den Ausweichschub wird die
+      // Richtung vom nächstgelegenen Blatt zur Drohne genommen - entlang
+      // dieses Strahls wächst die Distanz linear bis der Kontakt gelöst ist.
+      if(d<droneColR){
+        const p=o.punkte;
+        let best=Infinity, bi=0;
+        for(let i=0;i<p.length;i+=3){
+          const qx=sx-p[i], qy=sy-p[i+1], qz=sz-p[i+2];
+          const d2=qx*qx+qy*qy+qz*qz;
+          if(d2<best){ best=d2; bi=i; }
+        }
+        return {kind:'crown', o:o, d:d, need:droneColR,
+                dx:sx-p[bi], dy:sy-p[bi+1], dz:sz-p[bi+2]};
+      }
     }else{
-      // Abstand der Drohnenmitte vom vertikalen Segment: Pfosten ('post') wie
-      // Stamm ('trunk') - derselbe Zylinder, nur andere Meldung
+      // Abstand der Drohnenmitte vom vertikalen Segment: Pfosten ('post') sind
+      // Zylinder, der Baumstamm ('trunk') ein Kegelstumpf - sein Radius
+      // verjüngt sich linear von r (Stammfuß) bis rOben (Kronenunterkante),
+      // beide in buildTrees() aus der Rindengeometrie gemessen. Am
+      // Kontaktpunkt (Höhe cy) gilt genau dieser Zwischenwert, deshalb nur
+      // dort interpoliert; die Ausweichrichtung zeigt wie bisher vom
+      // Achsenpunkt weg.
       const cy=Math.max(o.y0,Math.min(o.y1,sy));
       const dx=sx-o.x, dy=sy-cy, dz=sz-o.z;
-      const rr=o.r+droneColR;
+      let r=o.r;
+      if(o.rOben!==undefined&&o.y1>o.y0){
+        r=o.r+(o.rOben-o.r)*((cy-o.y0)/(o.y1-o.y0));
+      }
+      const rr=r+droneColR;
       const d2=dx*dx+dy*dy+dz*dz;
       if(d2<rr*rr) return {kind:o.kind, o:o, d:Math.sqrt(d2), need:rr, dx:dx, dy:dy, dz:dz};
     }
@@ -1761,14 +1847,17 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
     // AM GEMESSENEN Canvas ausgerichtet, damit beide wirklich identisch groß sind
     // (auch wenn sich die Formeln später einmal ändern oder das Canvas durch
     // renderer.setSize() ein anderes Inline-Maß bekommt).
-    // Danach wird die Schriftgröße des Panels so lange verkleinert (Start 16 px,
-    // 0,5-er-Schritte, absolute Untergrenze 5 px), bis scrollWidth und
-    // scrollHeight in clientWidth/clientHeight hineinpassen: in kleine Quadrate
-    // (z. B. 354 px auf einem Hochformat-Handy) passen Pfeiltasten, Rad, WASD,
-    // Licht- und Legendenzeile nur mit kleinerer Schrift. overflow:hidden in
-    // drohne.css fängt auf, was selbst 5 px nicht mehr hineinbekommt - gescrollt
-    // wird dabei trotzdem nie. Das clamp() im Portrait-Block der CSS-Datei ist
-    // ausschließlich der Fallback vor diesem ersten Durchlauf.
+    // Danach wird die Schriftgröße des Panels per Binärsuche so weit
+    // verkleinert (Kandidaten 5 bis 16 px in 0,5er-Schritten), bis
+    // scrollWidth und scrollHeight in clientWidth/clientHeight hineinpassen:
+    // in kleine Quadrate (z. B. 354 px auf einem Hochformat-Handy) passen
+    // Pfeiltasten, Rad, WASD, Licht- und Legendenzeile nur mit kleinerer
+    // Schrift. "Passt es bei f?" nimmt mit wachsender Schrift monoton zu -
+    // deshalb genügen rund sechs Messungen statt der bis zu 23 der alten
+    // Reihe 16, 15, 5, 15 ... overflow:hidden in drohne.css fängt auf, was
+    // selbst 5 px nicht mehr hineinbekommt - gescrollt wird dabei trotzdem
+    // nie. Das clamp() im Portrait-Block der CSS-Datei ist ausschließlich der
+    // Fallback vor diesem ersten Durchlauf.
     const panelEl=document.querySelector('.ctrl-panel');
     const canvasEl=document.querySelector('.scene-canvas');
     const fitPanel=function(){
@@ -1782,31 +1871,61 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
       const seite=Math.floor(Math.min(canvasEl.offsetWidth,canvasEl.offsetHeight));
       panelEl.style.width=seite+'px';
       panelEl.style.height=seite+'px';
-      // (2) Schrift so weit verkleinern, bis der Inhalt OHNE Scrollen passt
+      // (2) Schrift so weit verkleinern, bis der Inhalt OHNE Scrollen passt -
+      //     als Binärsuche über halbe Pixel: passt(g) ist monoton steigend in g,
+      //     das Intervall [5,16] (23 Kandidaten) wird deshalb pro Schritt
+      //     halbiert. Untergrenze 5 px bleibt wie bisher erzwungen; bricht ein
+      //     Textumbruch die Monotonie an einer Stelle, verifiziert die
+      //     Nachprüfung das Ergebnis und fällt bei Bedarf klassisch abwärts aus.
+      const passt=function(g){
+        panelEl.style.fontSize=g+'px';
+        return !(panelEl.scrollWidth>panelEl.clientWidth||
+                 panelEl.scrollHeight>panelEl.clientHeight);
+      };
       let f=16;
-      panelEl.style.fontSize=f+'px';
-      while(f>5&&(panelEl.scrollWidth>panelEl.clientWidth||
-                  panelEl.scrollHeight>panelEl.clientHeight)){
-        f-=0.5;
-        panelEl.style.fontSize=f+'px';
+      if(!passt(16)){
+        let lo=10, hi=32;// halbe Pixel: 10 = 5 px (Untergrenze), 32 = 16 px
+        while(hi-lo>1){
+          const m=Math.floor((lo+hi)/2);
+          if(passt(m/2)) lo=m; else hi=m;
+        }
+        f=lo/2;
+        if(!passt(f)){// Monotonie gebrochen: von f abwärts auf das nächste passende Maß
+          let g=f;
+          while(g>5&&!passt(g)) g-=0.5;
+          f=g;
+        }
       }
+      panelEl.style.fontSize=f+'px';
     };
     fitPanel();// direkt nach dem Aufbau des Panels (DOMContentLoaded -> main())
     // Größenänderung neu einpassen (Fenster drehen/scrollen, Mobilbrowser-Leiste,
-    // Teilen-Modus): ZUERST sofort - die Entprellung danach fängt den Zustand nach
-    // dem Einrasten ab (dvh/Browserleiste können sich danach noch ändern). Ein
-    // reiner Debounce reicht nicht: unter Last (SwiftShader-Renderloop) verzögert
-    // sich der Timer, und für diese Millisekunden stünde ein zu großes Panel in
-    // einem zu kleinen Fenster - die strenge Vorgabe "nie scrollen" wäre verletzt.
+    // Teilen-Modus, Layoutwechsel). Beobachtet wird die .stage-row mit einem
+    // ResizeObserver und NICHT das Canvas oder das Panel selbst: die Zeile ist
+    // nur vom Fenster und vom Canvas abhängig, während fitPanel() seinerseits
+    // das Panel auf die Canvas-Seite setzt - ein Beobachter am Canvas oder Panel
+    // bekäme diesen eigenen Schreibzugriff als Größenänderung zurück und könnte
+    // die Breite hin- und herschalten lassen. ZUERST sofort - die Entprellung
+    // danach fängt den Zustand nach dem Einrasten ab (dvh/Browserleiste können
+    // sich danach noch ändern). Ein reiner Debounce reicht nicht: unter Last
+    // (SwiftShader-Renderloop) verzögert sich der Timer, und für diese
+    // Millisekunden stünde ein zu großes Panel in einem zu kleinen Fenster -
+    // die strenge Vorgabe "nie scrollen" wäre verletzt.
     // setTilt() danach, weil die Nadellaufstrecke (scaleTravel) von der gerade
     // geänderten Schriftgröße abhängt.
     const refit=function(){ fitPanel(); setTilt(fpvTilt); };
     let fitTimer=null;
-    window.addEventListener('resize',function(){
+    const refitEntpuelt=function(){
       refit();
       clearTimeout(fitTimer);
       fitTimer=setTimeout(refit,150);
-    });
+    };
+    const zeileEl=document.querySelector('.stage-row');
+    if(window.ResizeObserver&&zeileEl){
+      new ResizeObserver(refitEntpuelt).observe(zeileEl);// abgesicherter Weg
+    }else{
+      window.addEventListener('resize',refitEntpuelt);// Fallback ohne ResizeObserver
+    }
     window.addEventListener('load',refit);// Nachladen von Seite/Bildern einmal nachziehen
 
     setTilt(fpvTilt);// Maßstabmarker und Rändelversatz einmalig beim Start zeichnen
@@ -1827,16 +1946,21 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
     if(camera.position.y<camFloor) camera.position.y=camFloor;// (2) Boden/Wasser
   }
 
-  function renderLoop () {
+  function renderLoop (s){
+    // s = Zeitfaktor des aktuellen Bildes gegenüber der Physik-Referenz
+    // (33 ms): 1 = genau eine Referenzzeit ist vergangen, 2 = doppelt so
+    // lang (dünnes Bild), 0,5 = halb so lang (schnelles Gerät). Alle
+    // framesbasierten Größen unten werden damit multipliziert, damit die
+    // Flugphysik nicht von der Bildrate abhängt.
+    if(!(s>0)) s=1;
     if(!fpv){
       controls.update();// in der FPV wird die Kamera gesetzt -> die Orbit-Steuerung darf nicht dagegenarbeiten
       clampCamPos();// Kuppel-Klemme, bewusst erst NACH controls.update() - siehe oben
     }
-    // Propellerblätter (Rotoren) drehen
-    drone1.rotation.y+=Math.PI/8;
-    drone2.rotation.y+=Math.PI/8;
-    drone3.rotation.y+=Math.PI/8;
-    drone4.rotation.y+=Math.PI/8;
+    // Propellerblätter (Rotoren) drehen - zeitbasiert wie die Flugphysik
+    // (ein Winkelschritt für alle vier, damit nicht pro Rotor neu gerechnet wird)
+    const rotorSchritt=Math.PI/8*s;
+    for(const rotor of rotoren){rotor.rotation.y+=rotorSchritt;}
 
     // Himmelsdrehung: sky.jpg um SKY_DEG_PER_SEC Grad pro Sekunde um die Kugelachse
     // drehen -> die Wolken des Panoramas ziehen sichtbar über den Himmel. offset.x
@@ -1878,52 +2002,55 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
     }
     
     let limit=1.0;
-    
-    pos.vx *= 0.95;
-    pos.vy *= 0.95;
-    pos.vz *= 0.95;
+
+    // Dämpfung: 0,95 je REFERENZ-Frame -> für ein Bild der Länge s exakt
+    // 0,95^s (Potenz statt Näherung, kostet einen Math.pow pro Frame)
+    const daempf=Math.pow(0.95,s);
+    pos.vx *= daempf;
+    pos.vy *= daempf;
+    pos.vz *= daempf;
     // jeder aktuell gehaltene Befehl wirkt im SELBEN Frame - unabhängige if-Blöcke
     // statt einer else-if-Kette, damit z.B. eine Pfeiltaste und eine WASD-Taste zusammen fliegen
     // (steigen beim Beschleunigen, drehen beim Fahren). Gegenläufige Tasten ergeben netto 0.
     if(held.has("up")){
-      pos.vy+=0.1;
+      pos.vy+=0.1*s;
       if(pos.vy>limit){pos.vy=limit;}
     }
     if(held.has("dn")){
-      pos.vy-=0.1;
+      pos.vy-=0.1*s;
       if(pos.vy<-limit){pos.vy=-limit;}
     }
     if(held.has("tl")){
-      pos.turn += Math.PI/72;
+      pos.turn += Math.PI/72*s;
     }
     if(held.has("tr")){
-      pos.turn -= Math.PI/72;
+      pos.turn -= Math.PI/72*s;
     }
     if(held.has("mf")){
-      pos.vz+=0.1;
+      pos.vz+=0.1*s;
       if(pos.vz>limit){pos.vz=limit;}
     }
     if(held.has("mb")){
-      pos.vz-=0.1;
+      pos.vz-=0.1*s;
       if(pos.vz<-limit){pos.vz=-limit;}
     }
     if(held.has("ml")){
-      pos.vx-=0.1;
+      pos.vx-=0.1*s;
       if(pos.vx<-limit){pos.vx=-limit;}
     }
     if(held.has("mr")){
-      pos.vx+=0.1;
+      pos.vx+=0.1*s;
       if(pos.vx>limit){pos.vx=limit;}
     }
 
-    pos.y += pos.vy;
+    pos.y += pos.vy*s;
     // Boden: die Drohne darf weder unter den Boden noch INS Gelände sinken - Hügel ragen
     // über y=0 hinaus, daher wird ein echter Geländetest gerechnet (Plätze und Start-
     // scheibe bleiben wegen max auf 0). Über dem Meer
     // meldet groundY() die WASSEROBERFLÄCHE, die Drohne landet also auf dem Wasser, nicht auf dem Grund.
     const gy=groundY(pos.x,pos.z);
     if(pos.y<gy){
-      pos.y -=pos.vy;
+      pos.y -=pos.vy*s;
       pos.vy=-pos.vy*0.5;
       if(pos.y<gy) pos.y=gy;// Sicherheitsnetz für große Schritte
     }
@@ -1937,10 +2064,10 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
       waterTouched=false;
     }
     const preX=pos.x, preY=pos.y, preZ=pos.z;// Start dieses Bewegungsschritts (für das Zurückspringen)
-    pos.x += Math.cos(-pos.turn-Math.PI/2)*pos.vz;
-    pos.z += Math.sin(-pos.turn-Math.PI/2)*pos.vz;
-    pos.x += Math.cos(-pos.turn)*pos.vx;
-    pos.z += Math.sin(-pos.turn)*pos.vx;
+    pos.x += Math.cos(-pos.turn-Math.PI/2)*pos.vz*s;
+    pos.z += Math.sin(-pos.turn-Math.PI/2)*pos.vz*s;
+    pos.x += Math.cos(-pos.turn)*pos.vx*s;
+    pos.z += Math.sin(-pos.turn)*pos.vx*s;
 
     // ---- Kuppel-WAND: die Drohne darf den Radius DRONE_R_MAX nicht überschreiten -
     // das seitliche Gegenstück zum Boden-/Wassertest oben (groundY). Die Position wird
@@ -1963,16 +2090,17 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
     const drC=pos.x*pos.x+pos.z*pos.z;
     const ceilY=Math.sqrt(HORIZON_R*HORIZON_R-drC)-DRONE_DOME_GAP;
     if(pos.y>ceilY){
-      pos.y -=pos.vy;
+      pos.y -=pos.vy*s;
       pos.vy=-pos.vy*0.5;
       if(pos.y>ceilY) pos.y=ceilY;// Sicherheitsnetz für große Schritte
     }
 
-    // ---- Kollisionsanalyse: Ringe und Pfosten des Kurses sowie Stämme und Kronen der
+    // ---- Kollisionsanalyse: Ringe und Pfosten des Kurses, Stämme und Kronen der
     // vier Bäume (Kollisionsformen in buildTrees() eingetragen). Die Drohne wird als
     // Kugel um ihre Mitte modelliert (Radius = halbe Rotorspannweite, einmalig aus der
-    // Begrenzungsbox gemessen). Ein Ring ist sein Mittellinienkreis, Pfosten und Stamm
-    // ein vertikales Segment (Zylinder), die Krone ein Ellipsoid.
+    // Begrenzungsbox gemessen). Ein Ring ist sein Mittellinienkreis, Pfosten ein
+    // vertikales Segment (Zylinder), der Stamm ein Kegelstumpf, die Krone ein
+    // Voxel-Raster der Blattgeometrie.
     // Bei einem Treffer wird die Drohne auf den Beginn dieses Bewegungsschritts zurückgesetzt, die
     // Geschwindigkeit auf null gesetzt, eine kurze rote Meldung erscheint (siehe showCrash) und eine Ausweichschleife schiebt
     // die Drohne aus jedem noch bestehenden Kontakt HERAUS - ohne diesen Schub liegt die
@@ -2004,8 +2132,8 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
         // schon im nächsten Frame wieder erscheinen und jeder Bewegungsschritt würde erneut zurückgenommen -
         // die Drohne war festgeklemmt und nicht mehr steuerbar. Jede Runde drückt aus EINEM
         // Kontakt heraus (Flächennormale bis Kontaktabstand + ESC) und prüft erneut; gekettete
-        // Kontakte (Ringhülle <-> der Pfosten darunter) sind so im selben Frame beseitigt,
-        // collisionCount zählt dabei nur einmal. Würde die Normale die
+        // Kontakte (Ringhülle <-> der Pfosten darunter) sind so im selben Frame beseitigt.
+        // Würde die Normale die
         // Drohne INS Gelände drücken, gleitet sie seitlich heraus - sonst würde
         // das Gelände sie im nächsten Frame direkt wieder in die Hülle pressen.
         const ESC=1.0;// zusätzlicher Freiraum (Welteinheiten) über den Kontaktabstand hinaus
@@ -2053,35 +2181,68 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
             }
             pos.x=tx; pos.y=ty-droneColCY; pos.z=tz;
           }else if(c.kind==='crown'){
-            // Baumkrone (Ellipsoid): vom Zentrum weg drücken - entlang dieses
-            // Strahls ist der Schub exakt (Distanz wächst dort linear bis zur
-            // Oberfläche, neuer Abstand = Oberflächenpunkt + need). Würde der
-            // Schub die Drohne UNTER die Krone und damit ins Gelände schieben
-            // (sie hing an der Kronenunterkante nahe dem Boden), stattdessen
-            // waagerecht an der Ellipsoidkante vorbei: bei UNVERÄNDERTER Höhe
-            // läuft die Schleife von der Kronenachse aus nach außen, bis die
-            // gemessene Distanz den Kontaktabstand erreicht. Die Höhe bleibt
-            // erhalten (nie tiefer als der aktuelle, bereits auf den Boden
-            // geklemmte Stand), und der Lauf bewegt die Drohne zugleich vom
-            // Stamm weg - beide Formen eines Baumes sind danach freigegeben.
-            const dl=Math.sqrt(c.dx*c.dx+c.dy*c.dy+c.dz*c.dz);
-            let tx=pos.x, ty=pos.y+droneColCY, tz=pos.z;
-            if(dl>1e-6){
-              const k=(need-c.d)/dl;
-              tx+=c.dx*k; ty+=c.dy*k; tz+=c.dz*k;
-            }else{
-              tx+=need;// Sonderfall: genau im Ellipsoid-Zentrum -> seitlich hinaus
+            // Baumkrone (Voxel-Raster der Blattgeometrie): die Drohne läuft
+            // entlang des Strahls vom Kronenzentrum nach außen, bis die
+            // gemessene Distanz zum Blattraster den Kontaktabstand erreicht.
+            // Ein einzelner Schub vom nächstgelegenen Blatt reicht hier NICHT
+            // wie beim alten Ellipsoid: mitten in der Krone ist das Raster
+            // überall dicht, ein Schub von nur (need - d) landet wieder in
+            // Blattnähe (gemessen: Restkontakt 2 statt 12,7). Der Auslauf
+            // dagegen wächst monoton und ist nach höchstens R + need
+            // Einheiten garantiert frei. Würde das Ergebnis UNTER die Krone
+            // und damit ins Gelände führen (Drohne hing an der Kronen-
+            // unterkante nahe dem Boden), stattdessen waagerecht an der
+            // Blattwolke vorbei: bei UNVERÄNDERTER Höhe läuft die Schleife
+            // von der Kronenachse aus nach außen. Die Höhe bleibt erhalten
+            // (nie tiefer als der aktuelle, bereits auf den Boden geklemmte
+            // Stand), und der Lauf bewegt die Drohne zugleich vom Stamm weg -
+            // beide Formen eines Baumes sind danach freigegeben.
+            const sx0=pos.x-o.x, sy0=pos.y+droneColCY-o.y, sz0=pos.z-o.z;
+            const dl0=Math.sqrt(sx0*sx0+sy0*sy0+sz0*sz0);
+            let ux, uy, uz;
+            if(dl0>1e-6){ ux=sx0/dl0; uy=sy0/dl0; uz=sz0/dl0; }
+            else { ux=0; uy=1; uz=0; }// exakt im Zentrum -> senkrecht heraus
+            let tx=pos.x, ty=pos.y+droneColCY, tz=pos.z, gefunden=false;
+            // Obergrenze des Auslaufs aus der Bounding-Kugel der Krone: alle
+            // Blattpunkte liegen höchstens R - zelle*0,87 vom Zentrum entfernt,
+            // und kroneDistanz() meldet ab d0 > R + droneColR schon ohne
+            // Punktewiederholung den Wert d0 - R (Kugel-Vorabtest). Weil hier
+            // need = droneColR + ESC mit ESC = 1 ist, ist ab d0 >= R + need
+            // also garantiert need erreicht. Entlang des Strahls wächst der
+            // Zentrumabstand linear als dl0 + t, deshalb reicht die Schleife
+            // bis t = R + need + 1 - dl0. Das spart rund die Hälfte der
+            // Schritte gegenüber der bisherigen 2*(R+need)+20-Weite und die
+            // Schleife endet IMMER innerhalb dieser Grenze.
+            const tMax=Math.max(0, o.R+need+1-dl0);
+            for(let t=0;t<=tMax;t++){
+              const qx=o.x+ux*(dl0+t), qy=o.y+uy*(dl0+t), qz=o.z+uz*(dl0+t);
+              if(kroneDistanz(o, qx, qy, qz)>=need){ tx=qx; ty=qy; tz=qz; gefunden=true; break; }
             }
+            if(!gefunden){ tx=pos.x; ty=pos.y+droneColCY; tz=pos.z; }// behalten, nächste Runde erneut versuchen
             if(ty<groundY(tx,tz)){
-              let hx=c.dx, hz=c.dz;
+              // Der Auslauf wäre unterirdisch: waagerecht auf aktueller Höhe
+              // von der Kronenachse aus nach außen, bis die Distanz reicht.
+              let hx=sx0, hz=sz0;
               let hl=Math.hypot(hx,hz);
               if(hl<1e-6){hx=1; hz=0; hl=1;} else {hx/=hl; hz/=hl;}
               const sy=pos.y+droneColCY;// Höhe bleibt, damit nie unter den Boden gedrückt wird
               tx=pos.x; tz=pos.z; ty=sy;// Ausgangspunkt, falls kein Ziel gefunden wird
-              let gefunden=false;
-              for(let t=1;t<=250;t++){
-                const qx=o.x+hx*(hl+t), qz=o.z+hz*(hl+t);
-                if(kroneDistanz(o, qx, sy, qz)>=need){tx=qx; tz=qz; gefunden=true; break;}
+              gefunden=false;
+              // Obergrenze auch hier aus der Bounding-Kugel: der Zentrumabstand
+              // des waagerecht laufenden Punktes ist sqrt(rho^2 + dy^2) mit
+              // dy = sy - o.y und rho = hl + t. Frei (>= need) garantiert ab
+              // rho >= sqrt((R + need)^2 - dy^2) - wenn dy^2 bereits größer
+              // ist, gibt es auf dieser Höhe gar keinen freien Punkt und die
+              // Schleife kann ganz entfallen. Statt der pauschalen 250 Schritte
+              // wird also nur bis zur exakt berechneten Ringgrenze gesucht.
+              const dyH=sy-o.y, reach2=(o.R+need)*(o.R+need);
+              if(dyH*dyH<reach2){
+                const rhoFrei=Math.sqrt(reach2-dyH*dyH);
+                const tMaxH=Math.max(1, rhoFrei-hl+1);
+                for(let t=1;t<=tMaxH;t++){
+                  const qx=o.x+hx*(hl+t), qz=o.z+hz*(hl+t);
+                  if(kroneDistanz(o, qx, sy, qz)>=need){tx=qx; tz=qz; gefunden=true; break;}
+                }
               }
               if(!gefunden){tx=pos.x; tz=pos.z;}// behalten, nächste Runde erneut versuchen
             }
@@ -2098,8 +2259,6 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
             }
           }
         }
-        lastCollision=hitKind;
-        collisionCount++;
         showCrash((({ring:'Kollision mit dem Ring!',
                      post:'Kollision mit dem Pfosten!',
                      trunk:'Kollision mit dem Baumstamm!',
@@ -2181,12 +2340,30 @@ three.js r145-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
 
   // ==== Start der Anwendung =================================================
   // Reihenfolge: erst die 3D-Szene aufbauen (Teil 1), dann die Bedienelemente
-  // verdrahten (Teil 2) und zum Schluss die Frameschleife starten (~30 fps).
+  // verdrahten (Teil 2) und zum Schluss die Frameschleife starten.
+  // Die Frameschleife hängt an requestAnimationFrame statt an einem festen
+  // Timer: der Browser ruft sie genau einmal pro Bild auf (vsync, kein
+  // Nachlaufen im Hintergrund-Tab) und übergibt den Zeitstempel. Daraus
+  // berechnet renderLoop() den Faktor `s` = vergangene Zeit / 33 ms - die
+  // gesamte Flugphysik (Beschleunigung, Dämpfung, Drehung, Positions-
+  // schritt) ist damit von der tatsächlichen Bildrate entkoppelt: auf
+  // langsamen Geräten fliegt die Drohne trotzdem gleich schnell.
+  const REFERENZ_MS=33;// Zeitbasis der Physik (entspricht vorher setInterval(renderLoop,33))
+  let letzteBildMs=0;// Zeitstempel des letzten gerufenen Bildes, 0 = erstes Bild noch offen
+  function bildSchleife(zeitMs){
+    requestAnimationFrame(bildSchleife);
+    // Deckel 100 ms: nach dem Zurückkommen in den Tab (rAF pausiert dort)
+    // soll kein Riesenschritt durchgerechnet werden
+    const dt=letzteBildMs?Math.min(zeitMs-letzteBildMs,100):REFERENZ_MS;
+    letzteBildMs=zeitMs;
+    renderLoop(Math.max(dt,1)/REFERENZ_MS);
+  }
   function main(){
     buildScene();// Teil 1: Aufbau der 3D-Szene
+    if(webglFehler) return;// kein WebGL: Meldung steht schon, kein Leerlauf der Schleife
     setupControls();// Teil 2: Steuerung
     blinkStart=performance.now();// Uhr für das Lichtblinken beim Start der Demo starten
-    setInterval(renderLoop,33);
+    requestAnimationFrame(bildSchleife);
   }
   window.addEventListener('DOMContentLoaded', main, false);
 
@@ -2279,26 +2456,26 @@ FPV-Kameraausrichtung, dreistufig: starr (starr auf der Drohne) | Gimbal (gedäm
             <td>
             </td>
             <td>
-              <a class="cbt" id="up" aria-label="Steigen">↑</a>
+              <button type="button" class="cbt" id="up" aria-label="Steigen">↑</button>
             </td>
             <td>
             </td>
           </tr>
           <tr>
             <td>
-              <a class="cbt" id="tl" aria-label="Links drehen">←</a>
+              <button type="button" class="cbt" id="tl" aria-label="Links drehen">←</button>
             </td>
             <td>
             </td>
             <td>
-              <a class="cbt" id="tr" aria-label="Rechts drehen">→</a>
+              <button type="button" class="cbt" id="tr" aria-label="Rechts drehen">→</button>
             </td>
           </tr>
           <tr>
             <td>
             </td>
             <td>
-              <a class="cbt" id="dn" aria-label="Sinken">↓</a>
+              <button type="button" class="cbt" id="dn" aria-label="Sinken">↓</button>
             </td>
             <td>
             </td>
@@ -2324,26 +2501,26 @@ FPV-Kameraausrichtung, dreistufig: starr (starr auf der Drohne) | Gimbal (gedäm
             <td>
             </td>
             <td>
-              <a class="cbt" id="mf" aria-label="Vorwärts">W</a>
+              <button type="button" class="cbt" id="mf" aria-label="Vorwärts">W</button>
             </td>
             <td>
             </td>
           </tr>
           <tr>
             <td>
-              <a class="cbt" id="ml" aria-label="Seitwärts links">A</a>
+              <button type="button" class="cbt" id="ml" aria-label="Seitwärts links">A</button>
             </td>
             <td>
             </td>
             <td>
-              <a class="cbt" id="mr" aria-label="Seitwärts rechts">D</a>
+              <button type="button" class="cbt" id="mr" aria-label="Seitwärts rechts">D</button>
             </td>
           </tr>
           <tr>
             <td>
             </td>
             <td>
-              <a class="cbt" id="mb" aria-label="Rückwärts">S</a>
+              <button type="button" class="cbt" id="mb" aria-label="Rückwärts">S</button>
             </td>
             <td>
             </td>

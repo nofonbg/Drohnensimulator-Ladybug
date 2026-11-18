@@ -23,16 +23,6 @@
     gap:0.4167em;
   }
 
-  .align-bt.is-on{
-    background:linear-gradient(180deg,#60a5fa,#3b82f6);
-    border-color:#93c5fd;
-    color:#0f172a;
-  }
-
-  .align-bt.is-on:hover{
-    background:linear-gradient(180deg,#7db8fd,#4b8ef7);
-  }
-
   /* dreistufiger FPV-Ausrichtungsschalter, sitzt zwischen dem Sichtschalter und den
      Tastenfeldern: starr (starr auf der Drohne) | Gimbal (gedämpft) | Welt (weltfest).
      gap 6 px = 0,375em (Basis: Panel-Schriftgröße) -> Abstand skaliert mit. */
@@ -52,8 +42,9 @@
      Der zusammengesetzte Selektor .align-row .align-bt hat die höhere Spezifität
      (0,2,0 gegenüber 0,1,0) und gewinnt deshalb ungeachtet der alphabetischen
      Reihenfolge; die reine Klasse .align-bt verliert gegen .cbt, weil "a" vor "c"
-     sortiert wird. Der Verdacht .cbt.align-bt.is-on trifft nicht zu: diese Regel
-     setzt nur Farben (background, border-color, color), keine Maße. */
+     sortiert wird. Der Verdacht, die gemeinsame .is-on-Regel könnte hier die
+     Maße zurückschlagen, trifft nicht zu: sie setzt nur Farben (background,
+     border-color, color), keine Maße. */
   .align-row .align-bt{
     width:auto;
     padding:0 0.9em;
@@ -62,6 +53,20 @@
 
   /* außerhalb der FPV-Sicht ist der Ausrichtungsschalter wirkungslos -> abgedunkelt */
   .align-row.is-dim{opacity:0.45;filter:saturate(0.55);}
+
+  /* Arbeitsfläche der Seite: der kräftige Blaugrau-Ton #324054 liegt auf body UND
+     main - body färbt den 8-px-Rand um die Seite und die Fläche unter dem Inhalt
+     (main ist nur so hoch wie Canvas + Panel, auf hohen Fenstern bleibt unten also
+     Platz), main die Fläche um die beiden Quadrate selbst. Zusammen wirkt die Seite
+     dadurch in Hoch- und Querformat durchgehend dunkel (vorher weiß).
+     font-family steht EINMALIG hier und wird von allem geerbt: die vier
+     identischen Duplikate (.crash-toast, .ctrl-panel, .landed-toast, .ring-badge)
+     entfielen; nur kbd (UA-Monospace) und die Tastenkacheln .cbt (UA-Arial bei
+     <button>) holen die Familie per font-family:inherit zurück. */
+  body{
+    background-color:#324054;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
 
   .canvas-box{position:relative;}
 
@@ -78,6 +83,10 @@
     height:3em;
     margin:0;
     padding:0;
+    /* <button> erbt die Schriftfamilie nicht von selbst (UA-Vorgabe ist Arial):
+       ohne inherit würden alle Tastenkacheln anders aussehen als der Rest der
+       Seite - die Pfeile, WASD- und Moduskacheln schließen sich damit an body an */
+    font-family:inherit;
     font-size:1.4em;
     font-weight:600;
     line-height:1;
@@ -130,13 +139,17 @@
     border:1px solid #ef4444;
     border-radius:14px;
     box-shadow:0 10px 24px rgba(2,6,23,0.5),0 2px 6px rgba(2,6,23,0.35);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     color:#fecaca;
     font-size:0.95em;
     font-weight:700;
     letter-spacing:.06em;
     text-align:center;
     white-space:nowrap;
+    /* schmale Anzeigen: die Meldung darf maximal so breit wie ihr Container sein
+       und wird statt über den Rand mit … abgeschnitten */
+    max-width:100%;
+    overflow:hidden;
+    text-overflow:ellipsis;
     pointer-events:none;
     z-index:19;
   }
@@ -186,7 +199,6 @@
     border:1px solid #334155;
     border-radius:18px;
     box-shadow:0 12px 28px rgba(2,6,23,0.45),0 2px 6px rgba(2,6,23,0.35);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     color:#e2e8f0;
   }
 
@@ -226,7 +238,9 @@
   }
 
   .hint-lights .hint-mid{
-    color:#64748b;
+    /* #64748b reichte nur für 3,1:1 - hellerer Slate-Ton; die Unterzeile bleibt
+       dunkler als die Seitenbeschriftungen (#cbd5e1): Kontrast ≈ 5,7:1 (AA erfüllt) */
+    color:#94a3b8;
     font-size:0.85em;
     letter-spacing:0.1em;
     text-transform:uppercase;
@@ -244,6 +258,38 @@
     font-size:0.95em;
     line-height:1.5;
     color:#94a3b8;
+  }
+
+  /* Gemeinsamer aktiver Zustand von .align-bt, .mode-bt und .view-bt (war dreifach
+     identisch dupliziert). Steht alphabetisch nach .cbt: bei gleicher Spezifität
+     (0,1,0) gewinnt die spätere Regel und überschreibt damit .cbt-Grundfläche,
+     -rand und -schriftfarbe; .mode-bt/.view-bt/.align-bt setzen keine dieser drei
+     Eigenschaften und können die Regel deshalb nicht zurückschlagen. */
+  .is-on{
+    background:linear-gradient(180deg,#60a5fa,#3b82f6);
+    border-color:#93c5fd;
+    color:#0f172a;
+  }
+
+  .is-on:hover{
+    background:linear-gradient(180deg,#7db8fd,#4b8ef7);
+  }
+
+  kbd{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-width:1.7em;
+    padding:0.15em 0.3em;
+    font-family:inherit;
+    font-size:0.9em;
+    font-weight:600;
+    color:#e2e8f0;
+    background:linear-gradient(180deg,#334155,#1e293b);
+    border:1px solid #475569;
+    border-bottom-width:2px;
+    border-radius:6px;
+    box-shadow:0 1px 0 rgba(255,255,255,0.06) inset;
   }
 
   .key{
@@ -279,15 +325,21 @@
     border:1px solid #334155;
     border-radius:18px;
     box-shadow:0 12px 28px rgba(2,6,23,0.45),0 2px 6px rgba(2,6,23,0.35);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     color:#e2e8f0;
     text-align:center;
     white-space:nowrap;
+    /* schmale Anzeigen: max. Containerbreite, Abschnitt mit … statt Überlauf */
+    max-width:100%;
+    overflow:hidden;
+    text-overflow:ellipsis;
     pointer-events:none;
     z-index:20;
   }
 
-  .landed-toast .t-hint{margin-top:7px;font-size:.7em;letter-spacing:.05em;color:#64748b;}
+  /* t-sub (#94a3b8) bleibt die hellere Unterzeile, t-hint die schwächere:
+     #64748b ergab nur 3,8:1 - #8793a8 liegt knapp darunter und über AA:
+     Kontrast ≈ 4,7:1 auf #1e293b, ≈ 5,8:1 auf #0f172a (AA erfüllt) */
+  .landed-toast .t-hint{margin-top:7px;font-size:.7em;letter-spacing:.05em;color:#8793a8;}
 
   .landed-toast .t-sub{margin-top:5px;font-size:.85em;color:#94a3b8;}
 
@@ -304,6 +356,12 @@
 
   .landed-toast.show:hover{filter:brightness(1.12);}
 
+  /* siehe body: derselbe Ton, damit auch die Fläche um Canvas und Bedienpanel
+     dunkel ist, wenn die Seite breiter ist als die beiden Quadrate */
+  main{
+    background-color:#324054;
+  }
+
   .mode-bt{
     width:auto;
     height:2em;
@@ -313,16 +371,6 @@
     letter-spacing:0.04em;
     border-radius:999px;
     text-transform:none;
-  }
-
-  .mode-bt.is-on{
-    background:linear-gradient(180deg,#60a5fa,#3b82f6);
-    border-color:#93c5fd;
-    color:#0f172a;
-  }
-
-  .mode-bt.is-on:hover{
-    background:linear-gradient(180deg,#7db8fd,#4b8ef7);
   }
 
   /* Kursmodus-Schalter: parcours (drei Ringe + Pfosten + Durchflugzähler) <-> training
@@ -467,13 +515,16 @@
     border:1px solid #38bdf8;
     border-radius:999px;
     box-shadow:0 6px 16px rgba(2,6,23,0.4);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     color:#e2e8f0;
     font-size:0.82em;
     font-weight:700;
     letter-spacing:.07em;
     text-align:center;
     white-space:nowrap;
+    /* schmale Anzeigen: Pillenbreite auf den Container begrenzt, Text mit … gekürzt */
+    max-width:100%;
+    overflow:hidden;
+    text-overflow:ellipsis;
     pointer-events:none;
     z-index:18;
   }
@@ -518,10 +569,16 @@
     gap:16px;
   }
 
+  table{border-collapse:collapse;}
+
+  /* .pad td (0,1,1) gewinnt ungeachtet der Reihenfolge gegenüber td,th (0,0,1) -
+     die Polsterung der Tastenkachel-Zellen kippt also nicht, wenn dieser
+     Element-Selektor alphabetisch nach vorn rückt. */
+  td,th{padding:4px;}
+
   .view-bt{
     width:100%;
     height:2.7em;
-    font-family:inherit;
     font-size:1em;
     letter-spacing:0.06em;
     border-radius:999px;
@@ -539,59 +596,15 @@
     flex:0 0 auto;
   }
 
-  .view-bt.is-on{
-    background:linear-gradient(180deg,#60a5fa,#3b82f6);
-    border-color:#93c5fd;
-    color:#0f172a;
-  }
-
+  /* Farben (Fläche/Rand/Schrift) kommen von der gemeinsamen .is-on-Regel -
+     hier bleibt nur die Statuslampe im aktiven Schalter. */
   .view-bt.is-on .cam-dot{
     background:#0f172a;
     box-shadow:0 0 0 3px rgba(15,23,42,0.25);
   }
 
-  .view-bt.is-on:hover{
-    background:linear-gradient(180deg,#7db8fd,#4b8ef7);
-  }
-
   /* Kameramodus-Schalter (Überblick <-> Ego-Sicht), volle Breite unter der Überschrift */
   .view-row{display:flex;justify-content:center;}
-
-  /* Arbeitsfläche der Seite: der kräftige Blaugrau-Ton #324054 liegt auf body UND
-     main - body färbt den 8-px-Rand um die Seite und die Fläche unter dem Inhalt
-     (main ist nur so hoch wie Canvas + Panel, auf hohen Fenstern bleibt unten also
-     Platz), main die Fläche um die beiden Quadrate selbst. Zusammen wirkt die Seite
-     dadurch in Hoch- und Querformat durchgehend dunkel (vorher weiß). */
-  body{
-    background-color:#324054;
-  }
-
-  kbd{
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    min-width:1.7em;
-    padding:0.15em 0.3em;
-    font-family:inherit;
-    font-size:0.9em;
-    font-weight:600;
-    color:#e2e8f0;
-    background:linear-gradient(180deg,#334155,#1e293b);
-    border:1px solid #475569;
-    border-bottom-width:2px;
-    border-radius:6px;
-    box-shadow:0 1px 0 rgba(255,255,255,0.06) inset;
-  }
-
-  /* siehe body: derselbe Ton, damit auch die Fläche um Canvas und Bedienpanel
-     dunkel ist, wenn die Seite breiter ist als die beiden Quadrate */
-  main{
-    background-color:#324054;
-  }
-
-  table{border-collapse:collapse;}
-
-  td,th{padding:4px;}
 
   /* =====================================================================
      RESPONSIVE LAYOUT (Media-Querys bewusst am Dateiende: die alphabetische
@@ -744,4 +757,17 @@
        Pfeiltasten + Kamerawinkel-Rad teilen sich eine Zeile, die
        WASD-Kacheln stehen zentriert darunter */
     .pad .cbt{font-size:1.1em;}
+  }
+
+  /* Bewegungsreduktion: bei aktivierter Systemeinstellung "Bewegung reduzieren"
+     entfallen alle Übergänge dieser Datei (Toasts, Hover/Active der Kacheln,
+     Kameranadel, Statuslampen) - die Zustände springen stattdessen sofort an.
+     !important, damit die einzelnen Regeln mit ihren eigenen transition-Angaben
+     nicht gewinnen; die Animation-Zeile sichert künftige @keyframes mit ab
+     (derzeit gibt es keine in dieser Datei). */
+  @media (prefers-reduced-motion:reduce){
+    *,*::before,*::after{
+      transition:none!important;
+      animation:none!important;
+    }
   }

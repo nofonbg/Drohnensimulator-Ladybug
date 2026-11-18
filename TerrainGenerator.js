@@ -16,7 +16,7 @@
   Projekts (MIT, Perlin-Noise 2002 von Ken Perlin) - das Original importiert
   sie als ES-Modul.
 
-  Anpassungen für dieses Projekt (three.js r145, klassische <script>-Datei,
+  Anpassungen für dieses Projekt (three.js r147, klassische <script>-Datei,
   globales THREE statt ES-Modulen, kein TSL/WebGPU):
   - import-/export-Anweisungen entfernt; die Datei legt die Klasse
     TerrainGenerator global ab (index.html lädt sie nach three.min.js)
@@ -27,7 +27,7 @@
     nur das quadratische HÖHENFELD (mit Erosion) über ±size/2; die Kreisscheibe
     samplingt es über sampleHeight(), ebenso die Flugphysik (floorY).
   - Das Original-Material MeshStandardNodeMaterial (three/webgpu + three/tsl)
-    gibt es in r145 nicht. Ersatz: colorAt() wertet dieselben Farbbänder
+    gibt es in r147 nicht. Ersatz: colorAt() wertet dieselben Farbbänder
     (Wiese, trockenes Gras, Wald, Fels, Schutt, Flechten, Schnee) in
     JavaScript aus und schreibt sie als VERTEX-FARBEN, die das
     MeshLambertMaterial der Kreisscheibe multipliziert. Zusätzlich liefert
@@ -229,7 +229,7 @@ class TerrainGenerator{
 
   constructor(parameters={}){
     this.parameters=Object.assign({},TerrainGenerator.defaults,parameters);
-    // Hinweis: das Original legt hier das TSL-Shadermaterial an; in r145 wird
+    // Hinweis: das Original legt hier das TSL-Shadermaterial an; in r147 wird
     // die Färbung stattdessen pro Vertex vorberechnet (colorAt), siehe Kopf
     this.heights=null;
     this.gridSize=0;

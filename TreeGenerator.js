@@ -9,7 +9,7 @@
   "Fractals to Forests - Creating Realistic 3D Trees with Three.js"
   https://tympanus.net/codrops/2025/01/27/fractals-to-forests-creating-realistic-3d-trees-with-three-js/
 
-  Anpassungen für dieses Projekt (three.js r145, klassische <script>-Datei,
+  Anpassungen für dieses Projekt (three.js r147, klassische <script>-Datei,
   globales THREE statt ES-Modulen):
   - import-/export-Anweisungen entfernt; die Datei legt die Klasse
     TreeGenerator global ab (index.html lädt sie nach three.min.js)
@@ -488,7 +488,7 @@ class TreeGenerator {
   // index.html aktualisiert uniforms.uTime in der Render-Schleife.
   attachWind(mat){
     if(mat.userData.windShader) return;// schon angehängt
-    // Hinweis: three.js r145 ruft onBeforeCompile pro MATERIAL auf, sobald dessen
+    // Hinweis: three.js r147 ruft onBeforeCompile pro MATERIAL auf, sobald dessen
     // Mesh das erste Mal im Blickfeld gerendert wird (Bäume außerhalb des
     // Frustum werden gekullt und kompilieren erst später) - deshalb prüft
     // renderLoop() nur, ob userData.shader schon da ist, statt auf Alle zu warten

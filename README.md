@@ -7,13 +7,13 @@ Interaktive 3D-Demo im Browser: Eine Marienkäfer-Drohne fliegt über ein uneben
 durch einen zufällig erzeugten **Parcours** mit drei großen Ringen auf
 Pfosten zum zweiten Landeplatz – oder per Umschalter als einfacher **Training**-Flug
 vom Startplatz zum Zielplatz ohne Ringe und Stangen. Komplett clientseitig mit [three.js](https://threejs.org/)
-(r145, mitgeliefert) – **kein Build, kein Server nötig**: `index.html` einfach im Browser
+(r147, mitgeliefert) – **kein Build, kein Server nötig**: `index.html` einfach im Browser
 öffnen.  
 Der Simulator ist Teil eines Moodle-Kurses zum Thema Drohnen steuern. Der Kurs erklärt gesetzliche 
 und rechtliche Anforderungen und Voraussetzungen. Im zweiten Teil werden mit Überflugverbotskarten
 und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
 
-<img src="docs/drohnensimulator.png" alt="Drohnen-Simulator: Steuerung mit dem Level-Umschalter Parcours und Training" width="700">
+<img src="docs/drohnensimulator.jpg" alt="Drohnen-Simulator: Steuerung mit dem Level-Umschalter Parcours und Training" width="700">
 
 ## Features
 
@@ -81,9 +81,9 @@ und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
 |---|---|
 | `index.html` | App-Struktur: HTML-Aufbau und gesamtes JavaScript (Aufbau der 3D-Szene + Steuerung); |
 | `drohne.css` | Alle Stylesheet-Regeln, alphabetisch sortiert |
-| `three.min.js` | three.js r145 (MIT) |
+| `three.min.js` | three.js r147 (MIT) |
 | `OrbitControls.js` | Orbit-Steuerung (three.js-Beispiel) |
-| `Water.js`, `Water_2_M_Normal.jpg` | three.js-Beispiel „Water": spiegelnde Wasserfläche mit Wellenbewegung |
+| `Water.js`, `water_normal.jpg` | three.js-Beispiel „Water": spiegelnde Wasserfläche mit Wellenbewegung |
 | `TreeGenerator.js` | EZ-Tree-Beispiel-Addon (MIT, Daniel Greenheck): prozeduraler Baumgenerator |
 | `TerrainGenerator.js` | Port des three.js-Beispiels „TerrainGenerator" (MIT): prozedurales Gelände mit thermischer Erosion, Farb- und Texturbändern |
 | `deckel.png` | Textur Ladybug, Kontur der Rumpf-Extrusion **und Favicon** |
@@ -91,7 +91,7 @@ und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
 | `wiese.jpg` | Bodentextur Wiese (grüne Flächen der Landschaft), KI generiert |
 | `felswand.jpg` | Bodentextur Felswand (helle Flächen: Fels, Schutt, Schnee), KI generiert |
 | `sky.jpg` | abgeleitet aus https://sketchupfree.com/sketchup-textures/hdr-textures/sky-outside/sunrise-sunset-hdr-77 |
-| `docs/drohnensimulator.png` | Screenshot für diese README |
+| `docs/drohnensimulator.jpg` | Screenshot für diese README |
 | `LICENSE` | CC BY-NC-SA 4.0 des eigenen Werks (Namensnennung, nicht-kommerziell, ShareAlike) |
 
 ## Starten
@@ -116,7 +116,7 @@ Das eigene Werk darf geteilt, genutzt und bearbeitet werden, sofern gilt:
 3. **Weitergabe unter denselben Bedingungen** – Abwandlungen tragen dieselbe Lizenz
 
 Enthaltene Fremdteile behalten ihre eigenen Lizenzen: `three.min.js`,
-`OrbitControls.js` und `Water.js` samt Wassertextur `Water_2_M_Normal.jpg` stammen aus
+`OrbitControls.js` und `Water.js` samt Wassertextur `water_normal.jpg` stammen aus
 dem [three.js](https://threejs.org/)-Projekt (MIT-Lizenz,
 kommerzielle Nutzung durch diese Bibliothek also unberührt); `TreeGenerator.js`
 geht auf [EZ-Tree](https://github.com/dgreenheck/ez-tree) von Daniel Greenheck

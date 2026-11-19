@@ -129,13 +129,34 @@ three.js r147-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
     if(dx>=hw) return 0;
     return depth*0.5*(1+Math.cos(Math.PI*dx/hw));
   };
+  // Wertrausch für die unregelmäßige Küstenlinie: Hash über die Gitterstellen
+  // (Sinus-Hash, typische Prozedural-Technik) mit kubisch geglätteter
+  // Interpolation - EINMAL definiert, von terrainHeightAt(), dem Wasser-Polygon
+  // und isWater() gemeinsam genutzt, damit Uferlinie, Wasserfläche und
+  // Flugphysik exakt dieselbe Kante sehen
+  const wertRausch1=(n)=>{
+    const i=Math.floor(n),f=n-i,u=f*f*(3-2*f);
+    const h=k=>{const s=Math.sin(k*127.1+311.7)*43758.5453;return s-Math.floor(s);};
+    return h(i)+(h(i+1)-h(i))*u;// 0..1
+  };
+  // Unregelmäßigkeit der Küstenlinie: grob ±6,5 Einheiten (Wellenlänge ~22)
+  // für langgezogene Vorsprünge, fein ±2 (Wellenlänge ~6) für Bucht-Zacken.
+  // Bewusst EINDIMENSIONAL (nur x): die Küste ist die Funktion z=f(x) - eine
+  // Störung in z-Richtung würde an den steilen Buchtflanken kippen
+  const kuestenUnruhe=(x)=>
+    (wertRausch1(x*0.045)-0.5)*13
+    +(wertRausch1(x*0.16)-0.5)*4;
   // Küstenlinie der aktuellen Landschaft: die gerade Streifenkante plus die beiden Buchten, beide
   // INLAND geschnitten (nach +z): eine GROSSE Bucht im Westen (reicht bis z = -57) und eine deutlich
-  // KLEINERE im Osten (reicht bis z = -112) - die Größen unterscheiden sich absichtlich
+  // KLEINERE im Osten (reicht bis z = -112) - die Größen unterscheiden sich absichtlich.
+  // kuestenUnruhe(x) beugt die mathematisch glatte Kosinus-Kurve zusätzlich um:
+  // ohne den Zufallsanteil wäre die Uferlinie eine perfekte Kurve und wirke
+  // am Saum unnatürlich glatt
   const coastZ=(x)=>
     COAST_Z
     +bayBump(x,-150,130,110)// große Bucht: Mündung 260 breit, 110 tief
-    +bayBump(x, 170, 85, 55);// kleine Bucht: Mündung 170 breit, 55 tief
+    +bayBump(x, 170, 85, 55)// kleine Bucht: Mündung 170 breit, 55 tief
+    +kuestenUnruhe(x);// organische Unruhe der Uferlinie (±8,5 Einheiten)
   // wahr, wo die Wasserfläche existiert - steuert das Aushöhlen des Geländes, die Flugphysik und
   // die Spritz-Meldung; Ufer, Wasser-Mesh und Kollision stimmen dadurch immer überein
   const isWater=(x,z)=>z<coastZ(x);
@@ -332,9 +353,13 @@ three.js r147-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
     // (0 = wiese .. 1 = fels), das buildTerrain() aus colorAt().t schreibt; die
     // Vertex-Farben tinten beide Texturen weiterhin (helle Farbe -> Textur voll
     // sichtbar), die Beleuchtung bleibt normales Lambert.
+    // DAZU kommt am Saum zwischen Wasser und Land ein schmaler, unregelmäßiger
+    // Sandstreifen: sand.jpg (Sand mit eingestreuten Kieseln) wird im Shader
+    // über eine Maske eingeblendet, die der Küstenlinie folgt (s. mt6 unten).
     let wieseTex=new THREE.TextureLoader().load('wiese.jpg');
     let felsTex=new THREE.TextureLoader().load('felswand.jpg');
-    for(const t of [wieseTex,felsTex]){
+    let sandTex=new THREE.TextureLoader().load('sand.jpg');
+    for(const t of [wieseTex,felsTex,sandTex]){
       t.wrapS=t.wrapT=THREE.RepeatWrapping;// über die ganze Landschaft kacheln
       // Anisotropie wie früher flag_g.jpg: an der flachen Horizontsicht wird sehr
       // schräg abgetastet - 16-fach hält den Boden in der Ferne scharf
@@ -353,36 +378,111 @@ three.js r147-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
     // die Felswand-Textur in voller Helligkeit.
     const KACHSEL_WIESE=1/66;// eine wiese.jpg-Kachel misst 66 Welteinheiten
     const KACHSEL_FELS=1/108;// felswand.jpg ist gröber: eine Kachel 108 Einheiten
+    // sand.jpg dagegen fein: eine Kachel nur 9 Einheiten, damit die vier
+    // Kieselsteine pro Kachel rund 1 Einheit groß bleiben (Drohne ~20 Einheiten)
+    const KACHSEL_SAND=1/9;
     mt6.onBeforeCompile=(shader)=>{
       shader.uniforms.uWiese={value:wieseTex};
       shader.uniforms.uFels={value:felsTex};
+      shader.uniforms.uSand={value:sandTex};
       shader.uniforms.uKw={value:KACHSEL_WIESE};
       shader.uniforms.uKf={value:KACHSEL_FELS};
+      shader.uniforms.uKs={value:KACHSEL_SAND};
+      // Küstenlinie und Wasseroberfläche als Weltgrößen für die Sandmaske:
+      // uKueste = COAST_Z (Grundlinie der Bucht-Kurve), uWasser = Welt-y der
+      // Wasseroberfläche (WATER_LEVEL-1, denn das Wasser-Mesh liegt auf
+      // WATER_LEVEL-1 und das Gelände-Mesh auf y=-1)
+      shader.uniforms.uKueste={value:COAST_Z};
+      shader.uniforms.uWasser={value:WATER_LEVEL-1};
       shader.vertexShader=
         'attribute float aBlend;\n'+
         'varying float vBlend;\n'+
         'varying vec2 vUvW;\n'+
         'varying vec2 vUvF;\n'+
+        'varying vec2 vUvSand;\n'+// planare UVs für den Sandstreifen
+        'varying vec3 vWelt;\n'+// Weltposition der Gelände-Vertex (Küstenrechnung)
         'uniform float uKw;\n'+
         'uniform float uKf;\n'+
+        'uniform float uKs;\n'+
         shader.vertexShader;
       shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>',
         '#include <begin_vertex>\n'+
         '  vBlend=aBlend;\n'+
         '  vUvW=transformed.xy*uKw;\n'+// lokale XY = Welt-x/z (Mesh um -90° gedreht)
-        '  vUvF=transformed.xy*uKf;');
+        '  vUvF=transformed.xy*uKf;\n'+
+        '  vUvSand=transformed.xy*uKs;\n'+
+        '  vWelt=(modelMatrix*vec4(transformed,1.0)).xyz;');
       shader.fragmentShader=
         'varying float vBlend;\n'+
         'varying vec2 vUvW;\n'+
         'varying vec2 vUvF;\n'+
+        'varying vec2 vUvSand;\n'+
+        'varying vec3 vWelt;\n'+
         'uniform sampler2D uWiese;\n'+
         'uniform sampler2D uFels;\n'+
+        'uniform sampler2D uSand;\n'+
+        'uniform float uKueste;\n'+
+        'uniform float uWasser;\n'+
+        // Küstenlinie: die Glatte Bucht-Kurve wie coastZ()/bayBump() im Skript
+        // (OHNE kuestenUnruhe - die Geometrie-Störung steckt im Gelände selbst,
+        // das Band hier nur braucht die Grundlage als Bezug); Land, wo
+        // vWelt.z > sandKueste(x), Wasser darunter (Bucht-Ausbuchtungen inkl.)
+        'float sandBump(float x,float cx,float hw,float depth){\n'+
+        '  float dx=abs(x-cx);\n'+
+        '  if(dx>=hw) return 0.0;\n'+
+        '  return depth*0.5*(1.0+cos(3.14159265*dx/hw));\n'+
+        '}\n'+
+        'float sandKueste(float x){\n'+
+        '  return uKueste+sandBump(x,-150.0,130.0,110.0)+sandBump(x,170.0,85.0,55.0);\n'+
+        '}\n'+
+        // Wertrausch für die unregelmäßige Streifenkante (zwei Oktaven,
+        // damit weder gerade Linien noch gleichmäßige Wellen entstehen)
+        'float sandHash(vec2 p){\n'+
+        '  p=fract(p*vec2(123.34,456.21));\n'+
+        '  p+=dot(p,p+45.32);\n'+
+        '  return fract(p.x*p.y);\n'+
+        '}\n'+
+        'float sandNoise(vec2 p){\n'+
+        '  vec2 i=floor(p),f=fract(p);\n'+
+        '  f=f*f*(3.0-2.0*f);\n'+
+        '  float a=sandHash(i),b=sandHash(i+vec2(1.0,0.0));\n'+
+        '  float c=sandHash(i+vec2(0.0,1.0)),d=sandHash(i+vec2(1.0,1.0));\n'+
+        '  return mix(mix(a,b,f.x),mix(c,d,f.x),f.y);\n'+
+        '}\n'+
         shader.fragmentShader;
       shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>',
         '#include <color_fragment>\n'+
         '  vec4 texW=texture2D(uWiese,vUvW);\n'+
         '  vec4 texF=texture2D(uFels,vUvF);\n'+
-        '  diffuseColor.rgb*=mix(texW.rgb,texF.rgb,clamp(vBlend,0.0,1.0));');
+        // ---- Sandstreifen am Saum zwischen Wasser und Land ------------------
+        // Abstand zur Küstenlinie: positiv = Landseite, negativ = See-Seite
+        '  float kueste=vWelt.z-sandKueste(vWelt.x);\n'+
+        // Landseite: Kante unregelmäßig verschieben (±8 Einheiten grob, ±2,5 fein)
+        '  float wob=(sandNoise(vWelt.xz*0.09)-0.5)*16.0+(sandNoise(vWelt.xz*0.35)-0.5)*5.0;\n'+
+        // See-Seite: die Sandgrenze liegt an der WASSERLINIE selbst statt an
+        // einer festen Entferzung zur Küstenkurve. Die Geländefunktion würfelt
+        // innerhalb der Wasserfläche Landzungen und Sandbänke heraus, die weit
+        // von der analytischen Küstenlinie (sandKueste) entfernt liegen und
+        // über eine reine kueste-Maske keinen Saum bekämen. Deshalb entscheidet
+        // jetzt die HÖHE: alles bis uWasser+3 über dem Wasserspiegel ist Sand -
+        // Hauptküste und Landzungen laufen über dieselbe Bedingung, ohne dass
+        // die Maske eine zweite Geometrie kennen muss. Die waagerechte Grenze
+        // (6..13+wob, unten) verhindert zugleich, dass flaches Binnenland zum
+        // Sand wird. Kosten: ein glatter smoothstep; die verrauschte Kante
+        // kanteW entfällt damit sogar - die Unruhe liefert jetzt die gewellte
+        // Wasserlinie der Geometrie selbst.
+        '  float zungen=1.0-smoothstep(uWasser+1.0,uWasser+3.0,vWelt.y);\n'+
+        // Streifenband: Landseite über wob, See-/Höhenseite über zungen
+        '  float streifen=(1.0-smoothstep(6.0+wob,13.0+wob,kueste))*zungen;\n'+
+        '  float sandM=clamp(streifen,0.0,1.0);\n'+
+        '  vec3 sandKol=texture2D(uSand,vUvSand).rgb;\n'+
+        // Vertex-Farbe in der Sandzone entschärfen: colorAt liefert dort
+        // Wiesen-/Felsfarben, die den Sand sonst grün oder grau tinten würden.
+        // Auf 0,6 gedämpft: die Sonne steht mit Intensität 3,2 über dem Boden,
+        // der helle Sand würde sonst wie Schnee ausbrennen (die Texturen der
+        // Wiese und des Fels sind von Haus aus deutlich dunkler)
+        '  vec3 sandFlaeche=sandKol*mix(vColor,vec3(0.6),sandM);\n'+
+        '  diffuseColor.rgb=mix(diffuseColor.rgb*mix(texW.rgb,texF.rgb,clamp(vBlend,0.0,1.0)),sandFlaeche,sandM);');
     };
     // grau -> Stahl: bläulicher Schimmer, damit die Drohne sich vom Boden abhebt
     // (Phong statt Lambert: nur Phong kennt den Glanzpunkt für den Metalllook)

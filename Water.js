@@ -1,5 +1,21 @@
 ( function () {
 
+	/*
+	  Water - spiegelnde, wellenbewegte Wasseroberfläche
+	  ===================================================
+	  three.js-Beispiel "examples/jsm/objects/Water.js", Version r147,
+	  MIT-Lizenz, Quelle: https://github.com/mrdoob/three.js (r147)
+	  (als klassische Datei übernommen - ab r148 gibt es examples/js nicht
+	  mehr, s. OrbitControls.js)
+	  Eigenständige Vorarbeit laut Dateivermerk:
+	    https://github.com/Slayvin: Flat mirror for three.js
+	    https://home.adelphi.edu/~stemkoski/: Wasser-Shader nach flachem Spiegel
+	    http://29a.ch/: Erklärung des WebGL-Wasser-Shaders
+	  Projekt-Anpassungen (siehe Inline-Kommentare): deutsche Bemerkungen,
+	  Null-Wächter für die Normalentextur, nur EIN Uniforms-Klon,
+	  transparent erst bei alpha < 1, options.size und dispose().
+	*/
+
 	/**
  * Work based on :
  * https://github.com/Slayvin: Flat mirror for three.js
@@ -19,12 +35,23 @@
 			const clipBias = options.clipBias !== undefined ? options.clipBias : 0.0;
 			const alpha = options.alpha !== undefined ? options.alpha : 1.0;
 			const time = options.time !== undefined ? options.time : 0.0;
-			const normalSampler = options.waterNormals !== undefined ? options.waterNormals : null;
+			let normalSampler = options.waterNormals !== undefined ? options.waterNormals : null;
+			// Null-Wächter: ohne Normalentextur würde der Shader eine nicht
+			// gebundene Textur abtasten (je Browser schwarze oder flimmernde
+			// Wellen). Ersatz ist eine 1x1-Textur mit flacher Normalen
+			// (128/128/255 = zeigt senkrecht nach oben) - das Wasser bleibt
+			// dann glatt, bleibt aber überall korrekt lesbar.
+			if ( !normalSampler ) {
+				normalSampler = new THREE.DataTexture( new Uint8Array( [ 128, 128, 255, 255 ] ), 1, 1 );
+				normalSampler.wrapS = normalSampler.wrapT = THREE.RepeatWrapping;// wie eine echte Kacheltextur abtasten
+				normalSampler.needsUpdate = true;
+			}
 			const sunDirection = options.sunDirection !== undefined ? options.sunDirection : new THREE.Vector3( 0.70707, 0.70707, 0.0 );
 			const sunColor = new THREE.Color( options.sunColor !== undefined ? options.sunColor : 0xffffff );
 			const waterColor = new THREE.Color( options.waterColor !== undefined ? options.waterColor : 0x7F7F7F );
 			const eye = options.eye !== undefined ? options.eye : new THREE.Vector3( 0, 0, 0 );
 			const distortionScale = options.distortionScale !== undefined ? options.distortionScale : 20.0;
+			const size = options.size !== undefined ? options.size : 1.0;// Maßstab der Wellen-Normalentextur (Weltkoordinaten / size)
 			const side = options.side !== undefined ? options.side : THREE.FrontSide;
 			const fog = options.fog !== undefined ? options.fog : false; //
 
@@ -41,6 +68,7 @@
 			const textureMatrix = new THREE.Matrix4();
 			const mirrorCamera = new THREE.PerspectiveCamera();
 			const renderTarget = new THREE.WebGLRenderTarget( textureWidth, textureHeight );
+			scope.renderTarget = renderTarget;// öffentlich, damit dispose() den Spiegelungs-Puffer freigeben kann
 			const mirrorShader = {
 				uniforms: THREE.UniformsUtils.merge( [ THREE.UniformsLib[ 'fog' ], THREE.UniformsLib[ 'lights' ], {
 					'normalSampler': {
@@ -182,9 +210,18 @@
 			const material = new THREE.ShaderMaterial( {
 				fragmentShader: mirrorShader.fragmentShader,
 				vertexShader: mirrorShader.vertexShader,
-				uniforms: THREE.UniformsUtils.clone( mirrorShader.uniforms ),
+				// Uniforms DIREKT übernehmen: UniformsUtils.merge() oben hat die
+				// Werte bereits tiefenkloniert (Color/Vector/Matrix-Instanzen
+				// dürfen nicht mit der Vorlage geteilt werden) - ein zweiter
+				// Klon war reine Aufwandsverdopplung beim Anlegen. Der
+				// Shader-Text selbst ist ohnehin nur diese eine Instanz.
+				uniforms: mirrorShader.uniforms,
 				lights: true,
 				side: side,
+				// Erst bei alpha < 1 durchsichtig markieren: three.js blendet nur
+				// transparente Materialien, sonst wird der Alphawert zwar
+				// geschrieben, aber ignoriert (opake Fläche).
+				transparent: alpha < 1.0,
 				fog: fog
 			} );
 			material.uniforms[ 'mirrorSampler' ].value = renderTarget.texture;
@@ -196,6 +233,7 @@
 			material.uniforms[ 'waterColor' ].value = waterColor;
 			material.uniforms[ 'sunDirection' ].value = sunDirection;
 			material.uniforms[ 'distortionScale' ].value = distortionScale;
+			material.uniforms[ 'size' ].value = size;
 			material.uniforms[ 'eye' ].value = eye;
 			scope.material = material;
 
@@ -278,6 +316,16 @@
 
 			};
 
+		}
+
+		// Ressourcen freigeben, wenn die Oberfläche dauerhaft aus der Szene
+		// genommen wird: der Spiegelungs-RenderTarget hält einen eigenen
+		// GPU-Puffer, das Shader-Material das kompilierte Programm. Die
+		// Geometrie gehört dem Aufrufer und wird dort entsorgt (scene.remove
+		// ruft dispose() nicht von selbst auf).
+		dispose() {
+			this.renderTarget.dispose();
+			this.material.dispose();
 		}
 
 	}

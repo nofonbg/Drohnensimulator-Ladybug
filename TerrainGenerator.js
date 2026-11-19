@@ -16,7 +16,7 @@
   Projekts (MIT, Perlin-Noise 2002 von Ken Perlin) - das Original importiert
   sie als ES-Modul.
 
-  Anpassungen für dieses Projekt (three.js r145, klassische <script>-Datei,
+  Anpassungen für dieses Projekt (three.js r147, klassische <script>-Datei,
   globales THREE statt ES-Modulen, kein TSL/WebGPU):
   - import-/export-Anweisungen entfernt; die Datei legt die Klasse
     TerrainGenerator global ab (index.html lädt sie nach three.min.js)
@@ -27,7 +27,7 @@
     nur das quadratische HÖHENFELD (mit Erosion) über ±size/2; die Kreisscheibe
     samplingt es über sampleHeight(), ebenso die Flugphysik (floorY).
   - Das Original-Material MeshStandardNodeMaterial (three/webgpu + three/tsl)
-    gibt es in r145 nicht. Ersatz: colorAt() wertet dieselben Farbbänder
+    gibt es in r147 nicht. Ersatz: colorAt() wertet dieselben Farbbänder
     (Wiese, trockenes Gras, Wald, Fels, Schutt, Flechten, Schnee) in
     JavaScript aus und schreibt sie als VERTEX-FARBEN, die das
     MeshLambertMaterial der Kreisscheibe multipliziert. Zusätzlich liefert
@@ -62,6 +62,11 @@ const _pNoise=[ 151, 160, 137, 91, 90, 15, 131, 13, 201, 95, 96, 53, 194, 233, 7
 for(let iNoise=0;iNoise<256;iNoise++) _pNoise[256+iNoise]=_pNoise[iNoise];
 
 function fadeNoise(t){ return t*t*t*(t*(t*6-15)+10); }
+// lineare Interpolation - EIN Mal angelegt, nicht pro noise()-Aufruf als
+// Pfeilfunktion im Hot-Loop (die alte lokale Faktorie wurde bei jedem
+// Rauschwert neu erzeugt; der Rauschläufer ruft noise() tausendfach pro
+// Höhenfeld-Zelle auf)
+function lerpNoise(a,b,t){ return a+(b-a)*t; }
 function gradNoise(hash,x,y,z){
   const h=hash&15;
   const u=h<8?x:y, v=h<4?y:(h===12||h===14?x:z);
@@ -76,14 +81,13 @@ class ImprovedNoise{
     const xm=x-1, ym=y-1, zm=z-1;
     const u=fadeNoise(x), v=fadeNoise(y), w=fadeNoise(z);
     const A=_pNoise[X]+Y, AA=_pNoise[A]+Z, AB=_pNoise[A+1]+Z, B=_pNoise[X+1]+Y, BA=_pNoise[B]+Z, BB=_pNoise[B+1]+Z;
-    const lerp=(a,b,t)=>a+(b-a)*t;
-    return lerp(
-      lerp(
-        lerp(gradNoise(_pNoise[AA],x,y,z),   gradNoise(_pNoise[BA],xm,y,z),   u),
-        lerp(gradNoise(_pNoise[AB],x,ym,z),  gradNoise(_pNoise[BB],xm,ym,z),  u), v),
-      lerp(
-        lerp(gradNoise(_pNoise[AA+1],x,y,zm), gradNoise(_pNoise[BA+1],xm,y,zm), u),
-        lerp(gradNoise(_pNoise[AB+1],x,ym,zm),gradNoise(_pNoise[BB+1],xm,ym,zm),u), v), w);
+    return lerpNoise(
+      lerpNoise(
+        lerpNoise(gradNoise(_pNoise[AA],x,y,z),   gradNoise(_pNoise[BA],xm,y,z),   u),
+        lerpNoise(gradNoise(_pNoise[AB],x,ym,z),  gradNoise(_pNoise[BB],xm,ym,z),  u), v),
+      lerpNoise(
+        lerpNoise(gradNoise(_pNoise[AA+1],x,y,zm), gradNoise(_pNoise[BA+1],xm,y,zm), u),
+        lerpNoise(gradNoise(_pNoise[AB+1],x,ym,zm),gradNoise(_pNoise[BB+1],xm,ym,zm),u), v), w);
   }
 }
 
@@ -104,6 +108,7 @@ function createRandom(seed){
 // smoothstep(0.62,0.32,...) auf, um abnehmend zu glätten - der Ausdruck
 // (x-min)/(max-min) liefert das dann auch korrekt mit Klammern 1..0)
 function tsSmoothstep(a,b,x){
+  if(a===b) return x<a?0:1;// entartete Kante: ohne Wächter liefert (x-a)/0 = NaN
   let t=(x-a)/(b-a);
   t=t<0?0:t>1?1:t;
   return t*t*(3-2*t);
@@ -117,6 +122,24 @@ function tsColor(hex){
 function mulColor(a,b){ return { r:a.r*b.r, g:a.g*b.g, b:a.b*b.b }; }
 // kanalweise Mischung (TSL: mix(colorA,colorB,t) mit Skalar t)
 function mixColor(a,b,t){ return { r:tsMix(a.r,b.r,t), g:tsMix(a.g,b.g,t), b:tsMix(a.b,b.b,t) }; }
+
+// ---- Farbpalette für colorAt() --------------------------------------------
+// Die acht Bandfarben sind konstant und werden deshalb EINMAL hier angelegt:
+// colorAt() läuft für jeden Vertex der Kreisscheibe (tausendfach beim
+// Geländeaufbau), dort pro Aufruf acht tsColor-Objekte zu erzeugen war die
+// größte Allokationsquelle der Färbung.
+const _tgGrass=tsColor(0x6e7253);// trocken-salbeigrüne Wiese (kein Videospiel-Grün)
+const _tgDryGrass=tsColor(0x8a8550);
+const _tgForest=tsColor(0x39402f);// dunkles Waldmittelband unter den Bäumen
+const _tgRock=tsColor(0x716e68);// verwitterter graubrauner Fels
+const _tgScree=tsColor(0x837a6f);// hellerer Schutt unter den Klippen
+const _tgLichen=tsColor(0x6c7355);// gedämpftes Graugrün auf flachem Fels
+const _tgSnow=tsColor(0xe9ecf0);// frischer Schnee; warm/kühl kommt aus dem Licht
+const _tgSnowDeep=tsColor(0xccd6e2);// kühl verwehter Schnee in Flecken
+// mx_noise_float des Originals liegt etwa in -0.5..0.5 -> auf 0..1 ziehen,
+// damit die smoothstep-Kanten wie im Original greifen (war pro Aufruf eine
+// lokale Pfeilfunktion)
+function _tgD01(v){ return v*0.5+0.5; }
 
 // ---- Höhenfeld: domain-warp + abgeleitungsgedämpfte Fraktalsumme -----------
 // Original: heightField(p) in TerrainGenerator.js - hier unverändert über-
@@ -229,7 +252,7 @@ class TerrainGenerator{
 
   constructor(parameters={}){
     this.parameters=Object.assign({},TerrainGenerator.defaults,parameters);
-    // Hinweis: das Original legt hier das TSL-Shadermaterial an; in r145 wird
+    // Hinweis: das Original legt hier das TSL-Shadermaterial an; in r147 wird
     // die Färbung stattdessen pro Vertex vorberechnet (colorAt), siehe Kopf
     this.heights=null;
     this.gridSize=0;
@@ -275,6 +298,10 @@ class TerrainGenerator{
   // Welthöhe bei (x,z), bilinear aus der gebackenen Matrix (Klamping am Rand
   // des Feldes: außerhalb bleibt der Randwert gültig)
   sampleHeight(x,z){
+    // Wächter: vor bake() existiert noch kein Höhenfeld - statt eines
+    // Absturzes (Zugriff auf null) flache Höhe 0 liefern; sampleSlope()
+    // würde daraus 1 (= eben) berechnen, was als sichere Annahme gilt
+    if(!this.heights) return 0;
     const p=this.parameters;
     const N=this.gridSize;
     const half=p.size/2;
@@ -317,19 +344,13 @@ class TerrainGenerator{
     const detail=p.noise(x*0.03, z*0.03, 7.3);
     const grain =p.noise(x*0.08, z*0.08, 21.9);
     const macro =p.noise(x*0.012,z*0.012,44.1);
-    // mx_noise_float liegt etwa in -0.5..0.5 -> auf 0..1 ziehen, damit die
-    // smoothstep-Kanten wie im Original greifen
-    const d01=v=>v*0.5+0.5;
-    const detailN=d01(detail), grainN=d01(grain), macroN=d01(macro);
+    // mx_noise_float des Originals liegt in -0.5..0.5 -> auf 0..1 ziehen
+    const detailN=_tgD01(detail), grainN=_tgD01(grain), macroN=_tgD01(macro);
 
-    const grass=tsColor(0x6e7253);// trocken-salbeigrüne Wiese (kein Videospiel-Grün)
-    const dryGrass=tsColor(0x8a8550);
-    const forest=tsColor(0x39402f);// dunkles Waldmittelband unter den Bäumen
-    const rock=tsColor(0x716e68);// verwitterter graubrauner Fels
-    const scree=tsColor(0x837a6f);// hellerer Schutt unter den Klippen
-    const lichen=tsColor(0x6c7355);// gedämpftes Graugrün auf flachem Fels
-    const snow=tsColor(0xe9ecf0);// frischer Schnee; warm/kühl kommt aus dem Licht
-    const snowDeep=tsColor(0xccd6e2);// kühl verwehter Schnee in Flecken
+    // Palette als lokale Kurzalias: die Konstanten selbst stehen modulseitig
+    // (_tgGrass ...) und werden nicht pro Vertex neu erzeugt
+    const grass=_tgGrass, dryGrass=_tgDryGrass, forest=_tgForest, rock=_tgRock;
+    const scree=_tgScree, lichen=_tgLichen, snow=_tgSnow, snowDeep=_tgSnowDeep;
 
     // zwei Bandfrequenzen von hellerem/dunklerem Stein, vom Rauschen
     // verwellt -> Klippen lesen sich als geschichtete Bankstatt als Flachgrau
@@ -400,6 +421,9 @@ class TerrainGenerator{
     return surface;
   }
 
+  // Aufräumen: die Höhenmatrix freigeben. In index.html lebt die Instanz für
+  // die ganze Seitenlebensdauer (beim Kurswechsel wird nur neu gebake(), nie
+  // entsorgt) - die Methode bleibt als Gegenstück zum Original-API erhalten.
   dispose(){
     this.heights=null;
     this.gridSize=0;

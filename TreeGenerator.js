@@ -9,7 +9,7 @@
   "Fractals to Forests - Creating Realistic 3D Trees with Three.js"
   https://tympanus.net/codrops/2025/01/27/fractals-to-forests-creating-realistic-3d-trees-with-three-js/
 
-  Anpassungen für dieses Projekt (three.js r145, klassische <script>-Datei,
+  Anpassungen für dieses Projekt (three.js r147, klassische <script>-Datei,
   globales THREE statt ES-Modulen):
   - import-/export-Anweisungen entfernt; die Datei legt die Klasse
     TreeGenerator global ab (index.html lädt sie nach three.min.js)
@@ -181,6 +181,17 @@ class TreeGenerator {
     let sectionOrigin=branch.origin.clone();
     const sectionLength=branch.length/branch.sectionCount;
     const sections=[];
+    // Arbeitsvektoren/-quaternionen EINMAL pro Ast statt pro Abschnitt: die
+    // Schleife unten läuft für jeden Abschnitt (12 pro Stammast) und hätte
+    // sonst pro Durchgang rund acht kleine Objekte neu angelegt
+    const schritt=new THREE.Vector3();// Abschnittsschritt entlang der Ausrichtung
+    const twistAchse=new THREE.Vector3(0,1,0);// feste Achse für die Drehung (wird nie verändert)
+    const oben=new THREE.Vector3();// Arbeits-Hochachse (pro Abschnitt neu gesetzt)
+    const ziel=new THREE.Vector3().copy(o.branch.force.direction).normalize();// Wachstumsrichtung (konstant)
+    const achse=new THREE.Vector3();// Drehachse der Wachstumskraft
+    const qAbschnitt=new THREE.Quaternion();
+    const qVerdreh=new THREE.Quaternion();
+    const qKraft=new THREE.Quaternion();
 
     for(let i=0;i<=branch.sectionCount;i++){
       let sectionRadius=branch.radius;
@@ -200,9 +211,8 @@ class TreeGenerator {
         radius:sectionRadius
       });
 
-      sectionOrigin.add(
-        new THREE.Vector3(0,sectionLength,0).applyEuler(sectionOrientation)
-      );
+      schritt.set(0,sectionLength,0).applyEuler(sectionOrientation);
+      sectionOrigin.add(schritt);
 
       // Knorrigkeit: umso dünner der Abschnitt, desto stärker das Wackeln
       const gnarliness=Math.max(1,1/Math.sqrt(sectionRadius))*o.branch.gnarliness[branch.level];
@@ -210,25 +220,19 @@ class TreeGenerator {
       sectionOrientation.z+=this.rng.random(gnarliness,-gnarliness);
 
       // Wachstumskraft: Abschnitt um strength/radius Richtung Sonne drehen
-      const qSection=new THREE.Quaternion().setFromEuler(sectionOrientation);
-      const qTwist=new THREE.Quaternion().setFromAxisAngle(
-        new THREE.Vector3(0,1,0),o.branch.twist[branch.level]
-      );
+      const qSection=qAbschnitt.setFromEuler(sectionOrientation);
+      const qTwist=qVerdreh.setFromAxisAngle(twistAchse,o.branch.twist[branch.level]);
       qSection.multiply(qTwist);
 
-      const sectionUp=new THREE.Vector3(0,1,0).applyQuaternion(qSection);
-      const target=new THREE.Vector3()
-        .copy(o.branch.force.direction).normalize();
-      const axis=new THREE.Vector3().crossVectors(sectionUp,target);
+      const sectionUp=oben.set(0,1,0).applyQuaternion(qSection);
+      const axis=achse.crossVectors(sectionUp,ziel);
       const sinFull=axis.length();
       if(sinFull>1e-6){
         axis.divideScalar(sinFull);
-        const fullAngle=Math.atan2(sinFull,sectionUp.dot(target));
+        const fullAngle=Math.atan2(sinFull,sectionUp.dot(ziel));
         const step=o.branch.force.strength/sectionRadius;
         const clamped=Math.max(-fullAngle,Math.min(fullAngle,step));
-        qSection.premultiply(
-          new THREE.Quaternion().setFromAxisAngle(axis,clamped)
-        );
+        qSection.premultiply(qKraft.setFromAxisAngle(axis,clamped));
       }
       sectionOrientation.setFromQuaternion(qSection);
     }
@@ -384,7 +388,27 @@ class TreeGenerator {
   // der erste Vertex jedes Rings wird doppelt für die UV-Naht
   meshBranches(){
     const o=this.optionen;
-    const buf={verts:[],normals:[],indices:[],uvs:[]};
+    // ZUERST zählen, DANN allozieren und füllen: die Puffer sind damit von
+    // Anfang an typisierte Arrays - es entfallen das wachsende JS-Array und
+    // der zweite Kopierschritt, den buildGeometry() vorher bei jedem Baum
+    // über Float32Array(array) machen musste.
+    let floatsGesamt=0, idxGesamt=0;
+    for(const sb of this.skelett.branches){
+      const seg=Math.max(3,sb.segmentCount);
+      floatsGesamt+=sb.sections.length*(seg+1)*3;// Ringe inkl. Naht-Duplikat, je 3 Koordinaten
+      idxGesamt+=(sb.sections.length-1)*seg*6;    // zwei Dreiecke pro Quad
+    }
+    const verts=new Float32Array(floatsGesamt);
+    const normals=new Float32Array(floatsGesamt);
+    const uvs=new Float32Array(floatsGesamt/3*2);
+    const indices=floatsGesamt/3>65535?new Uint32Array(idxGesamt):new Uint16Array(idxGesamt);
+
+    // Arbeitsvektoren für die Ringberechnung: EIN Satz für alle Ringe aller
+    // Äste (sequenzielle Abarbeitung), statt zwei neue Vector3 pro Vertex
+    const vertex=new THREE.Vector3();
+    const normal=new THREE.Vector3();
+
+    let vZ=0, uZ=0, iZ=0;// Schreibzeiger: Koordinaten-Floats, UV-Floats, Indizes
     for(const sb of this.skelett.branches){
       const {sections,segmentCount,baseRadius}=sb;
       const segments=Math.max(3,segmentCount);
@@ -392,92 +416,121 @@ class TreeGenerator {
       // damit Rindenmuster auf Stamm und Zweig gleich groß wirken
       const wrapsX=Math.max(1,Math.round(baseRadius*o.bark.textureScale.x));
 
-      const indexOffset=buf.verts.length/3;
+      const indexOffset=vZ/3;
       for(let k=0;k<sections.length;k++){
         const section=sections[k];
-        let first=null;
+        // Komponenten des ersten Rings merken (als Zahlen, nicht als Vector3-
+        // Referenz - der Arbeitsvektor wird im nächsten Durchgang überschrieben)
+        let eX=0,eY=0,eZ=0,eNX=0,eNY=0,eNZ=0,eUV=0;
         for(let j=0;j<segments;j++){
           const angle=2.0*Math.PI*j/segments;
           const vx=Math.cos(angle), vz=Math.sin(angle);
           // Vertex im Abschnittsradius, in die Ausrichtung gedreht
-          const vertex=new THREE.Vector3(vx,0,vz)
+          vertex.set(vx,0,vz)
             .multiplyScalar(section.radius)
             .applyEuler(section.orientation)
             .add(section.origin);
-          const normal=new THREE.Vector3(vx,0,vz)
-            .applyEuler(section.orientation).normalize();
-          buf.verts.push(vertex.x,vertex.y,vertex.z);
-          buf.normals.push(normal.x,normal.y,normal.z);
-          buf.uvs.push((j/segments)*wrapsX,(k%2===0)?0:1);
-          if(j===0) first={vertex:vertex,normal:normal,uvY:(k%2===0)?0:1};
+          normal.set(vx,0,vz).applyEuler(section.orientation).normalize();
+          verts[vZ]=vertex.x;   normals[vZ]=normal.x;
+          verts[vZ+1]=vertex.y; normals[vZ+1]=normal.y;
+          verts[vZ+2]=vertex.z; normals[vZ+2]=normal.z;
+          uvs[uZ]=(j/segments)*wrapsX; uvs[uZ+1]=(k%2===0)?0:1;
+          vZ+=3; uZ+=2;
+          if(j===0){ eX=vertex.x; eY=vertex.y; eZ=vertex.z;
+                     eNX=normal.x; eNY=normal.y; eNZ=normal.z;
+                     eUV=(k%2===0)?0:1; }
         }
         // doppelter erster Vertex -> UV-Naht schließen
-        buf.verts.push(first.vertex.x,first.vertex.y,first.vertex.z);
-        buf.normals.push(first.normal.x,first.normal.y,first.normal.z);
-        buf.uvs.push(wrapsX,first.uvY);
+        verts[vZ]=eX; verts[vZ+1]=eY; verts[vZ+2]=eZ;
+        normals[vZ]=eNX; normals[vZ+1]=eNY; normals[vZ+2]=eNZ;
+        uvs[uZ]=wrapsX; uvs[uZ+1]=eUV;
+        vZ+=3; uZ+=2;
       }
       // Quads zwischen den Ringen
       const N=segments+1;
       for(let i=0;i<sections.length-1;i++){
         for(let j=0;j<segments;j++){
           const v1=indexOffset+i*N+j;
-          const v2=indexOffset+i*N+(j+1);
+          const v2=v1+1;
           const v3=v1+N, v4=v2+N;
-          buf.indices.push(v1,v3,v2, v2,v3,v4);
+          indices[iZ++]=v1; indices[iZ++]=v3; indices[iZ++]=v2;
+          indices[iZ++]=v2; indices[iZ++]=v3; indices[iZ++]=v4;
         }
       }
     }
-    return buf;
+    return {verts,normals,uvs,indices};
   }
 
   // Blätter als gekreuzte Quads (billboard 'double' = zwei um 90° gedrehte)
   meshLeaves(){
     const o=this.optionen;
-    const buf={verts:[],normals:[],indices:[],uvs:[]};
+    // Wie in meshBranches: erst zählen, dann typisierte Puffer füllen - die
+    // Blattanzahl ist vorher bekannt (1 Quad, bei 'double' 2 je Blatt)
+    const doppelt=o.leaves.billboard==='double';
+    const quads=this.skelett.leaves.length*(doppelt?2:1);
+    const floats=quads*4*3;// 4 Vertices à 3 Koordinaten je Quad
+    const verts=new Float32Array(floats);
+    const normals=new Float32Array(floats);
+    const uvs=new Float32Array(quads*4*2);
+    const indices=quads*4>65535?new Uint32Array(quads*6):new Uint16Array(quads*6);
+
+    // Arbeitsobjekte: vier Eckenvektoren und drei Hilfsvektoren - EIN Satz
+    // für alle Blätter (sequenzielle Abarbeitung), statt für jedes Quad rund
+    // zehn neue Vector3/Euler anzulegen
+    const ecken=[new THREE.Vector3(),new THREE.Vector3(),
+                 new THREE.Vector3(),new THREE.Vector3()];
+    const eul=new THREE.Euler();
+    const richtung=new THREE.Vector3();
+    const rund=new THREE.Vector3();
+
+    let vZ=0, nZ=0, uZ=0, iZ=0;// Schreibzeiger: Koordinaten, Normalen, UVs, Indizes
+    // origin/ orientation/ W/ L kommen als Argumente: die Funktion liegt
+    // außerhalb der Blattschleife und darf nicht auf deren lokale Bindungen
+    // zugreifen
+    const createLeaf=(rotation,origin,orientation,W,L)=>{
+      eul.set(0,rotation,0);
+      ecken[0].set(-W/2,L,0);
+      ecken[1].set(-W/2,0,0);
+      ecken[2].set(W/2,0,0);
+      ecken[3].set(W/2,L,0);
+      for(const p of ecken) p.applyEuler(eul).applyEuler(orientation).add(origin);
+      for(const p of ecken){ verts[vZ]=p.x; verts[vZ+1]=p.y; verts[vZ+2]=p.z; vZ+=3; }
+
+      // Normalen: Grundrichtung des Blattes, je Vertex zum Eckenvektor
+      // hin gerundet -> die Krone wirkt weich und kugelig statt flach
+      richtung.set(0,0,1).applyEuler(orientation);
+      for(const p of ecken){
+        rund.copy(richtung).add(p).sub(origin).normalize();
+        normals[nZ]=rund.x; normals[nZ+1]=rund.y; normals[nZ+2]=rund.z;
+        nZ+=3;
+      }
+      uvs[uZ]=0; uvs[uZ+1]=1; uvs[uZ+2]=0; uvs[uZ+3]=0;
+      uvs[uZ+4]=1; uvs[uZ+5]=0; uvs[uZ+6]=1; uvs[uZ+7]=1;
+      uZ+=8;
+      const b=vZ/3-4;// Vertex-Index des ersten der vier eben geschriebenen Ecken
+      indices[iZ++]=b; indices[iZ++]=b+1; indices[iZ++]=b+2;
+      indices[iZ++]=b; indices[iZ++]=b+2; indices[iZ++]=b+3;
+    };
+
     for(const leaf of this.skelett.leaves){
-      let i=buf.verts.length/3;
       const {origin,orientation}=leaf;
       const leafSize=leaf.size;
       const W=leafSize, L=leafSize;
-
-      const createLeaf=(rotation)=>{
-        const v=[
-          new THREE.Vector3(-W/2,L,0),
-          new THREE.Vector3(-W/2,0,0),
-          new THREE.Vector3(W/2,0,0),
-          new THREE.Vector3(W/2,L,0)
-        ].map(p=>p
-          .applyEuler(new THREE.Euler(0,rotation,0))
-          .applyEuler(orientation)
-          .add(origin));
-        buf.verts.push(v[0].x,v[0].y,v[0].z, v[1].x,v[1].y,v[1].z,
-                       v[2].x,v[2].y,v[2].z, v[3].x,v[3].y,v[3].z);
-
-        // Normalen: Grundrichtung des Blattes, je Vertex zum Eckenvektor
-        // hin gerundet -> die Krone wirkt weich und kugelig statt flach
-        const n=new THREE.Vector3(0,0,1).applyEuler(orientation);
-        for(const p of v){
-          const nv=n.clone().add(p).sub(origin).normalize();
-          buf.normals.push(nv.x,nv.y,nv.z);
-        }
-        buf.uvs.push(0,1, 0,0, 1,0, 1,1);
-        buf.indices.push(i,i+1,i+2, i,i+2,i+3);
-        i+=4;
-      };
-
-      createLeaf(0);
-      if(o.leaves.billboard==='double') createLeaf(Math.PI/2);
+      createLeaf(0,origin,orientation,W,L);
+      if(doppelt) createLeaf(Math.PI/2,origin,orientation,W,L);
     }
-    return buf;
+    return {verts,normals,uvs,indices};
   }
 
+  // Typisierte Puffer (siehe meshBranches/meshLeaves) in eine BufferGeometry
+  // übernehmen - die Daten liegen schon als Float32Array/Uint16|32Array vor,
+  // deshalb wird hier nur noch umgehängt und nicht ein zweites Mal kopiert
   buildGeometry(buf){
     const g=new THREE.BufferGeometry();
-    g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(buf.verts),3));
-    g.setAttribute('normal',new THREE.BufferAttribute(new Float32Array(buf.normals),3));
-    g.setAttribute('uv',new THREE.BufferAttribute(new Float32Array(buf.uvs),2));
-    const index=(buf.verts.length/3)>65535?Uint32Array:Uint16Array;
-    g.setIndex(new THREE.BufferAttribute(new index(buf.indices),1));
+    g.setAttribute('position',new THREE.BufferAttribute(buf.verts,3));
+    g.setAttribute('normal',new THREE.BufferAttribute(buf.normals,3));
+    g.setAttribute('uv',new THREE.BufferAttribute(buf.uvs,2));
+    g.setIndex(new THREE.BufferAttribute(buf.indices,1));
     g.computeBoundingSphere();
     return g;
   }
@@ -488,7 +541,7 @@ class TreeGenerator {
   // index.html aktualisiert uniforms.uTime in der Render-Schleife.
   attachWind(mat){
     if(mat.userData.windShader) return;// schon angehängt
-    // Hinweis: three.js r145 ruft onBeforeCompile pro MATERIAL auf, sobald dessen
+    // Hinweis: three.js r147 ruft onBeforeCompile pro MATERIAL auf, sobald dessen
     // Mesh das erste Mal im Blickfeld gerendert wird (Bäume außerhalb des
     // Frustum werden gekullt und kompilieren erst später) - deshalb prüft
     // renderLoop() nur, ob userData.shader schon da ist, statt auf Alle zu warten

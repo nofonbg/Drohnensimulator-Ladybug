@@ -1,18 +1,3 @@
-/* =====================================================================
-   drohne.css - Darstellung des Ladybug-Drohnen-Simulators
-   Lizenziert unter CC BY-NC-SA 4.0 (c) 2026 Norbert Forster
-   ===================================================================== */
-
-  /* Basis-Button des FPV-Ausrichtungsschalters (starr/Gimbal/Welt). Maße und Schrift
-     greifen hier NICHT: die alphabetische Ordnung dieser Datei zwingt .align-bt VOR
-     .cbt, und bei gleicher Spezifität gewinnt die spätere Regel - .cbt setzt
-     width/height:3em, padding:0, border-radius:14px und font-size:1.4em und
-     überschreibt damit width:auto, height:2em, padding:0 0.9em und border-radius:999px,
-     die hier stehen. Überleben nur letter-spacing und gap (font-weight steht identisch
-     auch bei .cbt). Maße und Schrift übernimmt die eigene Regel .align-row .align-bt.
-     Der gap steht in em und bezieht sich auf die EIGENE Schriftgröße (0.9em = 14,4 px):
-     6 px = 0,4167em - so schrumpft der Abstand mit, wenn das Bedienpanel auf schmalen
-     Anzeigen über die responsive font-size kleiner wird. */
   .align-bt{
     width:auto;
     height:2em;
@@ -22,59 +7,22 @@
     border-radius:999px;
     gap:0.4167em;
   }
-
-  /* dreistufiger FPV-Ausrichtungsschalter, sitzt zwischen dem Sichtschalter und den
-     Tastenfeldern: starr (starr auf der Drohne) | Gimbal (gedämpft) | Welt (weltfest).
-     gap 6 px = 0,375em (Basis: Panel-Schriftgröße) -> Abstand skaliert mit. */
   .align-row{
     display:flex;
     justify-content:center;
     gap:0.375em;
   }
-
-  /* Eigene Maß- und Schriftregel für die drei Ausrichtungs-Buttons starr/Gimbal/Welt -
-     sie hängt bewusst NICHT an .cbt und gilt nur für diese drei:
-     * font-size:0.9em - .cbt vergrößert mit 1.4em allein die übrigen Kacheln.
-     * width:auto + padding:0 0.9em - die Blase folgt ihrem Text. Bei der festen
-       width:3em von .cbt (43,2px) ragte "Gimbal" (53,1px) 5px pro Seite über die
-       Blase hinaus; in der AKTIVEN Blase ist die Schrift dunkel (#0f172a), der
-       Überstand lag auf dem dunklen Panel und wirkte so abgeschnitten.
-     Der zusammengesetzte Selektor .align-row .align-bt hat die höhere Spezifität
-     (0,2,0 gegenüber 0,1,0) und gewinnt deshalb ungeachtet der alphabetischen
-     Reihenfolge; die reine Klasse .align-bt verliert gegen .cbt, weil "a" vor "c"
-     sortiert wird. Der Verdacht, die gemeinsame .is-on-Regel könnte hier die
-     Maße zurückschlagen, trifft nicht zu: sie setzt nur Farben (background,
-     border-color, color), keine Maße. */
   .align-row .align-bt{
     width:auto;
     padding:0 0.9em;
     font-size:0.9em;
   }
-
-  /* außerhalb der FPV-Sicht ist der Ausrichtungsschalter wirkungslos -> abgedunkelt */
   .align-row.is-dim{opacity:0.45;filter:saturate(0.55);}
-
-  /* Arbeitsfläche der Seite: der kräftige Blaugrau-Ton #324054 liegt auf body UND
-     main - body färbt den 8-px-Rand um die Seite und die Fläche unter dem Inhalt
-     (main ist nur so hoch wie Canvas + Panel, auf hohen Fenstern bleibt unten also
-     Platz), main die Fläche um die beiden Quadrate selbst. Zusammen wirkt die Seite
-     dadurch in Hoch- und Querformat durchgehend dunkel (vorher weiß).
-     font-family steht EINMALIG hier und wird von allem geerbt: die vier
-     identischen Duplikate (.crash-toast, .ctrl-panel, .landed-toast, .ring-badge)
-     entfielen; nur kbd (UA-Monospace) und die Tastenkacheln .cbt (UA-Arial bei
-     <button>) holen die Familie per font-family:inherit zurück. */
   body{
     background-color:#324054;
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   }
-
   .canvas-box{position:relative;}
-
-  /* Grundbutton der Pfeiltasten- und WASD-Kacheln, Schriftgröße 1.4em (Kachel wächst
-     mit: width/height:3em beziehen sich auf die eigene font-size). Die Spezialvarianten
-     haben eigene font-size-Regeln: .mode-bt (0.9em) und .view-bt (1em) gewinnen, weil sie
-     in der alphabetischen Ordnung NACH .cbt stehen; .align-bt (starr/Gimbal/Welt) steht
-     davor und braucht deshalb den zusammengesetzten Selektor .align-row .align-bt. */
   .cbt{
     display:inline-flex;
     align-items:center;
@@ -83,9 +31,6 @@
     height:3em;
     margin:0;
     padding:0;
-    /* <button> erbt die Schriftfamilie nicht von selbst (UA-Vorgabe ist Arial):
-       ohne inherit würden alle Tastenkacheln anders aussehen als der Rest der
-       Seite - die Pfeile, WASD- und Moduskacheln schließen sich damit an body an */
     font-family:inherit;
     font-size:1.4em;
     font-weight:600;
@@ -105,27 +50,20 @@
     -webkit-touch-callout:none;
     transition:transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
   }
-
   .cbt:active{
     background:linear-gradient(180deg,#1e293b,#0f172a);
     box-shadow:inset 0 2px 4px rgba(0,0,0,0.55);
     transform:translateY(1px) scale(0.97);
   }
-
   .cbt:focus-visible{
     outline:2px solid #60a5fa;
     outline-offset:2px;
   }
-
   .cbt:hover{
     background:linear-gradient(180deg,#3b506e,#24344d);
     box-shadow:0 2px 4px rgba(0,0,0,0.4),0 8px 16px rgba(0,0,0,0.35);
     transform:translateY(-1px);
   }
-
-  /* Kollisionsmeldung: rote Variante der Erfolgs-Toast-Meldung, sitzt DARÜBER (top 30 % gegenüber 46 %).
-     Sie blendet sich nach 1,6 s selbst aus, lässt sich aber auch per Klick schließen -> der Flug
-     geht weiter; sichtbar ist sie klickbar, ausgeblendet blockiert sie nichts. */
   .crash-toast{
     position:absolute;
     left:50%; top:30%;
@@ -145,15 +83,12 @@
     letter-spacing:.06em;
     text-align:center;
     white-space:nowrap;
-    /* schmale Anzeigen: die Meldung darf maximal so breit wie ihr Container sein
-       und wird statt über den Rand mit … abgeschnitten */
     max-width:100%;
     overflow:hidden;
     text-overflow:ellipsis;
     pointer-events:none;
     z-index:19;
   }
-
   .crash-toast.show{
     opacity:1;
     visibility:visible;
@@ -162,22 +97,8 @@
     pointer-events:auto;
     cursor:pointer;
   }
-
   .crash-toast.show:hover{filter:brightness(1.15);}
-
   .ctrl-pads{display:flex;justify-content:space-between;align-items:flex-start;}
-
-  /* modernes Bedienpanel (rechts vom Canvas)
-     STRENGE VORGABE: das Panel ist IMMER exakt so groß wie das Canvas-Quadrat
-     und scrollt NIEMALS (overflow:hidden, Zeile unten). Die Seitenlänge S gibt
-     das Canvas vor (Formeln bei .scene-canvas) - im Hochformat S = min(600 px,
-     100vw - 36 px, (100dvh - 36 px)/2); im Querformat überschreibt der eigene
-     @media-Block am Dateiende dieselbe Größe mit der Nebeneinander-Formel.
-     Die beiden vh-Zeilen vor den dvh-Zeilen sind der Fallback für Browser ohne
-     dvh-Unterstützung (dvh berücksichtigt die Mobilbrowser-Leiste).
-     Die Schrift skaliert per JavaScript (fitPanel in index.html) so weit nach
-     unten, bis der Inhalt ohne Scrollen in das Quadrat passt; das clamp() im
-     Portrait-Block ist ausschließlich der Fallback vor dem ersten Durchlauf. */
   .ctrl-panel{
     flex:0 0 auto;
     width:min(600px,calc(100vw - 36px),calc((100vh - 36px)/2));
@@ -186,13 +107,10 @@
     height:min(600px,calc(100vw - 36px),calc((100dvh - 36px)/2));
     max-width:100%;
     box-sizing:border-box;
-    overflow:hidden;/* der Inhalt passt per Definition ohne Scrollen hinein */
+    overflow:hidden;
     display:flex;
     flex-direction:column;
     justify-content:space-between;
-    /* Abstände und Polsterung in em: die Basis ist die Schriftgröße des Panels
-       (standardmäßig 16 px), damit alles auf schmalen Anzeigen proportional
-       mitschrumpft - 14/18/22 px = 0,875/1,125/1,375em */
     gap:0.875em;
     padding:1.125em 1.375em;
     background:linear-gradient(180deg,#1e293b 0%,#0f172a 100%);
@@ -201,7 +119,6 @@
     box-shadow:0 12px 28px rgba(2,6,23,0.45),0 2px 6px rgba(2,6,23,0.35);
     color:#e2e8f0;
   }
-
   .ctrl-title{
     margin:0;
     font-size:2em;
@@ -211,7 +128,6 @@
     color:#94a3b8;
     text-align:center;
   }
-
   .dot{
     width:0.7em;
     height:0.7em;
@@ -219,16 +135,9 @@
     display:inline-block;
     flex:0 0 auto;
   }
-
   .dot-blue{background:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,0.22);}
-
   .dot-red{background:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,0.22);}
-
-  /* hint, hint-side und die Punkte teilen die Schriftgröße von .hints (0,95em ->
-     15,2 px): 5 px = 0,3289em, 16 px = 1,0526em - em statt px, damit die
-     Hinweiszeilen auf schmalen Anzeigen mit dem Panel schrumpfen */
   .hint{display:flex;align-items:center;gap:0.3289em;flex-wrap:wrap;}
-
   .hint-lights{
     display:grid;
     grid-template-columns:1fr auto 1fr;
@@ -236,45 +145,31 @@
     gap:1.0526em;
     color:#cbd5e1;
   }
-
   .hint-lights .hint-mid{
-    /* #64748b reichte nur für 3,1:1 - hellerer Slate-Ton; die Unterzeile bleibt
-       dunkler als die Seitenbeschriftungen (#cbd5e1): Kontrast ≈ 5,7:1 (AA erfüllt) */
     color:#94a3b8;
     font-size:0.85em;
     letter-spacing:0.1em;
     text-transform:uppercase;
     text-align:center;
   }
-
   .hint-lights .hint-side{display:flex;align-items:center;gap:0.5263em;}
-
   .hint-lights .hint-side:last-child{justify-content:flex-end;}
-
   .hints{
     display:flex;
     flex-direction:column;
-    gap:0.6579em;/* 10 px bei 0,95em (15,2 px) - em, damit die Zeilen mit dem Panel schrumpfen */
+    gap:0.6579em;
     font-size:0.95em;
     line-height:1.5;
     color:#94a3b8;
   }
-
-  /* Gemeinsamer aktiver Zustand von .align-bt, .mode-bt und .view-bt (war dreifach
-     identisch dupliziert). Steht alphabetisch nach .cbt: bei gleicher Spezifität
-     (0,1,0) gewinnt die spätere Regel und überschreibt damit .cbt-Grundfläche,
-     -rand und -schriftfarbe; .mode-bt/.view-bt/.align-bt setzen keine dieser drei
-     Eigenschaften und können die Regel deshalb nicht zurückschlagen. */
   .is-on{
     background:linear-gradient(180deg,#60a5fa,#3b82f6);
     border-color:#93c5fd;
     color:#0f172a;
   }
-
   .is-on:hover{
     background:linear-gradient(180deg,#7db8fd,#4b8ef7);
   }
-
   kbd{
     display:inline-flex;
     align-items:center;
@@ -291,27 +186,21 @@
     border-radius:6px;
     box-shadow:0 1px 0 rgba(255,255,255,0.06) inset;
   }
-
   .key{
     display:flex;
     align-items:center;
-    gap:0.3289em;/* 5 px bei 15,2 px */
+    gap:0.3289em;
     white-space:nowrap;
     color:#94a3b8;
   }
-
-  /* beide Tastenkappen-Zeilen teilen ein 4-Spalten-Raster, damit die Tasten übereinander stehen */
   .keys{
     display:grid;
     grid-template-columns:repeat(4,auto);
-    column-gap:0.6579em;/* 10 px */
-    row-gap:0.4605em;    /* 7 px */
+    column-gap:0.6579em;
+    row-gap:0.4605em;
     justify-content:space-between;
     align-items:center;
   }
-
-  /* Erfolgsmeldung: blendet sich ein, wenn die Drohne auf dem 2. Landeplatz landet
-     (gleiche Optik wie .ctrl-panel: dunkler Verlauf, 18 px Ecken, gleicher Schatten) */
   .landed-toast{
     position:absolute;
     left:50%; top:46%;
@@ -328,40 +217,27 @@
     color:#e2e8f0;
     text-align:center;
     white-space:nowrap;
-    /* schmale Anzeigen: max. Containerbreite, Abschnitt mit … statt Überlauf */
     max-width:100%;
     overflow:hidden;
     text-overflow:ellipsis;
     pointer-events:none;
     z-index:20;
   }
-
-  /* t-sub (#94a3b8) bleibt die hellere Unterzeile, t-hint die schwächere:
-     #64748b ergab nur 3,8:1 - #8793a8 liegt knapp darunter und über AA:
-     Kontrast ≈ 4,7:1 auf #1e293b, ≈ 5,8:1 auf #0f172a (AA erfüllt) */
   .landed-toast .t-hint{margin-top:7px;font-size:.7em;letter-spacing:.05em;color:#8793a8;}
-
   .landed-toast .t-sub{margin-top:5px;font-size:.85em;color:#94a3b8;}
-
   .landed-toast .t-title{font-size:1.05em;font-weight:700;letter-spacing:.08em;color:#4ade80;}
-
   .landed-toast.show{
     opacity:1;
     visibility:visible;
     transform:translate(-50%,-50%) scale(1);
     transition:opacity .7s ease, transform .7s ease, visibility 0s;
-    pointer-events:auto;/* erst nach Erreichen des Ziels klickbar -> startet die Szene neu */
+    pointer-events:auto;
     cursor:pointer;
   }
-
   .landed-toast.show:hover{filter:brightness(1.12);}
-
-  /* siehe body: derselbe Ton, damit auch die Fläche um Canvas und Bedienpanel
-     dunkel ist, wenn die Seite breiter ist als die beiden Quadrate */
   main{
     background-color:#324054;
   }
-
   .mode-bt{
     width:auto;
     height:2em;
@@ -372,55 +248,32 @@
     border-radius:999px;
     text-transform:none;
   }
-
-  /* Kursmodus-Schalter: parcours (drei Ringe + Pfosten + Durchflugzähler) <-> training
-     (einfacher Flug von Platz 1 zu Platz 2, ohne Ringe und Pfosten). Er sitzt in der
-     Hinweiszeile zwischen den beiden Lichtbeschriftungen. */
-  /* gap 6 px = 0,4644em - Basis ist die eigene Schriftgröße (0,85em von 0,95em
-     = 12,92 px), der Abstand schrumpft also proportional mit dem Panel */
   .mode-sw{display:inline-flex;gap:0.4644em;}
-
   .pad{border-collapse:collapse;}
-
-  /* Zellenpolsterung 3 px = 0,1875em (Basis: Panel-Schriftgröße) - ohne em würde
-     der Abstand rund um die Kacheln beim Schrumpfen stehen bleiben */
   .pad td{padding:0.1875em;}
-
-  /* FPV-Kamerawinkel-Rad: ein weißes Rollrad, das nur teilweise aus einem schmalen
-     rechteckigen Schlitz der Bedientafel (von oben gesehen) herausragt, mit feiner
-     Rändelung (Kerben) auf der Oberfläche. Rechts daneben liegt ein Maßstab.
-     Zwischen beiden bleiben das Pfeiltastenfeld und das WASD-Feld stehen.
-     Ziehen Sie am Schlitz, rollen Sie das Mausrad darüber oder nutzen Sie die Pfeiltasten. */
   .pitch{
     display:flex;
     flex-direction:column;
     align-items:center;
     flex:0 0 auto;
-    padding-top:0.25em;/* 4 px */
+    padding-top:0.25em;
   }
-
-  .pitch-body{display:flex;align-items:center;gap:0.5em;/* 8 px */}
-
+  .pitch-body{display:flex;align-items:center;gap:0.5em;}
   .pitch-label{
     font-size:0.9em;
     font-weight:600;
     letter-spacing:0.05em;
     color:#cbd5e1;
     white-space:nowrap;
-    margin-bottom:0.4861em; /* 7 px  bei 0,9em (14,4 px) */
-    margin-right:1.6667em;  /* 24 px - Beschriftung über dem Rad zentrieren, nicht über Rad + Maßstab */
+    margin-bottom:0.4861em;
+    margin-right:1.6667em;
   }
-
-  /* Marker für den aktuellen Winkel, gleitet auf dem Maßstab. Maße in em
-     (Basis: Panel-Schriftgröße), damit Nadel und Skala gemeinsam schrumpfen -
-     die JavaScript-Seite liest die tatsächliche Höhe aus (offsetHeight) und
-     rechnet die Laufstrecke daraus, statt mit 150 px zu rechnen. */
   .pitch-needle{
     position:absolute;
-    left:-0.1875em;   /* -3 px */
+    left:-0.1875em;
     top:0;
-    width:1.3125em;   /* 21 px */
-    height:0.1875em;  /* 3 px */
+    width:1.3125em;
+    height:0.1875em;
     border-radius:0.125em;
     background:#60a5fa;
     box-shadow:0 0 5px rgba(96,165,250,0.75);
@@ -428,33 +281,27 @@
     transition:transform 0.06s linear;
     z-index:2;
   }
-
-  /* Maßstab rechts vom Rad, gezeichnet wie das ASCII-Muster  |- | |- | |-  :
-     senkrechte Achse, langer Strich alle 1,25em (20 px), dazwischen kurze Striche */
   .pitch-scale{
     position:relative;
-    width:1.0625em;   /* 17 px */
-    height:9.75em;    /* 156 px */
+    width:1.0625em;
+    height:9.75em;
   }
-
   .pitch-scale::before{
     content:"";
     position:absolute;
     inset:0;
     background-image:
-      repeating-linear-gradient(180deg,#cbd5e1 0 0.125em,transparent 0.125em 1.25em),/* lange Striche */
-      repeating-linear-gradient(180deg,#64748b 0 0.125em,transparent 0.125em 1.25em),/* kurze Striche */
-      linear-gradient(#475569,#475569);                                               /* Achse | */
+      repeating-linear-gradient(180deg,#cbd5e1 0 0.125em,transparent 0.125em 1.25em),
+      repeating-linear-gradient(180deg,#64748b 0 0.125em,transparent 0.125em 1.25em),
+      linear-gradient(#475569,#475569);
     background-size:0.875em 100%,0.4375em 100%,0.125em 100%;
     background-position:0 0,0 0.625em,0 0;
     background-repeat:no-repeat;
   }
-
-  /* der schmale rechteckige Schlitz in der Tafel (Maße in em -> skaliert mit) */
   .pitch-stage{
     position:relative;
-    width:2.875em;    /* 46 px */
-    height:9.75em;    /* 156 px */
+    width:2.875em;
+    height:9.75em;
     border-radius:0.8125em;
     background:linear-gradient(180deg,#080d18,#020617);
     box-shadow:inset 0 5px 10px rgba(0,0,0,0.95),
@@ -462,15 +309,11 @@
                inset 0 0 0 1px rgba(15,23,42,0.9),
                0 1px 0 rgba(255,255,255,0.07);
   }
-
-  /* Das Rollrad: nur seine gerundete Oberfläche ragt aus dem Schlitz. Die Rändelung
-     (feine parallele Kerben) wird vom JavaScript verschoben (background-position über
-     --spinY), sodass die Rippen beim Ändern des Kamerawinkels durch den Schlitz wandern. */
   .pitch-wheel{
     position:absolute;
-    left:0.375em;   /* 6 px */
+    left:0.375em;
     right:0.375em;
-    top:0.4375em;   /* 7 px */
+    top:0.4375em;
     bottom:0.4375em;
     border-radius:0.75em;
     cursor:grab;
@@ -479,13 +322,10 @@
     -webkit-user-select:none;
     -webkit-touch-callout:none;
     background-image:
-      /* feine parallele Rändelung (Kerben) über das Rad - die Ebene, die sich bewegt */
       repeating-linear-gradient(180deg,
         rgba(11,18,32,0) 0 3px, rgba(11,18,32,0.34) 3px 4.4px),
-      /* die gerundeten Radenden senken sich an den Schlitzkanten in den Schatten */
       linear-gradient(180deg,rgba(11,18,32,0.42) 0,rgba(11,18,32,0) 15%,
                              rgba(11,18,32,0) 84%,rgba(11,18,32,0.55) 100%),
-      /* weißer Körper, Licht von links wie auf dem Referenzfoto */
       linear-gradient(90deg,#ffffff 0%,#eef1f5 42%,#d3d9e0 78%,#b7bfca 100%);
     background-position:0 var(--spinY,0px),0 0,0 0;
     background-repeat:repeat,no-repeat,no-repeat;
@@ -494,17 +334,11 @@
                inset -1.5px 0 0 rgba(15,23,42,0.25);
     z-index:2;
   }
-
   .pitch-wheel:active{cursor:grabbing;}
-
   .pitch-wheel:focus-visible{
     outline:2px solid #60a5fa;
     outline-offset:3px;
   }
-
-  /* Ring-Durchflugzähler: kleine Pille oben mittig auf dem Canvas, immer sichtbar.
-     Zählt, wie viele der drei Ringe durchflogen wurden; bei 3/3 wird sie grün und
-     zeigt den Landehinweis. pointer-events:none -> sie blockiert nie etwas. */
   .ring-badge{
     position:absolute;
     left:50%; top:16px;
@@ -521,35 +355,21 @@
     letter-spacing:.07em;
     text-align:center;
     white-space:nowrap;
-    /* schmale Anzeigen: Pillenbreite auf den Container begrenzt, Text mit … gekürzt */
     max-width:100%;
     overflow:hidden;
     text-overflow:ellipsis;
     pointer-events:none;
     z-index:18;
   }
-
   .ring-badge.done{
     border-color:#4ade80;
     color:#4ade80;
     background:rgba(9,32,20,0.92);
     box-shadow:0 6px 18px rgba(74,222,128,0.25);
   }
-
   .scene-canvas{
     width:600px;
     height:600px;
-    /* SEITENLÄNGE S (VORGABE: Canvas und Bedienpanel sind immer gleich große
-       Quadrate, das Panel scrollt nie). HOCHFORMAT stapelt die beiden Zeilen:
-         Breite : 8 px Körperrand + S + 8 px Körperrand  <= 100vw
-         Höhe   : 8 px + (S + 4 px Baseline-Abstand des inline gesetzten
-                       Canvas in .canvas-box) + 16 px Abstand + S + 8 px
-                  = 2S + 36 px                        <= 100dvh
-       Die 36 px der Breite sind bewusst mehr als die nötigen 16 px: 20 px
-       Reserve, solange noch kein JavaScript gelaufen ist. BEIDE Achsen
-       bekommen denselben min()-Ausdruck - nur dann bleibt das Canvas bei
-       jedem Resultat exakt quadratisch. vh zuerst, dvh danach (Fallback).
-       Das QUERFORMAT überschreibt diese Werte am Dateiende. */
     max-width:min(600px,calc(100vw - 36px),calc((100vh - 36px)/2));
     max-height:min(600px,calc(100vw - 36px),calc((100vh - 36px)/2));
     max-width:min(600px,calc(100vw - 36px),calc((100dvh - 36px)/2));
@@ -560,7 +380,6 @@
     touch-action:none;
     cursor:grab;
   }
-
   .stage-row{
     display:flex;
     flex-wrap:wrap;
@@ -568,24 +387,16 @@
     justify-content:center;
     gap:16px;
   }
-
   table{border-collapse:collapse;}
-
-  /* .pad td (0,1,1) gewinnt ungeachtet der Reihenfolge gegenüber td,th (0,0,1) -
-     die Polsterung der Tastenkachel-Zellen kippt also nicht, wenn dieser
-     Element-Selektor alphabetisch nach vorn rückt. */
   td,th{padding:4px;}
-
   .view-bt{
     width:100%;
     height:2.7em;
     font-size:1em;
     letter-spacing:0.06em;
     border-radius:999px;
-    gap:0.5625em;/* 9 px */
+    gap:0.5625em;
   }
-
-  /* Statuslampe im Schalter: grau = Überblick, leuchtend blau = FPV */
   .view-bt .cam-dot{
     width:0.7em;
     height:0.7em;
@@ -595,113 +406,36 @@
     transition:background 0.12s ease, box-shadow 0.12s ease;
     flex:0 0 auto;
   }
-
-  /* Farben (Fläche/Rand/Schrift) kommen von der gemeinsamen .is-on-Regel -
-     hier bleibt nur die Statuslampe im aktiven Schalter. */
   .view-bt.is-on .cam-dot{
     background:#0f172a;
     box-shadow:0 0 0 3px rgba(15,23,42,0.25);
   }
-
-  /* Kameramodus-Schalter (Überblick <-> Ego-Sicht), volle Breite unter der Überschrift */
   .view-row{display:flex;justify-content:center;}
-
-  /* =====================================================================
-     RESPONSIVE LAYOUT (Media-Querys bewusst am Dateiende: die alphabetische
-     Ordnung oben gilt für die Einzelregeln - @media-Blöcke sind
-     Zusatzbedingungen und dort nicht einzuordnen).
-
-     STRENGE VORGABE (Nutzerentscheidung): das Bedienpanel ist IMMER genau so
-     groß wie das Canvas-Quadrat und scrollt NIRGENDS - die Schrift skaliert
-     stattdessen per JavaScript so weit nach unten, wie es braucht.
-     Grundidee: die Grundregel .stage-row mit flex-wrap legt automatisch um -
-     ob Canvas und Panel nebeneinander oder untereinander stehen, entscheidet
-     also die Breite. Die SEITENLÄNGE S bestimmt eine Formel pro Orientierung:
-       HOCHFORMAT   S = min(600 px, 100vw - 36 px, (100dvh - 36 px)/2)
-                    (zwei Quadrate untereinander + Abstände, siehe .scene-canvas)
-       QUERFORMAT   S = min(600 px, (100vw - 40 px)/2, 100dvh - 20 px)
-                    (zwei Quadrate nebeneinander, eigener Block am Dateiende)
-     Beide Formeln erzwingen, dass die Seite ohne Scrollen auf den Bildschirm
-     passt - der Canvas schrumpft also mit, wenn der Platz knapp wird.
-     Dazu ein Sonderfall: SCHMALE SCHIRME (Hochformat-Handy) - der Panelinhalt
-     (Pfeiltasten + Rad + WASD, Tastenkappen-Zeile, Lichtzeile) ist breiter
-     als die Anzeige - die Teile brechen um und die Zeilen werden gesplittet.
-     WICHTIG: renderer.setSize() schreibt width/height als INLINE-Style auf
-     das Canvas - jede width-Angabe einer Media-Query verliert dagegen.
-     Die Skalierung deshalb immer über max-width/max-height (Inline-Styles
-     werden davon eingegrenzt, das Beibehalten des Seitenverhältnisses
-     1:1 durch identische Werte gewährleistet).
-     ===================================================================== */
-
-  /* Gemeinsam für alle schmalen Fälle: die drei pads-Teile und die
-     Zeilen darunter brauchen mehr Breite als das Panel hergibt. */
   @media (max-width:640px), (orientation:landscape) and (max-width:1245px){
-    /* Panel und Canvas stehen in EINER Flexzeile (Querformat): die Box
-       darf dann nicht auf Panelhöhe mitwachsen, sonst rücken die
-       overlay-Meldungen (Landung auf 46 %) unter die Canvas-Mitte */
     .canvas-box{align-self:flex-start;}
-    /* Pfeiltasten, Kamerawinkel-Rad und WASD brechen um und werden
-       zentriert (space-evenly: volle Zeile randlos, Teilzeilen mittig) */
     .ctrl-pads{
       display:flex;
       flex-wrap:wrap;
       justify-content:space-evenly;
       align-items:flex-start;
-      gap:0.625em 0;/* 10 px Zeilenabstand, em -> skaliert mit der Panel-Schriftgröße */
+      gap:0.625em 0;
     }
-    /* Lichtzeile: beide Beschriftungen bleiben in einer Zeile, der
-       Modus-Schalter bekommt eine eigene, volle Zeile darunter (order:3) */
     .hint-lights{
       display:flex;
       flex-wrap:wrap;
       justify-content:center;
       align-items:center;
-      gap:0.3947em 0.9211em;/* 6 px / 14 px bei 15,2 px */
+      gap:0.3947em 0.9211em;
     }
     .hint-lights .hint-mid{flex-basis:100%;order:3;}
-    /* Tastenkappen-Zeile: 4 Spalten (~568 px) sind zu breit -> 2 Spalten */
     .keys{
       grid-template-columns:repeat(2,auto);
       justify-content:center;
-      column-gap:1.5789em;/* 24 px bei 15,2 px - em, damit die Zeile mit dem Panel schrumpft */
+      column-gap:1.5789em;
     }
-    /* Rad-Beschriftung enger an das Rad: die Beschriftung (~128 px) statt
-       des Rads (~71 px) bestimmt die Breite von .pitch - 8 px Rand
-       spart die Differenz für die Umbruchzeile */
     .pitch-label{margin-right:0.5556em;}
   }
-
-  /* QUERFORMAT - GILT FÜR ALLE Querformat-Breiten (auch ab 1246 px!):
-     Canvas und Bedienpanel stehen NEBENEINANDER und sind BEIDE exakt dasselbe
-     Quadrat, das ohne Scrollen auf den Bildschirm passt:
-       Breite : 8 px Rand + S + 16 px Abstand + S + 8 px Rand
-              = 2S + 32 px (+ 8 px Reserve)                         <= 100vw
-       Höhe   : 8 px Rand + (S + 4 px Baseline-Abstand des inline gesetzten
-                       Canvas in .canvas-box) + 8 px Rand
-              = S + 20 px                          <= 100dvh
-     -> S = min(600 px, (100vw - 40 px)/2, 100dvh - 20 px)
-     Die 40 px der Breite sind bewusst 8 px MEHR als die nötigen 32 px:
-     reichte die Reihenbreite anfangs EXAKT an die Zeilenbreite heran
-     (496 + 16 + 496 = 1008 px bei 1024 px Fenster), kippte das kleinste
-     Rundungsplus in ein Umlegen der Flexzeile - Canvas und Panel standen
-     untereinander, die Seite wurde hoch und rief einen vertikalen
-     Scrollbalken hervor, der die Breite noch weiter zusammenzog. Die
-     Reserve hält die Reihenbreite sicher unter der Zeilenbreite.
-     DIESE Bedingung muss für alle Querformat-Breiten gelten: ab 1246 px
-     würden sonst die Grundregeln greifen und die Hochformat-Formel
-     ((100dvh - 36 px)/2) den Canvas zusammenstutzen, obwohl neben dem Panel
-     Platz ist - und flex-wrap würde über die Anordnung entscheiden.
-     (100dvh schließt die Mobilbrowser-Leiste aus; ohne dvh-Unterstützung
-     bleibt die 100vh-Zeile darüber stehen.) Das Panel scrollt nicht
-     (overflow:hidden der Grundregel) - seine Schrift wird per JavaScript
-     so weit verkleinert, bis der Inhalt in das Quadrat passt. */
   @media (orientation:landscape){
-    /* Die Zeile darf im Querformat NIEMALS umlegen: flex-wrap:nowrap verankert
-       "nebeneinander" strukturell. Die Formeln sichern, dass beides in die
-       Breite passt (mit 8 px Reserve, s.o.) - ohne diese Regel genügte das
-       kleinste Rundungsplus, um die Zeile untereinander zu stellen; die Seite
-       wurde dadurch hoch, rief einen vertikalen Scrollbalken hervor, der die
-       Breite weiter zusammenzog und den Zustand stabil hielt (Kreislauf). */
     .stage-row{flex-wrap:nowrap;}
     .scene-canvas{
       max-width:min(600px,calc((100vw - 40px)/2),calc(100vh - 20px));
@@ -709,9 +443,6 @@
       max-width:min(600px,calc((100vw - 40px)/2),calc(100dvh - 20px));
       max-height:min(600px,calc((100vw - 40px)/2),calc(100dvh - 20px));
     }
-    /* dasselbe Quadrat wie das Canvas: Breite/Höhe als feste Seitenlänge
-       (flex:0 0 auto statt der Restbreite - das Panel darf nicht in die
-       Zeile hineinwachsen) */
     .ctrl-panel{
       flex:0 0 auto;
       width:min(600px,calc((100vw - 40px)/2),calc(100vh - 20px));
@@ -720,51 +451,16 @@
       height:min(600px,calc((100vw - 40px)/2),calc(100dvh - 20px));
     }
   }
-
-  /* QUERFORMAT bis 1245 px: die quadratischen Panels werden hier kleiner als
-     600 px - engere Polsterung und kleinere Pfeiltasten schaffen Platz, die
-     Schrift selbst justiert fitPanel() in index.html nach. */
   @media (orientation:landscape) and (max-width:1245px){
     .ctrl-panel{
-      padding:0.875em 1em;/* 14 px / 16 px, em -> skaliert mit der Panel-Schriftgröße */
+      padding:0.875em 1em;
     }
-    /* Pfeiltasten 1em statt 1.4em (48 px Kachel - weiterhin über der
-       44-px-Tippfläche): Pfeiltasten + Rad teilen sich eine Zeile */
     .pad .cbt{font-size:1em;}
   }
-
-  /* HOCHFORMAT / sehr schmale Schirme: das Panel liegt wie gewünscht
-     UNTER dem Canvas und ist wie immer exakt so groß wie dessen Quadrat -
-     der Inhalt muss deshalb in die schmale Breite UND in die Quadrathöhe
-     passen, ohne Scrollen. Dazu kommt die RESPONSIVE SCHRIFTGRÖSSE des
-     gesamten Bedienpanels: die font-size von .ctrl-panel ist die em-Basis
-     für alles im Panel (Kacheln 3em, Überschrift 2em, Abstände,
-     Kamerawinkel-Rad) - ein einziger Wert skaliert damit Tastenblöcke,
-     Schrift und Abstände proportional.
-     clamp() ist hier nur der Fallback für den Moment VOR dem ersten
-     JavaScript-Durchlauf: fitPanel() in index.html richtet das Panel am
-     gemessenen Canvas aus und verkleinert die Schrittgröße 16 -> 5 px so
-     lange, bis scrollWidth/scrollHeight in clientWidth/clientHeight passen
-     (das Quadrat ist auf kleinen Anzeigen deutlich kleiner als 600 px -
-     dort braucht es 9 px und weniger). clamp hält die Kacheln über der
-     44-px-Tippfläche (3 x 1,1em x 13,5 px = 44,6 px - das gilt allein für diesen
-     CSS-Fallback, fitPanel darf weiter nach unten gehen, s.o.) und endet bei 16 px,
-     sobald die volle Breite zur Verfügung steht - ab 641 px bleibt die
-     Schriftgröße der Grundregel (16 px) unverändert. */
   @media (orientation:portrait) and (max-width:640px){
     .ctrl-panel{font-size:clamp(13.5px,2.4vw,16px);}
-    /* 1.1em Kacheln (44,6 px bei 13,5 px Panel-Schrift, 53 px bei 16 px):
-       Pfeiltasten + Kamerawinkel-Rad teilen sich eine Zeile, die
-       WASD-Kacheln stehen zentriert darunter */
     .pad .cbt{font-size:1.1em;}
   }
-
-  /* Bewegungsreduktion: bei aktivierter Systemeinstellung "Bewegung reduzieren"
-     entfallen alle Übergänge dieser Datei (Toasts, Hover/Active der Kacheln,
-     Kameranadel, Statuslampen) - die Zustände springen stattdessen sofort an.
-     !important, damit die einzelnen Regeln mit ihren eigenen transition-Angaben
-     nicht gewinnen; die Animation-Zeile sichert künftige @keyframes mit ab
-     (derzeit gibt es keine in dieser Datei). */
   @media (prefers-reduced-motion:reduce){
     *,*::before,*::after{
       transition:none!important;

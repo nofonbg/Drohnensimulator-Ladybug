@@ -65,6 +65,7 @@ und wichtigen Drohnen- und Kameraeinstellungen Flüge geplant.
 | W / S | Vorwärts / Rückwärts |
 | A / D | Seitwärts links / rechts |
 | Sicht-Knopf | Überblick ↔ FPV (Nase) |
+| Vollbild-Knopf | **Umschaltung Vollbild/Fenster**: Canvas-Box füllt das Fenster (größeres Panorama, gleicher Zoom), Bedienpanel schwebt oben rechts darüber |
 | `starr | Gimbal | Welt` | FPV-Ausrichtung der Kamera |
 | Kamerawinkel-Rad | Neigung in der FPV |
 | `Parcours | Training` | Level: Parcours (Ringe + Pfosten) ↔ Training (einfacher Ziel-Flug); Umschalten = Neustart |

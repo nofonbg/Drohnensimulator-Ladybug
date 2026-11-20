@@ -86,8 +86,8 @@ three.js r147-Beispiel: spiegelnde Wasserfläche mit Wellenbewegung (Datei Water
   // pro Sekunde: 0,5° = eine Runde in 12 Minuten - ruhiger Wolkenzug, nahe an echten
   // Verhältnissen (~15 m/s Wind auf 3 km Höhe ≈ 0,3°/s). Die Wolken ziehen damit
   // sichtbar.
-  const GROUND_R=HORIZON_R+4;// Bodenscheibe ragt 4 Einheiten über die Kugel hinaus - reine
-  // Sicherheitsmarge, kein Gestaltungsmaß. Die Kuppel läuft als Saum 30 Einheiten unter y=0
+  const GROUND_R=HORIZON_R-4;// Bodenscheibe ragt 4 Einheiten über die Kugel hinaus - 
+  // vermeidet seltsame Schatten am Rand. Die Kuppel läuft als Saum 30 Einheiten unter y=0
   // weiter (thetaLength in buildScene), ein Blickstrahl an der Bodenkante muss also noch
   // über den Scheibenrand kommen; ohne hinterlegte Hintergrundfarbe würde eine solche
   // Lücke SCHWARZ durchblitzen. Ausgerechnet genügt die Marge, weil die
